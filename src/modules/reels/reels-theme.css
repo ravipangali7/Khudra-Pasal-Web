@@ -1,0 +1,68 @@
+/* KhudraReels — Scoped Theme Variables */
+:root {
+  --reels-bg: #0A0A0A;
+  --reels-surface: #141414;
+  --reels-card: #1E1E1E;
+  --reels-accent: #E63946;
+  --reels-accent-glow: rgba(230, 57, 70, 0.35);
+  --reels-gold: #FFB703;
+  --reels-text-primary: #FFFFFF;
+  --reels-text-secondary: #A0A0A0;
+  --reels-text-muted: #555555;
+  --reels-border: rgba(255, 255, 255, 0.08);
+  --reels-overlay-gradient: linear-gradient(
+    to top,
+    rgba(0, 0, 0, 0.92) 0%,
+    rgba(0, 0, 0, 0.5) 40%,
+    transparent 100%
+  );
+  --reels-glass: rgba(255, 255, 255, 0.06);
+  --reels-glass-border: rgba(255, 255, 255, 0.12);
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+/* Snap scroll container */
+.reels-snap-container {
+  overflow-y: scroll;
+  scroll-snap-type: y mandatory;
+  height: 100dvh;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.reels-snap-container::-webkit-scrollbar {
+  display: none;
+}
+
+/* Embedded portal feed (constrained height; items match container) */
+.reels-snap-container.reels-embed-portal {
+  height: min(70vh, 600px);
+  max-height: 600px;
+}
+.reels-snap-container.reels-embed-portal .reels-snap-item {
+  height: min(70vh, 600px);
+  min-height: min(70vh, 600px);
+}
+
+.reels-snap-item {
+  scroll-snap-align: start;
+  height: 100dvh;
+  width: 100%;
+  position: relative;
+}
+
+/* Typography classes */
+.reels-font-display {
+  font-family: 'Syne', sans-serif;
+}
+.reels-font-body {
+  font-family: 'DM Sans', sans-serif;
+}
+.reels-font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
