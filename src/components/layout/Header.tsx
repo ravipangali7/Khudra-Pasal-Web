@@ -6,8 +6,20 @@ import { useCart } from "@/contexts/CartContext";
 import { useAuthUi } from "@/contexts/AuthUiContext";
 import LogoutConfirmDialog from "@/components/auth/LogoutConfirmDialog";
 import SearchDropdown from "@/components/search/SearchDropdown";
-import { clearAllAuthTokens, getAuthToken, websiteApi } from "@/lib/api";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { clearAllAuthTokens, getAuthToken, portalApi, websiteApi } from "@/lib/api";
+import { portalDashboardHrefForRole } from "@/lib/portalNavigation";
 import logo from "@/assets/logo.png";
+
+function initialsFromName(name: string | undefined): string {
+  const n = name?.trim();
+  if (!n) return "?";
+  const parts = n.split(/\s+/);
+  if (parts.length >= 2) {
+    return `${parts[0][0] ?? ""}${parts[1][0] ?? ""}`.toUpperCase().slice(0, 2);
+  }
+  return n.slice(0, 2).toUpperCase();
+}
 
 interface HeaderProps {
   cartCount?: number;
@@ -53,6 +65,26 @@ const Header = ({ cartCount = 0 }: HeaderProps) => {
   }, []);
 
   const hint = placeholders[placeholderIndex] ?? placeholders[0];
+
+  const {
+    data: portalSession,
+    isLoading: portalSessionLoading,
+    isError: portalSessionError,
+  } = useQuery({
+    queryKey: ["website", "header-portal-session"],
+    queryFn: async () => {
+      const [me, self] = await Promise.all([portalApi.me(), portalApi.selfProfile()]);
+      return { me, self };
+    },
+    enabled: isLoggedIn,
+    staleTime: 60_000,
+    retry: false,
+  });
+
+  const portalHref = portalDashboardHrefForRole(portalSession?.me.role);
+  const displayName = portalSession?.self?.name?.trim() || portalSession?.me.name?.trim() || "Account";
+  const avatarUrl =
+    (portalSession?.self?.logo_url || portalSession?.self?.avatar_url)?.trim() || null;
 
   const searchTrigger = (
     <button
@@ -114,6 +146,42 @@ const Header = ({ cartCount = 0 }: HeaderProps) => {
                   >
                     <User className="w-5 h-5" />
                   </button>
+                  {portalSessionLoading ? (
+                    <div
+                      className="flex items-center gap-2 rounded-full border border-border/50 bg-muted/40 px-1.5 py-1"
+                      aria-hidden
+                    >
+                      <div className="h-8 w-8 rounded-full bg-muted animate-pulse shrink-0" />
+                      <div className="hidden sm:block h-3.5 w-20 max-w-[8rem] rounded bg-muted animate-pulse" />
+                    </div>
+                  ) : portalSessionError ? (
+                    <Link
+                      to="/portal/dashboard"
+                      className="flex items-center gap-2 rounded-full border border-border/60 bg-background/80 px-1.5 py-1 pl-1 pr-2 sm:pr-3 hover:bg-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      aria-label="Open your account"
+                    >
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/50 bg-muted/50">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                      </span>
+                      <span className="hidden sm:inline text-sm font-medium text-foreground">Account</span>
+                    </Link>
+                  ) : (
+                    <Link
+                      to={portalHref}
+                      className="flex items-center gap-2 rounded-full border border-border/60 bg-background/80 px-1.5 py-1 pl-1 pr-2 sm:pr-3 max-w-[min(220px,42vw)] hover:bg-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      aria-label={`Open your account — ${displayName}`}
+                    >
+                      <Avatar className="h-8 w-8 border border-border/50 shrink-0">
+                        {avatarUrl ? <AvatarImage src={avatarUrl} alt="" /> : null}
+                        <AvatarFallback className="text-xs font-semibold bg-primary/10 text-primary">
+                          {initialsFromName(displayName)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="hidden sm:inline text-sm font-medium text-foreground truncate min-w-0">
+                        {displayName}
+                      </span>
+                    </Link>
+                  )}
                 </>
               ) : (
                 <>

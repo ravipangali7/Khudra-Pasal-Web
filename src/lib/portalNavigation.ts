@@ -2,6 +2,13 @@ import { useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import type { SidebarItem } from "@/components/portal/PortalSidebar";
 
+/** Default dashboard URL for a portal user from `/portal/me/` `role` (parent / child / normal). */
+export function portalDashboardHrefForRole(role: string | undefined): string {
+  if (role === "parent") return "/family-portal/dashboard";
+  if (role === "child") return "/child-portal/dashboard";
+  return "/portal/dashboard";
+}
+
 /** Find a sidebar node by its route id (API `id` / nav `key`). */
 export function findSidebarNodeById(
   items: SidebarItem[],
