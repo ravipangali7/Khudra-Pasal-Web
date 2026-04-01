@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { adminApi, type AdminProductDetail } from '@/lib/api';
 import { useAdminList } from '../hooks/useAdminList';
@@ -147,6 +147,8 @@ function ProductsList({ filterInHouse }: { filterInHouse?: boolean }) {
   const [existingGallery, setExistingGallery] = useState<{ id: string; image_url: string; sort_order: number }[]>([]);
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
   const [removedGalleryIds, setRemovedGalleryIds] = useState<string[]>([]);
+  /** Avoid resetting local gallery picks when React Query refetches the same product (focus, invalidation). */
+  const hydratedEditProductIdRef = useRef<string | null>(null);
   const galleryPreviews = useMemo(() => galleryFiles.map((f) => URL.createObjectURL(f)), [galleryFiles]);
   useEffect(() => {
     return () => {
@@ -188,18 +190,33 @@ function ProductsList({ filterInHouse }: { filterInHouse?: boolean }) {
     queryKey: ['admin', 'product', detailId],
     queryFn: () => adminApi.productDetail(detailId!),
     enabled: Boolean(detailId && (routeEdit || routeView)),
+    staleTime: 30_000,
   });
 
   useEffect(() => {
-    if (!productDetail || !routeEdit) return;
-    setFormData(mapProductDetailToForm(productDetail));
-    setSlugEdited(true);
-    setPrimaryImage(null);
-    setExistingGallery(productDetail.images ?? []);
-    setGalleryFiles([]);
-    setRemovedGalleryIds([]);
-    setFormErrors({});
-  }, [productDetail, routeEdit]);
+    if (!routeEdit || !resolvedModalOpen) {
+      hydratedEditProductIdRef.current = null;
+    }
+  }, [routeEdit, resolvedModalOpen]);
+
+  useEffect(() => {
+    if (!productDetail || !routeEdit || !detailId) return;
+    const idKey = String(detailId);
+    if (String(productDetail.id) !== idKey) return;
+
+    if (hydratedEditProductIdRef.current !== idKey) {
+      hydratedEditProductIdRef.current = idKey;
+      setFormData(mapProductDetailToForm(productDetail));
+      setSlugEdited(true);
+      setPrimaryImage(null);
+      setExistingGallery(productDetail.images ?? []);
+      setGalleryFiles([]);
+      setRemovedGalleryIds([]);
+      setFormErrors({});
+    } else {
+      setExistingGallery(productDetail.images ?? []);
+    }
+  }, [productDetail, routeEdit, detailId]);
 
   useEffect(() => {
     if (!resolvedModalOpen || routeEdit) return;
