@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,8 +12,18 @@ import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { AlertTriangle, Database, Mail, MessageSquare, QrCode, Send } from 'lucide-react';
 import { adminApi } from '@/lib/api';
+import { toast } from 'sonner';
 import { useAdminMutation } from '../hooks/useAdminMutation';
 import { formatApiError, resolveMediaUrl } from '../hooks/adminFormUtils';
 
@@ -231,8 +241,19 @@ function ReelsSettingsPanel({
 }
 
 export default function SettingsModule() {
+  const queryClient = useQueryClient();
   const [tab, setTab] = useState('general');
-  const [selectedTables, setSelectedTables] = useState<string[]>([]);
+  const [selectedModuleIds, setSelectedModuleIds] = useState<string[]>([]);
+  const [cleanupConfirmOpen, setCleanupConfirmOpen] = useState(false);
+
+  const { data: adminProfile } = useQuery({
+    queryKey: ['admin', 'profile'],
+    queryFn: () => adminApi.profile(),
+    retry: false,
+  });
+
+  const isSuperAdmin =
+    Boolean(adminProfile?.is_superuser) || adminProfile?.role === 'super_admin';
 
   const { data: site, isLoading, isError } = useQuery({
     queryKey: ['admin', 'site-settings'],
@@ -244,11 +265,27 @@ export default function SettingsModule() {
     queryFn: () => adminApi.paymentGateways(),
   });
 
-  const { data: dbStats, error: dbErr } = useQuery({
-    queryKey: ['admin', 'db-stats'],
-    queryFn: () => adminApi.dbTableStats(),
-    enabled: tab === 'clean-db',
+  const { data: cleanupData, error: cleanupErr, isLoading: cleanupLoading } = useQuery({
+    queryKey: ['admin', 'cleanup-modules'],
+    queryFn: () => adminApi.cleanupModules(),
+    enabled: tab === 'clean-db' && isSuperAdmin,
     retry: false,
+  });
+
+  const cleanupModules = cleanupData?.modules ?? [];
+
+  const cleanupMutation = useMutation({
+    mutationFn: (module_ids: string[]) => adminApi.cleanupExecute(module_ids),
+    onSuccess: async () => {
+      setSelectedModuleIds([]);
+      toast.success('Database cleanup completed.');
+      await queryClient.invalidateQueries({ queryKey: ['admin', 'cleanup-modules'] });
+      await queryClient.invalidateQueries({ queryKey: ['admin'] });
+      await queryClient.invalidateQueries({ queryKey: ['super-admin-summary'] });
+    },
+    onError: (e: unknown) => {
+      toast.error(formatApiError(e));
+    },
   });
 
   const updateSite = useAdminMutation(adminApi.updateSiteSettings, [['admin', 'site-settings']]);
@@ -411,11 +448,17 @@ export default function SettingsModule() {
     setSystemNote(String(systemCfg.note ?? ''));
   }, [systemCfg]);
 
-  const toggleTable = (name: string) => {
-    setSelectedTables((prev) => (prev.includes(name) ? prev.filter((t) => t !== name) : [...prev, name]));
-  };
+  useEffect(() => {
+    if (tab === 'clean-db' && adminProfile && !isSuperAdmin) {
+      setTab('general');
+    }
+  }, [tab, adminProfile, isSuperAdmin]);
 
-  const dbTables = dbStats?.tables ?? [];
+  const toggleModule = (id: string) => {
+    setSelectedModuleIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
 
   if (isLoading) {
     return <div className="p-4 lg:p-6 text-sm text-muted-foreground">Loading settings…</div>;
@@ -438,7 +481,7 @@ export default function SettingsModule() {
           <TabsTrigger value="social">Social Media</TabsTrigger>
           <TabsTrigger value="environment">Environment</TabsTrigger>
           <TabsTrigger value="system">System</TabsTrigger>
-          <TabsTrigger value="clean-db">Clean Database</TabsTrigger>
+          {isSuperAdmin ? <TabsTrigger value="clean-db">Clean Database</TabsTrigger> : null}
         </TabsList>
 
         <TabsContent value="general">
@@ -696,52 +739,138 @@ export default function SettingsModule() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="clean-db">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Database className="w-5 h-5" /> Database tables</CardTitle>
-              <CardDescription>
-                <span className="text-destructive font-medium flex items-center gap-1">
-                  <AlertTriangle className="w-4 h-4" /> Read-only diagnostics (superuser). Destructive clean is not enabled here.
-                </span>
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {dbErr ? <p className="text-sm text-destructive">{(dbErr as Error).message || 'Could not load table stats (superuser only).'}</p> : null}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    checked={selectedTables.length > 0 && selectedTables.length === dbTables.length}
-                    onCheckedChange={(c) => {
-                      if (c) setSelectedTables(dbTables.map((t) => t.name));
-                      else setSelectedTables([]);
-                    }}
-                  />
-                  <span className="text-sm font-medium">Select all ({selectedTables.length}/{dbTables.length})</span>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2 max-h-[480px] overflow-y-auto">
-                {dbTables.map((table) => (
-                  <div
-                    key={table.name}
-                    className="flex items-center gap-2 p-2 border rounded-lg hover:bg-muted/30 cursor-pointer"
-                    onClick={() => toggleTable(table.name)}
-                    onKeyDown={() => toggleTable(table.name)}
-                    role="button"
-                    tabIndex={0}
-                  >
-                    <Checkbox checked={selectedTables.includes(table.name)} />
-                    <span className="text-xs truncate flex-1">{table.name}</span>
-                    <Badge variant={table.count && table.count > 0 ? 'default' : 'secondary'} className="text-[10px]">
-                      {table.count ?? '—'}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-              <p className="text-xs text-muted-foreground">Selection is for future maintenance tools only; no truncate/delete is performed from this UI.</p>
-            </CardContent>
-          </Card>
-        </TabsContent>
+        {isSuperAdmin ? (
+          <TabsContent value="clean-db">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Database className="w-5 h-5" /> Clean database
+                </CardTitle>
+                <CardDescription>
+                  <span className="text-destructive font-medium flex items-center gap-1">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    Super admin only. Deletes selected operational data permanently. User accounts and staff data are never available here.
+                  </span>
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {cleanupErr ? (
+                  <p className="text-sm text-destructive">{formatApiError(cleanupErr)}</p>
+                ) : null}
+                {cleanupLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading cleanup modules…</p>
+                ) : null}
+                {!cleanupLoading && !cleanupErr ? (
+                  <>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          checked={
+                            cleanupModules.length > 0 &&
+                            selectedModuleIds.length === cleanupModules.length
+                          }
+                          onCheckedChange={(c) => {
+                            if (c) {
+                              setSelectedModuleIds(cleanupModules.map((m) => m.id));
+                            } else {
+                              setSelectedModuleIds([]);
+                            }
+                          }}
+                        />
+                        <span className="text-sm font-medium">
+                          Select all ({selectedModuleIds.length}/{cleanupModules.length})
+                        </span>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        disabled={
+                          selectedModuleIds.length === 0 ||
+                          cleanupMutation.isPending ||
+                          cleanupLoading
+                        }
+                        onClick={() => setCleanupConfirmOpen(true)}
+                      >
+                        Delete selected data
+                      </Button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[520px] overflow-y-auto pr-1">
+                      {cleanupModules.map((mod) => (
+                        <div
+                          key={mod.id}
+                          className="flex gap-3 p-3 border rounded-lg hover:bg-muted/30 cursor-pointer text-left"
+                          onClick={() => toggleModule(mod.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              toggleModule(mod.id);
+                            }
+                          }}
+                          role="button"
+                          tabIndex={0}
+                        >
+                          <Checkbox
+                            checked={selectedModuleIds.includes(mod.id)}
+                            className="mt-0.5"
+                            onClick={(e) => e.stopPropagation()}
+                            onCheckedChange={() => toggleModule(mod.id)}
+                          />
+                          <div className="min-w-0 flex-1 space-y-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm font-medium leading-tight">{mod.label}</span>
+                              <Badge variant="secondary" className="text-[10px] shrink-0">
+                                ~{mod.approximate_row_count}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground">{mod.description}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : null}
+                <AlertDialog open={cleanupConfirmOpen} onOpenChange={setCleanupConfirmOpen}>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+                        <AlertTriangle className="w-5 h-5 shrink-0" />
+                        Confirm database cleanup
+                      </AlertDialogTitle>
+                      <AlertDialogDescription asChild>
+                        <div className="space-y-3 text-left text-sm text-muted-foreground">
+                          <p>
+                            This cannot be undone. The following modules will be cleared in a safe order:
+                          </p>
+                          <ul className="list-disc pl-5 space-y-1 text-foreground">
+                            {selectedModuleIds.map((id) => {
+                              const m = cleanupModules.find((x) => x.id === id);
+                              return <li key={id}>{m?.label ?? id}</li>;
+                            })}
+                          </ul>
+                        </div>
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel disabled={cleanupMutation.isPending}>Cancel</AlertDialogCancel>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        disabled={cleanupMutation.isPending}
+                        onClick={() => {
+                          cleanupMutation.mutate(selectedModuleIds, {
+                            onSettled: () => setCleanupConfirmOpen(false),
+                          });
+                        }}
+                      >
+                        {cleanupMutation.isPending ? 'Deleting…' : 'Delete permanently'}
+                      </Button>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        ) : null}
       </Tabs>
     </div>
   );

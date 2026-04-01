@@ -1063,6 +1063,14 @@ export type AdminAuditLogDetail = {
   metadata: Record<string, unknown>;
 };
 
+/** Row from GET /api/admin/system/cleanup-modules/ */
+export type AdminCleanupModule = {
+  id: string;
+  label: string;
+  description: string;
+  approximate_row_count: number;
+};
+
 /** Row from GET /api/admin/me/notifications/ (inbox for signed-in admin). */
 export type AdminMeNotificationRow = {
   id: string;
@@ -1403,6 +1411,14 @@ export const adminApi = {
       "/admin/system/db-stats/",
       undefined,
       true,
+    ),
+  cleanupModules: () =>
+    apiFetch<{ modules: AdminCleanupModule[] }>("/admin/system/cleanup-modules/", undefined, true),
+  cleanupExecute: (module_ids: string[]) =>
+    adminWrite<{ ok: true; results: { id: string; rows_deleted: number }[] }>(
+      "system/cleanup",
+      "POST",
+      { module_ids },
     ),
   securitySummary: () => apiFetch<AdminSecuritySummary>("/admin/security/summary/", undefined, true),
   updateFlaggedActivity: (id: string, payload: Record<string, unknown>) =>

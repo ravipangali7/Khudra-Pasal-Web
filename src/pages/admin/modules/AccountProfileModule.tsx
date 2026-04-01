@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Camera, Lock } from "lucide-react";
+import { Camera } from "lucide-react";
 import { adminApi } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,10 +24,6 @@ export default function AccountProfileModule() {
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-
-  const [oldP, setOldP] = useState("");
-  const [newP, setNewP] = useState("");
-  const [newP2, setNewP2] = useState("");
 
   useEffect(() => {
     if (!data) return;
@@ -58,17 +54,6 @@ export default function AccountProfileModule() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const pwdMut = useMutation({
-    mutationFn: () => adminApi.changePassword(oldP, newP),
-    onSuccess: () => {
-      toast.success("Password updated");
-      setOldP("");
-      setNewP("");
-      setNewP2("");
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
   const submitProfile = (e: React.FormEvent) => {
     e.preventDefault();
     const fd = new FormData();
@@ -91,7 +76,7 @@ export default function AccountProfileModule() {
     <div className="p-4 lg:p-6 max-w-3xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">My profile</h1>
-        <p className="text-sm text-muted-foreground mt-1">Update your account details and password.</p>
+        <p className="text-sm text-muted-foreground mt-1">Update your account details.</p>
       </div>
 
       <Card>
@@ -168,47 +153,6 @@ export default function AccountProfileModule() {
               {saveProfile.isPending ? "Saving…" : "Save profile"}
             </Button>
           </form>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Lock className="h-5 w-5" />
-            Change password
-          </CardTitle>
-          <CardDescription>Use a strong password you do not reuse elsewhere.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3 max-w-md">
-          <div className="space-y-2">
-            <Label>Current password</Label>
-            <Input type="password" value={oldP} onChange={(e) => setOldP(e.target.value)} autoComplete="current-password" />
-          </div>
-          <div className="space-y-2">
-            <Label>New password</Label>
-            <Input type="password" value={newP} onChange={(e) => setNewP(e.target.value)} autoComplete="new-password" />
-          </div>
-          <div className="space-y-2">
-            <Label>Confirm</Label>
-            <Input type="password" value={newP2} onChange={(e) => setNewP2(e.target.value)} autoComplete="new-password" />
-          </div>
-          <Button
-            type="button"
-            onClick={() => {
-              if (newP.length < 6) {
-                toast.error("New password must be at least 6 characters");
-                return;
-              }
-              if (newP !== newP2) {
-                toast.error("Passwords do not match");
-                return;
-              }
-              pwdMut.mutate();
-            }}
-            disabled={pwdMut.isPending}
-          >
-            {pwdMut.isPending ? "Updating…" : "Update password"}
-          </Button>
         </CardContent>
       </Card>
     </div>
