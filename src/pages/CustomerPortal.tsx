@@ -48,7 +48,10 @@ import {
 } from '@/lib/api';
 import { useCart } from '@/contexts/CartContext';
 import { mapApiNavToPortalItems } from '@/lib/navIcons';
-import { getCustomerPortalSidebarFallback } from '@/lib/customerPortalSidebarFallback';
+import {
+  ensureWishlistInCustomerPortalNav,
+  getCustomerPortalSidebarFallback,
+} from '@/lib/customerPortalSidebarFallback';
 import PortalSidebar from '@/components/portal/PortalSidebar';
 import UnifiedAuthLoginPage from '@/components/auth/UnifiedAuthLoginPage';
 import WalletTransfer from '@/components/wallet/WalletTransfer';
@@ -388,7 +391,7 @@ const CustomerPortal = () => {
   };
 
   const sidebarItems = useMemo(() => {
-    const fromApi = mapApiNavToPortalItems(navData?.items);
+    const fromApi = ensureWishlistInCustomerPortalNav(mapApiNavToPortalItems(navData?.items));
     if (fromApi.length > 0) return fromApi;
     return getCustomerPortalSidebarFallback(userRole);
   }, [navData, userRole]);
