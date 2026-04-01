@@ -5,7 +5,7 @@ import { useAdminList } from '../hooks/useAdminList';
 import { useAdminMutation } from '../hooks/useAdminMutation';
 import { useAdminCrudPolicy } from '../hooks/useAdminCrudPolicy';
 import {
-  Package, Building2, Star, Edit, Trash2, MoreVertical, Eye, Plus, CheckCircle, XCircle
+  Package, Building2, Star, Edit, Trash2, MoreVertical, Eye, Plus, CheckCircle, XCircle, X,
 } from 'lucide-react';
 import AdminTable from '@/components/admin/AdminTable';
 import { CRUDModal, DeleteConfirm } from '@/components/admin/CRUDModal';
@@ -43,6 +43,8 @@ import {
   fetchUnitAdminOptions,
   fetchVendorAdminOptions,
 } from '@/components/admin/adminRelationalPickers';
+
+const MAX_ADMIN_PRODUCT_GALLERY = 15;
 
 type AdminProductRow = {
   id: string;
@@ -142,6 +144,15 @@ function ProductsList({ filterInHouse }: { filterInHouse?: boolean }) {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [slugEdited, setSlugEdited] = useState(false);
   const [primaryImage, setPrimaryImage] = useState<File | null>(null);
+  const [existingGallery, setExistingGallery] = useState<{ id: string; image_url: string; sort_order: number }[]>([]);
+  const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
+  const [removedGalleryIds, setRemovedGalleryIds] = useState<string[]>([]);
+  const galleryPreviews = useMemo(() => galleryFiles.map((f) => URL.createObjectURL(f)), [galleryFiles]);
+  useEffect(() => {
+    return () => {
+      galleryPreviews.forEach((u) => URL.revokeObjectURL(u));
+    };
+  }, [galleryPreviews]);
   const createMutation = useAdminMutation(adminApi.createProduct, [['admin', 'products']]);
   const updateMutation = useAdminMutation(
     ({ id, payload }: { id: string; payload: FormData }) => adminApi.updateProduct(id, payload),
@@ -171,8 +182,18 @@ function ProductsList({ filterInHouse }: { filterInHouse?: boolean }) {
     setFormData(mapProductDetailToForm(productDetail));
     setSlugEdited(true);
     setPrimaryImage(null);
+    setExistingGallery(productDetail.images ?? []);
+    setGalleryFiles([]);
+    setRemovedGalleryIds([]);
     setFormErrors({});
   }, [productDetail, routeEdit]);
+
+  useEffect(() => {
+    if (!resolvedModalOpen || routeEdit) return;
+    setExistingGallery([]);
+    setGalleryFiles([]);
+    setRemovedGalleryIds([]);
+  }, [resolvedModalOpen, routeEdit]);
 
   const updateField = (key: string, value: any) => {
     setFormData(prev => {
@@ -317,7 +338,7 @@ function ProductsList({ filterInHouse }: { filterInHouse?: boolean }) {
         description="This will permanently delete the product."
       />
 
-      <CRUDModal open={resolvedModalOpen} onClose={() => { adminRoute?.navigateToList(); setModalOpen(false); setFormData({}); setFormErrors({}); setPrimaryImage(null); setSlugEdited(false); }} title={routeEdit ? 'Edit Product' : routeAdd ? 'Add Product' : 'Add / Edit Product'} size="xl" onSave={async () => {
+      <CRUDModal open={resolvedModalOpen} onClose={() => { adminRoute?.navigateToList(); setModalOpen(false); setFormData({}); setFormErrors({}); setPrimaryImage(null); setSlugEdited(false); setExistingGallery([]); setGalleryFiles([]); setRemovedGalleryIds([]); }} title={routeEdit ? 'Edit Product' : routeAdd ? 'Add Product' : 'Add / Edit Product'} size="xl" onSave={async () => {
         // Validate required fields
         const errors: Record<string, string> = {};
         if (!formData.name?.trim()) errors.name = 'Product name is required';
@@ -357,6 +378,8 @@ function ProductsList({ filterInHouse }: { filterInHouse?: boolean }) {
           fd.append('seller_id', String(formData.sellerId));
         }
         if (primaryImage) fd.append('image', primaryImage);
+        galleryFiles.forEach((f) => fd.append('gallery_images', f));
+        removedGalleryIds.forEach((id) => fd.append('delete_gallery_image_ids', id));
         if (routeEdit && adminRoute?.itemId) {
           await updateMutation.mutateAsync({ id: adminRoute.itemId, payload: fd });
         } else {
@@ -368,6 +391,9 @@ function ProductsList({ filterInHouse }: { filterInHouse?: boolean }) {
         setFormErrors({});
         setPrimaryImage(null);
         setSlugEdited(false);
+        setExistingGallery([]);
+        setGalleryFiles([]);
+        setRemovedGalleryIds([]);
       }}>
         <Tabs defaultValue="basic" className="w-full">
           <TabsList className="grid w-full grid-cols-5 mb-4">
@@ -505,10 +531,72 @@ function ProductsList({ filterInHouse }: { filterInHouse?: boolean }) {
                 <p className="text-xs text-muted-foreground">Current image. Choose a file below to replace.</p>
               </div>
             ) : null}
-            <div><Label>Primary Thumbnail</Label><Input type="file" accept="image/*" onChange={(e) => setPrimaryImage(e.target.files?.[0] ?? null)} /></div>
+            <div>
+              <Label>Primary Thumbnail</Label>
+              <Input type="file" accept="image/*" onChange={(e) => setPrimaryImage(e.target.files?.[0] ?? null)} />
+              {primaryImage ? (
+                <Button type="button" variant="ghost" size="sm" className="mt-1 h-8 text-xs" onClick={() => setPrimaryImage(null)}>
+                  Clear primary
+                </Button>
+              ) : null}
+            </div>
             {formErrors.image && <p className="text-xs text-destructive mt-1">{formErrors.image}</p>}
-            <div><Label>Gallery Images (comma-separated URLs)</Label><Textarea rows={3} placeholder="image1.jpg, image2.jpg, ..." disabled /></div>
-            <p className="text-xs text-muted-foreground">Images will be stored in public storage. Max 5 gallery images recommended.</p>
+            <div>
+              <Label>Gallery images</Label>
+              <Input
+                type="file"
+                accept="image/*"
+                multiple
+                className="cursor-pointer"
+                onChange={(e) => {
+                  const picked = Array.from(e.target.files ?? []);
+                  const keptExisting = existingGallery.filter((g) => !removedGalleryIds.includes(g.id)).length;
+                  const room = Math.max(0, MAX_ADMIN_PRODUCT_GALLERY - keptExisting - galleryFiles.length);
+                  const next = room > 0 ? [...galleryFiles, ...picked.slice(0, room)] : galleryFiles;
+                  setGalleryFiles(next);
+                  e.target.value = '';
+                }}
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Select multiple images in one picker, or add more in batches. Up to {MAX_ADMIN_PRODUCT_GALLERY} gallery images total (primary is separate).
+              </p>
+            </div>
+            {(existingGallery.some((g) => !removedGalleryIds.includes(g.id)) || galleryFiles.length > 0) ? (
+              <div className="flex flex-wrap gap-2">
+                {existingGallery
+                  .filter((g) => !removedGalleryIds.includes(g.id))
+                  .map((g) => (
+                    <div key={g.id} className="relative inline-block">
+                      <img
+                        src={resolveMediaUrl(g.image_url)}
+                        alt=""
+                        className="h-20 w-20 rounded-md border object-cover"
+                      />
+                      <button
+                        type="button"
+                        className="absolute -right-1 -top-1 rounded-full bg-destructive p-0.5 text-destructive-foreground shadow"
+                        aria-label="Remove gallery image"
+                        onClick={() => setRemovedGalleryIds((prev) => (prev.includes(g.id) ? prev : [...prev, g.id]))}
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                {galleryFiles.map((file, i) => (
+                  <div key={`${file.name}-${file.size}-${i}`} className="relative inline-block">
+                    <img src={galleryPreviews[i]} alt="" className="h-20 w-20 rounded-md border object-cover" />
+                    <button
+                      type="button"
+                      className="absolute -right-1 -top-1 rounded-full bg-destructive p-0.5 text-destructive-foreground shadow"
+                      aria-label="Remove pending image"
+                      onClick={() => setGalleryFiles((prev) => prev.filter((_, j) => j !== i))}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </TabsContent>
 
           <TabsContent value="seo" className="space-y-4">

@@ -298,6 +298,8 @@ export type AdminProductDetail = {
   seo_description: string;
   seo_keywords: string;
   image_url: string;
+  /** Gallery images (ProductImage), excluding primary `image_url`. */
+  images?: { id: string; image_url: string; sort_order: number }[];
 };
 
 export type AdminPurchaseOrderLine = {
