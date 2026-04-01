@@ -13,10 +13,8 @@ import CategoryFloatingSidebar from '@/components/sections/CategoryFloatingSideb
 import {
   AIInfoPopup,
   SimilarItemsPopup,
-  OffersSlider,
   WarrantyPopup,
   VariantSelector,
-  mapWebsiteDealsToOfferSlides,
 } from '@/components/product/ProductDetailPopups';
 import { useCart } from '@/contexts/CartContext';
 import {
@@ -32,6 +30,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+
+const PRODUCT_DESCRIPTION_FALLBACK =
+  'Premium quality product sourced from trusted vendors. This product comes with quality assurance and is perfect for your daily needs. Experience the difference with KhudraPasal.';
 
 const ProductDetail = () => {
   const navigate = useNavigate();
@@ -112,17 +113,11 @@ const ProductDetail = () => {
     queryFn: () => websiteApi.products({ category: product?.category, page_size: 12 }),
     enabled: Boolean(detailData && product?.category && product.category !== 'all'),
   });
-  const { data: deals = [], isLoading: dealsLoading } = useQuery({
-    queryKey: ['website', 'deals'],
-    queryFn: () => websiteApi.deals(),
-    staleTime: 60_000,
-  });
   const { data: storeInfo } = useQuery({
     queryKey: ['website', 'store-info'],
     queryFn: () => websiteApi.storeInfo(),
     staleTime: 60_000,
   });
-  const offerSlides = useMemo(() => mapWebsiteDealsToOfferSlides(deals), [deals]);
   const { addToCart, getItemQuantity, updateQuantity, cartCount } = useCart();
   const [selectedImage, setSelectedImage] = useState(0);
   const [activeTab, setActiveTab] = useState('home');
@@ -387,17 +382,6 @@ const ProductDetail = () => {
               )}
             </div>
 
-            {(dealsLoading || offerSlides.length > 0) && (
-              <div className="space-y-2">
-                <p className="text-sm font-medium text-foreground">Available offers</p>
-                {dealsLoading ? (
-                  <div className="h-[72px] rounded-xl bg-muted animate-pulse" />
-                ) : (
-                  <OffersSlider offers={offerSlides} />
-                )}
-              </div>
-            )}
-
             {/* Warranty Button */}
             <button
               onClick={() => setShowWarranty(true)}
@@ -440,28 +424,13 @@ const ProductDetail = () => {
             {/* Tab Content */}
             <div className="min-h-[100px]">
               {activeSection === 'highlights' && (
-                <ul className="space-y-2 text-muted-foreground">
-                  <li className="flex items-center gap-2 text-sm">
-                    <span className="w-1.5 h-1.5 rounded-full bg-category-fresh" />
-                    100% Authentic Product
-                  </li>
-                  <li className="flex items-center gap-2 text-sm">
-                    <span className="w-1.5 h-1.5 rounded-full bg-category-fresh" />
-                    Fast Delivery within 24 hours
-                  </li>
-                  <li className="flex items-center gap-2 text-sm">
-                    <span className="w-1.5 h-1.5 rounded-full bg-category-fresh" />
-                    Easy 7-day Returns
-                  </li>
-                  <li className="flex items-center gap-2 text-sm">
-                    <span className="w-1.5 h-1.5 rounded-full bg-category-fresh" />
-                    Cash on Delivery Available
-                  </li>
-                </ul>
+                <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                  {(detailData?.short_description ?? '').trim() || PRODUCT_DESCRIPTION_FALLBACK}
+                </p>
               )}
               {activeSection === 'details' && (
-                <p className="text-muted-foreground leading-relaxed">
-                  {product.description || 'Premium quality product sourced from trusted vendors. This product comes with quality assurance and is perfect for your daily needs. Experience the difference with KhudraPasal.'}
+                <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
+                  {(detailData?.description ?? '').trim() || PRODUCT_DESCRIPTION_FALLBACK}
                 </p>
               )}
               {activeSection === 'info' && (
