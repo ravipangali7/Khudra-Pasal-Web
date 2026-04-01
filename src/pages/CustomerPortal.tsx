@@ -415,6 +415,11 @@ const CustomerPortal = () => {
     }
   }, [activeSection, navigate, stayOnSwitchPortal, switchPortalContext]);
 
+  useEffect(() => {
+    if (!authed || activeSection !== 'wallet') return;
+    void queryClient.invalidateQueries({ queryKey: ['portal', 'me'] });
+  }, [authed, activeSection, queryClient]);
+
   const formatPrice = (amount: number) => `Rs. ${amount.toLocaleString('en-NP')}`;
 
   const portalAdminTxRows = useMemo(

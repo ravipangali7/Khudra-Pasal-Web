@@ -235,6 +235,12 @@ const ChildPortal = () => {
     retry: false,
   });
 
+  const queryClient = useQueryClient();
+  useEffect(() => {
+    if (!authed || activeSection !== 'withdraw') return;
+    void queryClient.invalidateQueries({ queryKey: ['portal', 'me'] });
+  }, [authed, activeSection, queryClient]);
+
   const { data: selfProfile } = useQuery({
     queryKey: ['portal', 'self-profile'],
     queryFn: () => portalApi.selfProfile(),
@@ -1006,22 +1012,21 @@ const ChildPortal = () => {
   // Withdraw Content
   function WithdrawContent() {
     const qc = useQueryClient();
-    if (childRulesQuery.isLoading) {
-      return (
-        <div className="p-4 lg:p-6 text-sm text-muted-foreground">Loading…</div>
-      );
-    }
-    const allowWithdraw = childRulesQuery.data?.group_permissions?.allow_cash_withdrawal ?? false;
     const [withdrawMethod, setWithdrawMethod] = useState<'esewa' | 'khalti' | 'bank'>('esewa');
     const [withdrawAccount, setWithdrawAccount] = useState('');
     const [withdrawAmount, setWithdrawAmount] = useState('');
 
+    const rulesLoading = childRulesQuery.isLoading;
+    const allowWithdraw = childRulesQuery.data?.group_permissions?.allow_cash_withdrawal ?? false;
+
     useEffect(() => {
+      if (rulesLoading) return;
+      if (meQuery.isPending || meQuery.isFetching) return;
       const m = meQuery.data;
       if (!m || m.kyc_required === false || m.kyc_status === 'verified') return;
       toast.message('Complete KYC verification to withdraw.');
       goTo('kyc');
-    }, [meQuery.data, goTo]);
+    }, [rulesLoading, meQuery.data, meQuery.isPending, meQuery.isFetching, goTo]);
 
     const withdrawMutation = useMutation({
       mutationFn: () =>
@@ -1056,6 +1061,12 @@ const ChildPortal = () => {
       Number.isFinite(wAmt) &&
       wAmt >= 1 &&
       wAmt <= walletData.selfLoaded;
+
+    if (rulesLoading) {
+      return (
+        <div className="p-4 lg:p-6 text-sm text-muted-foreground">Loading…</div>
+      );
+    }
 
     if (!childRulesQuery.isLoading && childRulesQuery.data && !childRulesQuery.data.group_permissions) {
       return (

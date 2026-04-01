@@ -129,6 +129,11 @@ export default function PortalKycSection({ onBack }: PortalKycSectionProps) {
     if (v) setDocumentType((prev) => (prev ? prev : v));
   }, [schemaQ.data]);
 
+  useEffect(() => {
+    if (!statusQ.data) return;
+    void queryClient.invalidateQueries({ queryKey: ['portal', 'me'] });
+  }, [queryClient, statusQ.data?.kyc_status]);
+
   const submitMut = useMutation({
     mutationFn: async () => {
       const fd = new FormData();
