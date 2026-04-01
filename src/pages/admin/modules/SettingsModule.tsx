@@ -342,7 +342,6 @@ export default function SettingsModule() {
   const analytics = extras.analytics ?? EMPTY_EXTRAS_SECTION;
   const appearance = extras.appearance ?? EMPTY_EXTRAS_SECTION;
   const emailCfg = extras.email ?? EMPTY_EXTRAS_SECTION;
-  const taxCfg = extras.tax ?? EMPTY_EXTRAS_SECTION;
   const socialCfg = extras.social ?? EMPTY_EXTRAS_SECTION;
   const envCfg = extras.environment ?? EMPTY_EXTRAS_SECTION;
   const systemCfg = extras.system ?? EMPTY_EXTRAS_SECTION;
@@ -385,16 +384,6 @@ export default function SettingsModule() {
       failover: !!emailCfg.failover,
     });
   }, [emailCfg]);
-
-  const [taxState, setTaxState] = useState({ vat: '13', pan: '', onProducts: true, inclusive: false });
-  useEffect(() => {
-    setTaxState({
-      vat: String(taxCfg.vat ?? '13'),
-      pan: String(taxCfg.pan ?? ''),
-      onProducts: taxCfg.onProducts !== false,
-      inclusive: !!taxCfg.inclusive,
-    });
-  }, [taxCfg]);
 
   const [socialState, setSocialState] = useState({
     facebook: '', instagram: '', twitter: '', youtube: '', tiktok: '',
@@ -446,7 +435,6 @@ export default function SettingsModule() {
           <TabsTrigger value="communication">Communication</TabsTrigger>
           <TabsTrigger value="payment">Payment</TabsTrigger>
           <TabsTrigger value="reels">Reels</TabsTrigger>
-          <TabsTrigger value="tax">Tax</TabsTrigger>
           <TabsTrigger value="social">Social Media</TabsTrigger>
           <TabsTrigger value="environment">Environment</TabsTrigger>
           <TabsTrigger value="system">System</TabsTrigger>
@@ -663,27 +651,6 @@ export default function SettingsModule() {
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
-
-        <TabsContent value="tax">
-          <Card>
-            <CardHeader><CardTitle>Tax Settings</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid md:grid-cols-2 gap-4">
-                <div><Label>VAT rate (%)</Label><Input value={taxState.vat} onChange={(e) => setTaxState((s) => ({ ...s, vat: e.target.value }))} /></div>
-                <div><Label>PAN number</Label><Input value={taxState.pan} onChange={(e) => setTaxState((s) => ({ ...s, pan: e.target.value }))} /></div>
-              </div>
-              <div className="flex items-center justify-between p-3 border rounded-lg">
-                <span className="font-medium text-sm">Tax on products</span>
-                <Switch checked={taxState.onProducts} onCheckedChange={(v) => setTaxState((s) => ({ ...s, onProducts: v }))} />
-              </div>
-              <div className="flex items-center justify-between p-3 border rounded-lg">
-                <span className="font-medium text-sm">Tax-inclusive pricing</span>
-                <Switch checked={taxState.inclusive} onCheckedChange={(v) => setTaxState((s) => ({ ...s, inclusive: v }))} />
-              </div>
-              <Button type="button" onClick={() => void saveExtrasSection('tax', { ...taxCfg, ...taxState })}>Save tax settings</Button>
-            </CardContent>
-          </Card>
         </TabsContent>
 
         <TabsContent value="social">

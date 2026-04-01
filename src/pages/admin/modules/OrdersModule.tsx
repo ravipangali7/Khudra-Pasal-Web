@@ -46,7 +46,6 @@ function orderToInvoiceProps(
   site: Record<string, unknown>,
   hidePrices?: boolean,
 ): InvoiceDocProps {
-  const tax = Math.max(0, order.total - order.subtotal + order.discount_amount - order.delivery_fee);
   const currency = String(site.currency ?? 'NPR');
   return {
     title: hidePrices ? 'Packing slip' : 'Invoice',
@@ -75,7 +74,6 @@ function orderToInvoiceProps(
     subtotal: order.subtotal,
     discount: order.discount_amount,
     delivery: order.delivery_fee,
-    tax,
     total: order.total,
     hidePrices,
   };
@@ -113,7 +111,6 @@ function buildInvoiceDownloadHtml(doc: InvoiceDocProps): string {
         <div style="display:flex; justify-content:space-between; padding: 4px 0;"><span>Subtotal</span><span>${cur} ${doc.subtotal.toLocaleString()}</span></div>
         <div style="display:flex; justify-content:space-between; padding: 4px 0;"><span>Discount</span><span>${cur} ${doc.discount.toLocaleString()}</span></div>
         <div style="display:flex; justify-content:space-between; padding: 4px 0;"><span>Delivery</span><span>${cur} ${doc.delivery.toLocaleString()}</span></div>
-        <div style="display:flex; justify-content:space-between; padding: 4px 0;"><span>Tax</span><span>${cur} ${doc.tax.toLocaleString()}</span></div>
         <div style="display:flex; justify-content:space-between; padding-top: 8px; margin-top: 8px; border-top: 1px solid #cbd5e1; font-size: 18px; font-weight: 700;">
           <span>Total</span><span>${cur} ${doc.total.toLocaleString()}</span>
         </div>

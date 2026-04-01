@@ -25,7 +25,6 @@ export type InvoiceDocProps = {
   subtotal: number;
   discount: number;
   delivery: number;
-  tax: number;
   total: number;
   notes?: string;
   hidePrices?: boolean;
@@ -80,7 +79,6 @@ export default function InvoiceDocument({
   subtotal,
   discount,
   delivery,
-  tax,
   total,
   notes,
   hidePrices,
@@ -183,12 +181,6 @@ export default function InvoiceDocument({
               <span className="text-slate-600">Delivery</span>
               <span>
                 {cur} {delivery.toLocaleString()}
-              </span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-600">Tax</span>
-              <span>
-                {cur} {tax.toLocaleString()}
               </span>
             </div>
             <div className="flex justify-between pt-2 border-t font-bold text-base">

@@ -82,7 +82,6 @@ function mapProductDetailToForm(d: AdminProductDetail) {
     brandLabel: d.brand_name,
     unitId: d.unit_id,
     unitLabel: d.unit_name,
-    taxPercent: String(d.tax_percent),
     hasVariations: d.has_variations,
     featured: d.is_featured,
     enableReels: d.enable_reels,
@@ -357,7 +356,6 @@ function ProductsList({ filterInHouse }: { filterInHouse?: boolean }) {
                 <div><span className="text-muted-foreground">Discount price</span><p className="font-medium">Rs. {productDetail.discount_price.toLocaleString()}</p></div>
               ) : null}
               <div><span className="text-muted-foreground">Stock</span><p className="font-medium">{productDetail.stock}</p></div>
-              <div><span className="text-muted-foreground">Tax %</span><p className="font-medium">{productDetail.tax_percent}</p></div>
             </div>
             {productDetail.short_description ? (
               <div><p className="text-xs text-muted-foreground">Short description</p><p className="text-sm">{productDetail.short_description}</p></div>
@@ -447,7 +445,7 @@ function ProductsList({ filterInHouse }: { filterInHouse?: boolean }) {
         appendIfDefined(fd, 'category_id', formData.categoryId);
         appendIfDefined(fd, 'brand_id', formData.brandId);
         appendIfDefined(fd, 'unit_id', formData.unitId);
-        appendIfDefined(fd, 'tax_percent', formData.taxPercent || 13);
+        appendIfDefined(fd, 'tax_percent', '0');
         appendIfDefined(fd, 'has_variations', formData.hasVariations ? 'true' : 'false');
         appendIfDefined(fd, 'is_featured', formData.featured ? 'true' : 'false');
         appendIfDefined(fd, 'enable_reels', formData.enableReels ? 'true' : 'false');
@@ -603,7 +601,6 @@ function ProductsList({ filterInHouse }: { filterInHouse?: boolean }) {
               </div>
               <div><Label>Stock Quantity</Label><Input type="number" placeholder="0" value={formData.stock || ''} onChange={e => updateField('stock', e.target.value)} /></div>
             </div>
-            <div><Label>Tax (%)</Label><Input type="number" placeholder="13" value={formData.taxPercent || '13'} onChange={(e) => updateField('taxPercent', e.target.value)} /></div>
             <div><Label>Status</Label>
               <Select value={formData.status || 'active'} onValueChange={(v) => updateField('status', v)}><SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent><SelectItem value="active">Active</SelectItem><SelectItem value="draft">Draft</SelectItem></SelectContent>

@@ -77,7 +77,6 @@ function poDetailToInvoice(
     subtotal: po.subtotal,
     discount: po.discount,
     delivery: po.delivery_fee,
-    tax: po.tax,
     total: po.total,
     hidePrices,
   };
@@ -135,8 +134,7 @@ export default function POBillingModule() {
 
   const subtotal = poItems.reduce((sum, i) => sum + i.product.price * i.quantity, 0);
   const discountAmt = (subtotal * poDiscount) / 100;
-  const tax = (subtotal - discountAmt) * 0.13;
-  const total = subtotal - discountAmt + tax + poDelivery;
+  const total = subtotal - discountAmt + poDelivery;
 
   const submitPo = async () => {
     setPoErr('');
@@ -211,7 +209,7 @@ export default function POBillingModule() {
   return (
     <div className="p-4 lg:p-6 space-y-6">
       {/* PO History */}
-      <AdminTable title="Purchase Orders" subtitle="Generate PO Bills — auto tax & discount calculation"
+      <AdminTable title="Purchase Orders" subtitle="Generate PO Bills — discount & delivery calculation"
         data={purchaseOrders}
         columns={[
           { key: 'id', label: 'PO ID', render: (p) => <span className="font-mono font-medium">{p.id}</span> },
@@ -357,7 +355,6 @@ export default function POBillingModule() {
                 <div className="space-y-1 text-sm">
                   <div className="flex justify-between"><span className="text-muted-foreground">Subtotal</span><span>Rs. {subtotal.toLocaleString()}</span></div>
                   {poDiscount > 0 && <div className="flex justify-between text-emerald-600"><span>Discount ({poDiscount}%)</span><span>-Rs. {discountAmt.toFixed(0)}</span></div>}
-                  <div className="flex justify-between"><span className="text-muted-foreground">Tax (13%)</span><span>Rs. {tax.toFixed(0)}</span></div>
                   {poDelivery > 0 && <div className="flex justify-between"><span className="text-muted-foreground">Delivery</span><span>Rs. {poDelivery.toLocaleString()}</span></div>}
                   <Separator />
                   <div className="flex justify-between text-lg font-bold"><span>Total</span><span className="text-primary">Rs. {total.toFixed(0)}</span></div>

@@ -177,8 +177,8 @@ export default function POSSystem({ variant = 'admin' }: POSSystemProps) {
 
   const subtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
   const discountAmount = (subtotal * discount) / 100;
-  const tax = (subtotal - discountAmount) * 0.13;
-  const total = subtotal - discountAmount + tax;
+  const taxVendor = (subtotal - discountAmount) * 0.13;
+  const total = isVendor ? subtotal - discountAmount + taxVendor : subtotal - discountAmount;
 
   const handlePayment = () => {
     if (!selectedPayment) return;
@@ -414,10 +414,12 @@ export default function POSSystem({ variant = 'admin' }: POSSystemProps) {
                   <span>-Rs. {discountAmount.toFixed(2)}</span>
                 </div>
               )}
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Tax (13%)</span>
-                <span className="text-foreground">Rs. {tax.toFixed(2)}</span>
-              </div>
+              {isVendor ? (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Tax (13%)</span>
+                  <span className="text-foreground">Rs. {taxVendor.toFixed(2)}</span>
+                </div>
+              ) : null}
               <Separator className="my-2" />
               <div className="flex justify-between text-lg font-bold">
                 <span>Total</span>
