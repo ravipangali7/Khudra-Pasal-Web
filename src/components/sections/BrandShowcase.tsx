@@ -31,9 +31,10 @@ const BrandShowcase = () => {
             <div key={idx} className="h-24 w-24 rounded-full bg-muted animate-pulse flex-shrink-0" />
           ))}
         {brands.map((brand) => (
-          <div
+          <Link
             key={brand.id}
-            className="flex-shrink-0 w-24 md:w-28 flex flex-col items-center gap-2"
+            to={storefrontRoutes.brandDetail(brand.id)}
+            className="flex-shrink-0 w-24 md:w-28 flex flex-col items-center gap-2 rounded-lg outline-none ring-offset-background transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring"
           >
             <div className="w-16 h-16 md:w-20 md:h-20 rounded-full border border-border bg-card shadow-sm overflow-hidden flex items-center justify-center">
               {brand.logo_url ? (
@@ -45,7 +46,7 @@ const BrandShowcase = () => {
               )}
             </div>
             <span className="text-xs text-center font-medium text-foreground line-clamp-2">{brand.name}</span>
-          </div>
+          </Link>
         ))}
       </div>
     </section>

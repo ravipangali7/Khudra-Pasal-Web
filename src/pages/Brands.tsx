@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
@@ -5,6 +6,7 @@ import MobileFooterNav from "@/components/layout/MobileFooterNav";
 import ScrollToTop from "@/components/ui/ScrollToTop";
 import AIChatbot from "@/components/chat/AIChatbot";
 import { getApiErrorHttpStatus, websiteApi } from "@/lib/api";
+import { storefrontRoutes } from "@/lib/routes";
 
 const Brands = () => {
   const { data: brands = [], isLoading, isError, error } = useQuery({
@@ -56,7 +58,11 @@ const Brands = () => {
         {!isLoading && !isError && brands.length > 0 && (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
             {brands.map((brand) => (
-              <div key={brand.id} className="rounded-xl border border-border/60 bg-card p-4">
+              <Link
+                key={brand.id}
+                to={storefrontRoutes.brandDetail(brand.id)}
+                className="rounded-xl border border-border/60 bg-card p-4 outline-none ring-offset-background transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-ring"
+              >
                 <div className="mx-auto flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border border-border bg-background">
                   {brand.logo_url ? (
                     <img src={brand.logo_url} alt={brand.name} className="h-full w-full object-cover" />
@@ -67,7 +73,7 @@ const Brands = () => {
                   )}
                 </div>
                 <p className="mt-3 line-clamp-2 text-center text-sm font-medium text-foreground">{brand.name}</p>
-              </div>
+              </Link>
             ))}
           </div>
         )}

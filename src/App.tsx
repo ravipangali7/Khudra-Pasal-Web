@@ -13,6 +13,7 @@ import Checkout from "./pages/Checkout";
 import ProductDetail from "./pages/ProductDetail";
 import Category from "./pages/Category";
 import Brands from "./pages/Brands";
+import BrandDetail from "./pages/BrandDetail";
 import Blog from "./pages/Blog";
 import BlogPostDetail from "./pages/BlogPostDetail";
 import CmsPublicPage from "./pages/CmsPublicPage";
@@ -86,6 +87,7 @@ const App = () => (
               <Route path="/checkout" element={<Checkout />} />
               <Route path="/product/:identifier" element={<ProductDetail />} />
               <Route path="/category/:categoryId" element={<Category />} />
+              <Route path="/brands/:brandId" element={<BrandDetail />} />
               <Route path="/brands" element={<Brands />} />
               <Route path="/products" element={<ProductListing />} />
               <Route path="/products/trending" element={<ProductListing />} />

@@ -204,12 +204,12 @@ const Index = () => {
             <ShopByCategory onCategoryClick={handleCategoryChange} />
             <DiscountPromoCard discountedCount={bestDealsProducts.length} />
 
-            {flashDealProductsUi.length > 0 && (
-              <FlashDeals
-                products={flashDealProductsUi}
-                categoryTheme="cafe"
-                listingScope="home-flash-deals"
-                endsAt={flashEndsAt}
+            {bestDealsProducts.length > 0 && (
+              <LatestProducts
+                variant="bestDeals"
+                products={bestDealsProducts}
+                categoryTheme="fresh"
+                listingScope="home-best-deals"
               />
             )}
 
@@ -219,6 +219,21 @@ const Index = () => {
                 categoryTheme="fresh"
                 listingScope="home-latest-arrivals"
               />
+            )}
+
+            <BrandShowcase />
+
+            {flashDealProductsUi.length > 0 && (
+              <FlashDeals
+                products={flashDealProductsUi}
+                categoryTheme="cafe"
+                listingScope="home-flash-deals"
+                endsAt={flashEndsAt}
+              />
+            )}
+
+            {trendingProducts.length > 0 && (
+              <TrendingNow products={trendingProducts} listingScope="home-trending" />
             )}
 
             {catalogLoading && (
@@ -238,21 +253,6 @@ const Index = () => {
 
             {!catalogLoading && !catalogError && catalog && catalog.length > 0 && (
               <>
-                {bestDealsProducts.length > 0 && (
-                  <LatestProducts
-                    variant="bestDeals"
-                    products={bestDealsProducts}
-                    categoryTheme="fresh"
-                    listingScope="home-best-deals"
-                  />
-                )}
-
-                <BrandShowcase />
-                <SmallBannerSection />
-                {trendingProducts.length > 0 && (
-                  <TrendingNow products={trendingProducts} listingScope="home-trending" />
-                )}
-
                 {catalog.map((root) => {
                   const prods = (root.products || []).map(mapWebsiteProductToUi);
                   if (prods.length === 0) return null;
@@ -289,6 +289,7 @@ const Index = () => {
                     ];
                   }),
                 )}
+                <SmallBannerSection />
                 <FooterPromoGrid />
               </>
             )}
