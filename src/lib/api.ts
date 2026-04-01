@@ -184,6 +184,8 @@ export type WebsiteProduct = {
   images?: WebsiteProductImage[];
   created_at: string;
   seller?: WebsiteVendorMini | null;
+  /** Present on GET /website/products/:id/ when the user is authenticated. */
+  can_submit_review?: boolean;
 };
 
 export type PagedResponse<T> = {

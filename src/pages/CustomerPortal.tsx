@@ -63,6 +63,7 @@ import ProfileMenu from '@/components/profile/ProfileMenu';
 import PortalKycSection from '@/components/portal/PortalKycSection';
 import PortalSupportSection from '@/components/portal/PortalSupportSection';
 import PortalProductsCatalogSection from '@/components/portal/PortalProductsCatalogSection';
+import PortalWishlistSection from '@/components/portal/PortalWishlistSection';
 import PortalNotificationsModal from '@/components/portal/PortalNotificationsModal';
 import { mapPortalNotificationUiType } from '@/lib/portalNotifications';
 
@@ -1471,6 +1472,8 @@ const CustomerPortal = () => {
           )}
 
           {activeSection === 'products' && <PortalProductsCatalogSection variant="main" />}
+
+          {activeSection === 'wishlist' && <PortalWishlistSection />}
 
           {activeSection === 'orders' && (
             <div className="space-y-4 px-1">

@@ -38,8 +38,19 @@ const ProductDetail = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { identifier } = useParams();
+  const [hasWebsiteSession, setHasWebsiteSession] = useState(() => Boolean(getAuthToken()));
+  const [loginSurface, setLoginSurface] = useState(() => getLoginSurface());
+  useEffect(() => {
+    const sync = () => {
+      setHasWebsiteSession(Boolean(getAuthToken()));
+      setLoginSurface(getLoginSurface());
+    };
+    sync();
+    window.addEventListener('khudra-auth-changed', sync);
+    return () => window.removeEventListener('khudra-auth-changed', sync);
+  }, []);
   const { data: detailData } = useQuery({
-    queryKey: ['product-detail', identifier],
+    queryKey: ['product-detail', identifier, hasWebsiteSession],
     queryFn: () => websiteApi.productDetail(identifier || ''),
     enabled: Boolean(identifier),
   });
@@ -66,19 +77,10 @@ const ProductDetail = () => {
       setReviewMsg({ type: 'err', text: msg });
     },
   });
-  const [hasWebsiteSession, setHasWebsiteSession] = useState(() => Boolean(getAuthToken()));
-  const [loginSurface, setLoginSurface] = useState(() => getLoginSurface());
-  useEffect(() => {
-    const sync = () => {
-      setHasWebsiteSession(Boolean(getAuthToken()));
-      setLoginSurface(getLoginSurface());
-    };
-    sync();
-    window.addEventListener('khudra-auth-changed', sync);
-    return () => window.removeEventListener('khudra-auth-changed', sync);
-  }, []);
   const isWebsiteCustomerSession = hasWebsiteSession && (loginSurface === null || loginSurface === 'portal');
-  const canSubmitReview = Boolean(isWebsiteCustomerSession && identifier);
+  const canSubmitReview = Boolean(
+    isWebsiteCustomerSession && identifier && detailData?.can_submit_review === true,
+  );
   const loginRedirectPath = useMemo(
     () => `${window.location.pathname}${window.location.search}`,
     [],
