@@ -117,11 +117,27 @@ const OFFER_GRADIENTS = [
 ] as const;
 const OFFER_ICONS: Array<'credit' | 'phone' | 'shield'> = ['credit', 'phone', 'shield'];
 
+function toOfferTypeLabel(dealName: string): string {
+  const normalized = dealName.toLowerCase().trim();
+  if (!normalized) return 'Special Offer';
+
+  if (normalized.includes('debit') && normalized.includes('card')) return 'Debit Card Offer';
+  if (normalized.includes('credit') && normalized.includes('card')) return 'Credit Card Offer';
+  if (normalized.includes('card')) return 'Card Offer';
+  if (normalized.includes('wallet') || normalized.includes('esewa') || normalized.includes('khalti'))
+    return 'Wallet Offer';
+  if (normalized.includes('app') || normalized.includes('download')) return 'App Offer';
+  if (normalized.includes('cod') || normalized.includes('cash on delivery')) return 'Cash on Delivery Offer';
+  if (normalized.includes('bank')) return 'Bank Offer';
+  return 'Special Offer';
+}
+
 export function mapWebsiteDealsToOfferSlides(deals: WebsiteDealRow[]): OfferSlide[] {
   return deals.map((deal, index) => {
     const pct = String(deal.discount_percent ?? '').trim();
+    const offerType = toOfferTypeLabel(String(deal.name ?? ''));
     return {
-      title: deal.name,
+      title: offerType,
       description: pct ? `Up to ${pct}% off on eligible items` : 'Limited-time promotion',
       icon: OFFER_ICONS[index % OFFER_ICONS.length],
       color: OFFER_GRADIENTS[index % OFFER_GRADIENTS.length],

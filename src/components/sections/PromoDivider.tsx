@@ -12,7 +12,7 @@ interface PromoDividerProps {
 const PromoDivider = ({ 
   title, 
   subtitle, 
-  bgGradient = 'from-purple-500 to-pink-500',
+  bgGradient = 'from-purple-500 to-amber-500',
   textColor = 'text-white',
   image,
   onClick 

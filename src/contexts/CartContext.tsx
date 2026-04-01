@@ -7,13 +7,15 @@ import {
   useRef,
   type ReactNode,
 } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Product, CartItem } from '@/types';
 import {
-  getAuthToken,
+  isStorefrontCustomerSession,
   mapWebsiteCartToCartItems,
   websiteApi,
   type WebsiteCartApi,
 } from '@/lib/api';
+import { savePendingCartIntent } from '@/lib/pendingCartIntent';
 import { toast } from 'sonner';
 
 const LISTING_KEY_SEP = '::';
@@ -68,6 +70,7 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider = ({ children }: { children: ReactNode }) => {
+  const navigate = useNavigate();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [lastAddedProduct, setLastAddedProduct] = useState<Product | null>(null);
@@ -88,7 +91,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const refreshServerCart = useCallback(async () => {
-    if (!getAuthToken()) return;
+    if (!isStorefrontCustomerSession()) return;
     try {
       const cart = await websiteApi.cart();
       applyServerCart(cart);
@@ -97,30 +100,12 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [applyServerCart]);
 
-  const mergeGuestIntoServer = useCallback(async () => {
-    if (!getAuthToken()) return;
-    const guest = [...cartItemsRef.current];
-    if (guest.length === 0) {
-      await refreshServerCart();
+  useEffect(() => {
+    if (!isStorefrontCustomerSession()) {
+      setCartItems([]);
+      setListingCartActiveKeys(new Set());
       return;
     }
-    setCartSyncing(true);
-    try {
-      for (const it of guest) {
-        await websiteApi.addToCart(Number(it.product.id), it.quantity);
-      }
-      const merged = await websiteApi.cart();
-      applyServerCart(merged);
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Could not sync cart');
-      await refreshServerCart();
-    } finally {
-      setCartSyncing(false);
-    }
-  }, [applyServerCart, refreshServerCart]);
-
-  useEffect(() => {
-    if (!getAuthToken()) return;
     let cancelled = false;
     void (async () => {
       setCartSyncing(true);
@@ -140,24 +125,30 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const onAuthChanged = () => {
-      if (!getAuthToken()) {
+      if (!isStorefrontCustomerSession()) {
         setCartItems([]);
         setListingCartActiveKeys(new Set());
         return;
       }
-      const guest = cartItemsRef.current;
-      if (guest.length > 0) {
-        void mergeGuestIntoServer();
-      } else {
-        void refreshServerCart();
-      }
+      void refreshServerCart();
     };
     window.addEventListener('khudra-auth-changed', onAuthChanged);
     return () => window.removeEventListener('khudra-auth-changed', onAuthChanged);
-  }, [mergeGuestIntoServer, refreshServerCart]);
+  }, [refreshServerCart]);
 
   const addToCart = useCallback(
     (product: Product, quantity = 1, options?: AddToCartOptions) => {
+      if (!isStorefrontCustomerSession()) {
+        const nextPath = `${window.location.pathname}${window.location.search}`;
+        savePendingCartIntent({
+          product,
+          quantity,
+          listingScope: options?.listingScope,
+          nextPath,
+        });
+        navigate(`/login?next=${encodeURIComponent(nextPath)}&shop=1`);
+        return;
+      }
       const rollback = cartItemsRef.current;
       const listingScope = options?.listingScope;
       const listingKey =
@@ -183,8 +174,6 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       setIsCartOpen(true);
       window.setTimeout(() => setIsCartOpen(false), 3000);
 
-      if (!getAuthToken()) return;
-
       void (async () => {
         setCartSyncing(true);
         try {
@@ -205,7 +194,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         }
       })();
     },
-    [applyServerCart],
+    [applyServerCart, navigate],
   );
 
   const removeFromCart = useCallback(
@@ -216,7 +205,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       setCartItems((prev) => prev.filter((item) => item.product.id !== productId));
       setListingCartActiveKeys((prev) => removeListingKeysForProduct(prev, productId));
 
-      if (!getAuthToken() || !target?.cartItemId) return;
+      if (!isStorefrontCustomerSession() || !target?.cartItemId) return;
 
       void (async () => {
         setCartSyncing(true);
@@ -251,7 +240,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         ),
       );
 
-      if (!getAuthToken() || !prevItem?.cartItemId) return;
+      if (!isStorefrontCustomerSession() || !prevItem?.cartItemId) return;
 
       void (async () => {
         setCartSyncing(true);
@@ -286,7 +275,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
     setCartItems([]);
     setListingCartActiveKeys(new Set());
 
-    if (!getAuthToken()) return;
+    if (!isStorefrontCustomerSession()) return;
 
     void (async () => {
       setCartSyncing(true);

@@ -47,7 +47,7 @@ const FlashDeals = ({ products, categoryTheme = 'cafe', listingScope, endsAt }: 
   return (
     <section className={`theme-${theme}`}>
       <div className="rounded-2xl overflow-hidden border border-storefront-orange/25 shadow-card">
-        <div className="bg-gradient-to-r from-storefront-orange via-red-500 to-storefront-orange-deep text-white px-4 py-3 md:px-5 md:py-3.5 flex flex-wrap items-center justify-between gap-3">
+        <div className="bg-gradient-to-r from-storefront-orange via-amber-500 to-storefront-orange-deep text-white px-4 py-3 md:px-5 md:py-3.5 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
             <div className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
               <Zap className="w-5 h-5 text-white fill-white" />

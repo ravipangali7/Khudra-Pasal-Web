@@ -4,8 +4,9 @@ import { Search, MapPin, ShoppingCart, User } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
 import { useAuthUi } from "@/contexts/AuthUiContext";
+import LogoutConfirmDialog from "@/components/auth/LogoutConfirmDialog";
 import SearchDropdown from "@/components/search/SearchDropdown";
-import { websiteApi } from "@/lib/api";
+import { clearAllAuthTokens, getAuthToken, websiteApi } from "@/lib/api";
 import logo from "@/assets/logo.png";
 
 interface HeaderProps {
@@ -24,6 +25,8 @@ const Header = ({ cartCount = 0 }: HeaderProps) => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
+  const [logoutOpen, setLogoutOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(() => Boolean(getAuthToken()));
   const { setIsCartOpen } = useCart();
   const { openLoginSheet, openSignupSheet } = useAuthUi();
 
@@ -41,6 +44,13 @@ const Header = ({ cartCount = 0 }: HeaderProps) => {
     }, 3000);
     return () => clearInterval(interval);
   }, [placeholders.length]);
+
+  useEffect(() => {
+    const sync = () => setIsLoggedIn(Boolean(getAuthToken()));
+    sync();
+    window.addEventListener("khudra-auth-changed", sync);
+    return () => window.removeEventListener("khudra-auth-changed", sync);
+  }, []);
 
   const hint = placeholders[placeholderIndex] ?? placeholders[0];
 
@@ -87,28 +97,50 @@ const Header = ({ cartCount = 0 }: HeaderProps) => {
             </div>
 
             <div className="flex items-center justify-end gap-1 sm:gap-2 shrink-0">
-              <button
-                type="button"
-                onClick={openLoginSheet}
-                className="hidden sm:inline px-2 md:px-3 py-2 rounded-full hover:bg-primary/10 transition-colors text-sm font-medium text-foreground"
-              >
-                Sign In
-              </button>
-              <button
-                type="button"
-                onClick={openSignupSheet}
-                className="hidden sm:inline px-2 md:px-3 py-2 rounded-full hover:bg-primary/10 transition-colors text-sm font-medium text-foreground"
-              >
-                Sign Up
-              </button>
-              <button
-                type="button"
-                onClick={openLoginSheet}
-                className="sm:hidden p-2 rounded-full hover:bg-primary/10 text-muted-foreground"
-                aria-label="Sign in"
-              >
-                <User className="w-5 h-5" />
-              </button>
+              {isLoggedIn ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setLogoutOpen(true)}
+                    className="hidden sm:inline px-2 md:px-3 py-2 rounded-full hover:bg-primary/10 transition-colors text-sm font-medium text-foreground"
+                  >
+                    Logout
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLogoutOpen(true)}
+                    className="sm:hidden p-2 rounded-full hover:bg-primary/10 text-muted-foreground"
+                    aria-label="Logout"
+                  >
+                    <User className="w-5 h-5" />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={openLoginSheet}
+                    className="hidden sm:inline px-2 md:px-3 py-2 rounded-full hover:bg-primary/10 transition-colors text-sm font-medium text-foreground"
+                  >
+                    Sign In
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openSignupSheet}
+                    className="hidden sm:inline px-2 md:px-3 py-2 rounded-full hover:bg-primary/10 transition-colors text-sm font-medium text-foreground"
+                  >
+                    Sign Up
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openLoginSheet}
+                    className="sm:hidden p-2 rounded-full hover:bg-primary/10 text-muted-foreground"
+                    aria-label="Sign in"
+                  >
+                    <User className="w-5 h-5" />
+                  </button>
+                </>
+              )}
               <button
                 type="button"
                 onClick={() => setIsCartOpen(true)}
@@ -130,6 +162,14 @@ const Header = ({ cartCount = 0 }: HeaderProps) => {
         onClose={() => setIsSearchOpen(false)}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
+      />
+      <LogoutConfirmDialog
+        open={logoutOpen}
+        onOpenChange={setLogoutOpen}
+        onConfirm={() => {
+          clearAllAuthTokens();
+          setLogoutOpen(false);
+        }}
       />
     </>
   );

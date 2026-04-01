@@ -771,7 +771,7 @@ export function FamilyPortal() {
               ? 'bg-emerald-500'
               : isOnline
                 ? 'bg-blue-500'
-                : 'bg-red-500';
+                : 'bg-slate-500';
             const isSelf = Boolean(viewer?.family_member_id && viewer.family_member_id === member.id);
             const showMutations = !isLeaderRow;
             return (

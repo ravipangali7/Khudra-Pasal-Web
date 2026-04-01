@@ -175,15 +175,37 @@ export default function POBillingModule() {
     setPreviewPk(pk);
   };
 
-  const runPrint = () => {
+  const runPrint = async () => {
+    const root = document.getElementById('invoice-print-root');
+    if (!root) return;
+
+    const images = Array.from(root.querySelectorAll('img'));
+    await Promise.all(
+      images.map(
+        (img) =>
+          new Promise<void>((resolve) => {
+            if (img.complete) {
+              resolve();
+              return;
+            }
+            const done = () => resolve();
+            img.addEventListener('load', done, { once: true });
+            img.addEventListener('error', done, { once: true });
+          }),
+      ),
+    );
+
     const el = document.createElement('style');
     el.setAttribute('data-invoice-print', '1');
     el.textContent = invoicePrintStyles();
     document.head.appendChild(el);
-    window.print();
-    setTimeout(() => {
+    const cleanup = () => {
       document.querySelectorAll('style[data-invoice-print]').forEach((n) => n.remove());
-    }, 2000);
+      window.removeEventListener('afterprint', cleanup);
+    };
+    window.addEventListener('afterprint', cleanup);
+    window.print();
+    setTimeout(cleanup, 2000);
   };
 
   return (

@@ -1,31 +1,46 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Home, TrendingUp, ShoppingCart, LogIn, Tag } from 'lucide-react';
+import { Home, TrendingUp, LogIn, LogOut, Tag } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useCart } from '@/contexts/CartContext';
+import LogoutConfirmDialog from '@/components/auth/LogoutConfirmDialog';
+import { clearAllAuthTokens, getAuthToken } from '@/lib/api';
 
 const FOOTER_HEIGHT = 64;
-
-const tabs = [
-  { id: 'home', icon: Home, label: 'Home', path: '/' },
-  { id: 'trending', icon: TrendingUp, label: 'Trending', path: '/category/all' },
-  { id: 'reels', icon: null, label: 'Reels', path: '/reels' },
-  { id: 'offers', icon: Tag, label: 'Offers', path: '/products' },
-  { id: 'login', icon: LogIn, label: 'Login', path: '/login' },
-];
 
 const MobileFooterNav = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { cartCount } = useCart();
+  const [isLoggedIn, setIsLoggedIn] = useState(() => Boolean(getAuthToken()));
+  const [logoutOpen, setLogoutOpen] = useState(false);
 
   useEffect(() => {
     document.body.style.paddingBottom = `${FOOTER_HEIGHT + 16}px`;
     return () => { document.body.style.paddingBottom = ''; };
   }, []);
 
+  useEffect(() => {
+    const sync = () => setIsLoggedIn(Boolean(getAuthToken()));
+    sync();
+    window.addEventListener('khudra-auth-changed', sync);
+    return () => window.removeEventListener('khudra-auth-changed', sync);
+  }, []);
+
   const isActive = (path: string) => location.pathname === path;
+  const tabs = useMemo(
+    () => [
+      { id: 'home', icon: Home, label: 'Home', path: '/' },
+      { id: 'trending', icon: TrendingUp, label: 'Trending', path: '/category/all' },
+      { id: 'reels', icon: null, label: 'Reels', path: '/reels' },
+      { id: 'offers', icon: Tag, label: 'Offers', path: '/products' },
+      isLoggedIn
+        ? { id: 'logout', icon: LogOut, label: 'Logout', path: '#' }
+        : { id: 'login', icon: LogIn, label: 'Login', path: '/login' },
+    ],
+    [isLoggedIn],
+  );
 
   const content = (
     <nav
@@ -52,9 +67,9 @@ const MobileFooterNav = () => {
                 <motion.div
                   className="w-[52px] h-[52px] rounded-full flex items-center justify-center shadow-lg"
                   style={{
-                    background: 'linear-gradient(135deg, hsl(347 77% 50%) 0%, hsl(350 80% 40%) 100%)',
-                    boxShadow: '0 0 24px rgba(230, 57, 70, 0.45), 0 4px 12px rgba(0,0,0,0.3)',
-                    border: '2px solid hsl(347 77% 60% / 0.5)',
+                    background: 'linear-gradient(135deg, hsl(38 92% 50%) 0%, hsl(32 92% 42%) 100%)',
+                    boxShadow: '0 0 24px rgba(245, 158, 11, 0.45), 0 4px 12px rgba(0,0,0,0.3)',
+                    border: '2px solid hsl(38 92% 58% / 0.5)',
                   }}
                   animate={active ? { scale: [1, 1.08, 1] } : {}}
                   transition={{ repeat: Infinity, duration: 2 }}
@@ -68,7 +83,7 @@ const MobileFooterNav = () => {
                 </motion.div>
                 <span
                   className="text-[9px] font-bold mt-0.5"
-                  style={{ color: active ? 'hsl(347 77% 60%)' : 'hsl(270 30% 70%)' }}
+                  style={{ color: active ? 'hsl(38 92% 58%)' : 'hsl(270 30% 70%)' }}
                 >
                   Reels
                 </span>
@@ -81,7 +96,13 @@ const MobileFooterNav = () => {
           return (
             <button
               key={tab.id}
-              onClick={() => navigate(tab.path)}
+              onClick={() => {
+                if (tab.id === 'logout') {
+                  setLogoutOpen(true);
+                  return;
+                }
+                navigate(tab.path);
+              }}
               className="flex flex-col items-center gap-0.5 py-2 px-3 relative"
             >
               <motion.div animate={active ? { scale: 1.15 } : { scale: 1 }}>
@@ -114,7 +135,19 @@ const MobileFooterNav = () => {
     </nav>
   );
 
-  return createPortal(content, document.body);
+  return (
+    <>
+      {createPortal(content, document.body)}
+      <LogoutConfirmDialog
+        open={logoutOpen}
+        onOpenChange={setLogoutOpen}
+        onConfirm={() => {
+          clearAllAuthTokens();
+          setLogoutOpen(false);
+        }}
+      />
+    </>
+  );
 };
 
 export default MobileFooterNav;

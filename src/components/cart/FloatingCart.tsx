@@ -29,7 +29,7 @@ const FloatingCart = ({ itemCount: propItemCount, totalAmount: propTotalAmount, 
       className="fixed z-40 md:hidden left-1/2 -translate-x-1/2 flex items-center gap-3 px-5 py-2.5 rounded-full text-white font-semibold animate-slide-up"
       style={{ 
         bottom: 'calc(80px + env(safe-area-inset-bottom))',
-        background: 'linear-gradient(135deg, hsl(330 81% 60%) 0%, hsl(347 77% 50%) 100%)',
+        background: 'linear-gradient(135deg, hsl(40 94% 56%) 0%, hsl(32 92% 48%) 100%)',
         boxShadow: '0 4px 20px rgba(0,0,0,0.25)'
       }}
     >

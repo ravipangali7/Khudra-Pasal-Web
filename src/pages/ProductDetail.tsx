@@ -19,7 +19,14 @@ import {
   mapWebsiteDealsToOfferSlides,
 } from '@/components/product/ProductDetailPopups';
 import { useCart } from '@/contexts/CartContext';
-import { clearAllAuthTokens, getApiErrorHttpStatus, getAuthToken, mapWebsiteProductToUi, websiteApi } from '@/lib/api';
+import {
+  clearAllAuthTokens,
+  getApiErrorHttpStatus,
+  getAuthToken,
+  getLoginSurface,
+  mapWebsiteProductToUi,
+  websiteApi,
+} from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -59,13 +66,18 @@ const ProductDetail = () => {
     },
   });
   const [hasWebsiteSession, setHasWebsiteSession] = useState(() => Boolean(getAuthToken()));
+  const [loginSurface, setLoginSurface] = useState(() => getLoginSurface());
   useEffect(() => {
-    const sync = () => setHasWebsiteSession(Boolean(getAuthToken()));
+    const sync = () => {
+      setHasWebsiteSession(Boolean(getAuthToken()));
+      setLoginSurface(getLoginSurface());
+    };
     sync();
     window.addEventListener('khudra-auth-changed', sync);
     return () => window.removeEventListener('khudra-auth-changed', sync);
   }, []);
-  const canSubmitReview = Boolean(hasWebsiteSession && identifier);
+  const isWebsiteCustomerSession = hasWebsiteSession && (loginSurface === null || loginSurface === 'portal');
+  const canSubmitReview = Boolean(isWebsiteCustomerSession && identifier);
   const loginRedirectPath = useMemo(
     () => `${window.location.pathname}${window.location.search}`,
     [],
@@ -74,7 +86,7 @@ const ProductDetail = () => {
     navigate(`/login?next=${encodeURIComponent(loginRedirectPath)}`);
   };
   const requireAuth = () => {
-    if (hasWebsiteSession) return true;
+    if (isWebsiteCustomerSession) return true;
     redirectToLogin();
     return false;
   };
@@ -103,6 +115,11 @@ const ProductDetail = () => {
   const { data: deals = [], isLoading: dealsLoading } = useQuery({
     queryKey: ['website', 'deals'],
     queryFn: () => websiteApi.deals(),
+    staleTime: 60_000,
+  });
+  const { data: storeInfo } = useQuery({
+    queryKey: ['website', 'store-info'],
+    queryFn: () => websiteApi.storeInfo(),
     staleTime: 60_000,
   });
   const offerSlides = useMemo(() => mapWebsiteDealsToOfferSlides(deals), [deals]);
@@ -232,7 +249,9 @@ const ProductDetail = () => {
 
   const handleWhatsApp = () => {
     const message = `Hi! I'm interested in ${product.name} priced at Rs. ${product.price}. Is it available?`;
-    const whatsappUrl = `https://wa.me/9779858047858?text=${encodeURIComponent(message)}`;
+    const footerPhone = storeInfo?.phone || '+977 9858047858';
+    const whatsappNumber = footerPhone.replace(/\D/g, '') || '9779858047858';
+    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
     window.open(whatsappUrl, '_blank');
   };
 
@@ -514,7 +533,7 @@ const ProductDetail = () => {
                 disabled={isWishlistLoading || wishlistMutation.isPending}
                 className="p-3 border border-border rounded-xl hover:bg-muted transition-colors disabled:opacity-60"
               >
-                <Heart className={cn("w-5 h-5", isWishlisted ? "fill-red-500 text-red-500" : "text-muted-foreground")} />
+                <Heart className={cn("w-5 h-5", isWishlisted ? "fill-amber-500 text-amber-500" : "text-muted-foreground")} />
               </button>
               <button
                 onClick={() => {

@@ -21,7 +21,7 @@ const OfferDivider = ({
   subtitle,
   deals = [],
   image,
-  bgGradient = 'from-orange-500 via-pink-500 to-purple-500',
+  bgGradient = 'from-orange-500 via-amber-500 to-purple-500',
   icon = 'sparkles',
   className
 }: OfferDividerProps) => {

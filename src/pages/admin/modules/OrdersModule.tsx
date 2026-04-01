@@ -20,7 +20,7 @@ import { adminApi, extractResults, type AdminOrderDetail, type AdminOrderListRow
 import { useAdminRouteContext } from '../adminRouteContext';
 import { useAdminMutation } from '../hooks/useAdminMutation';
 import { useAdminCrudPolicy } from '../hooks/useAdminCrudPolicy';
-import { formatApiError } from '../hooks/adminFormUtils';
+import { formatApiError, resolveMediaUrl } from '../hooks/adminFormUtils';
 import {
   Dialog,
   DialogContent,
@@ -79,6 +79,107 @@ function orderToInvoiceProps(
     total: order.total,
     hidePrices,
   };
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function buildInvoiceDownloadHtml(doc: InvoiceDocProps): string {
+  const cur = doc.branding.currency || 'NPR';
+  const siteLogo = doc.branding.site_logo_url ? resolveMediaUrl(doc.branding.site_logo_url) : '';
+  const priceColumns = doc.hidePrices ? '' : `
+      <th style="text-align:right; padding: 8px 0;">Price</th>
+      <th style="text-align:right; padding: 8px 0;">Total</th>
+  `;
+  const lineRows = doc.lines.map((line) => `
+      <tr>
+        <td style="padding: 8px 0; border-top: 1px solid #e2e8f0; width: 48px;">
+          ${line.image_url ? `<img src="${escapeHtml(resolveMediaUrl(line.image_url))}" alt="" style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px; border: 1px solid #e2e8f0;" />` : `<div style="width: 40px; height: 40px; border-radius: 6px; background: #f1f5f9; border: 1px solid #e2e8f0;"></div>`}
+        </td>
+        <td style="padding: 8px 0; border-top: 1px solid #e2e8f0;">${escapeHtml(line.name)}</td>
+        <td style="padding: 8px 0; border-top: 1px solid #e2e8f0; text-align:right;">${line.qty}</td>
+        ${doc.hidePrices ? '' : `<td style="padding: 8px 0; border-top: 1px solid #e2e8f0; text-align:right;">${cur} ${line.unit_price.toLocaleString()}</td>`}
+        ${doc.hidePrices ? '' : `<td style="padding: 8px 0; border-top: 1px solid #e2e8f0; text-align:right;">${cur} ${line.total.toLocaleString()}</td>`}
+      </tr>
+  `).join('');
+  const totalsBlock = doc.hidePrices ? '' : `
+      <div style="margin-top: 16px; margin-left:auto; width: 320px;">
+        <div style="display:flex; justify-content:space-between; padding: 4px 0;"><span>Subtotal</span><span>${cur} ${doc.subtotal.toLocaleString()}</span></div>
+        <div style="display:flex; justify-content:space-between; padding: 4px 0;"><span>Discount</span><span>${cur} ${doc.discount.toLocaleString()}</span></div>
+        <div style="display:flex; justify-content:space-between; padding: 4px 0;"><span>Delivery</span><span>${cur} ${doc.delivery.toLocaleString()}</span></div>
+        <div style="display:flex; justify-content:space-between; padding: 4px 0;"><span>Tax</span><span>${cur} ${doc.tax.toLocaleString()}</span></div>
+        <div style="display:flex; justify-content:space-between; padding-top: 8px; margin-top: 8px; border-top: 1px solid #cbd5e1; font-size: 18px; font-weight: 700;">
+          <span>Total</span><span>${cur} ${doc.total.toLocaleString()}</span>
+        </div>
+      </div>
+  `;
+  return `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>${escapeHtml(doc.title)} ${escapeHtml(doc.docId)}</title>
+  </head>
+  <body style="font-family: Arial, sans-serif; color: #0f172a; margin: 24px;">
+    <div style="max-width: 900px; margin: 0 auto;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom: 1px solid #cbd5e1; padding-bottom: 12px; margin-bottom: 16px;">
+        <div style="display:flex; align-items:flex-start; gap: 10px;">
+          ${siteLogo
+      ? `<img src="${escapeHtml(siteLogo)}" alt="" style="width: 56px; height: 56px; object-fit: contain; border-radius: 8px; border: 1px solid #e2e8f0; background: #fff;" />`
+      : `<div style="width: 56px; height: 56px; border-radius: 8px; background: #f1f5f9; border: 1px solid #e2e8f0; display:flex; align-items:center; justify-content:center; color:#64748b; font-weight:700;">${escapeHtml((doc.branding.site_name || 'K').charAt(0).toUpperCase())}</div>`}
+          <div>
+            <h1 style="margin:0; font-size: 22px;">${escapeHtml(doc.branding.site_name)}</h1>
+            ${doc.branding.phone ? `<div style="color:#475569; font-size: 13px; margin-top: 4px;">${escapeHtml(doc.branding.phone)}</div>` : ''}
+            ${doc.branding.address ? `<div style="color:#475569; font-size: 13px; margin-top: 2px;">${escapeHtml(doc.branding.address)}</div>` : ''}
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size: 12px; text-transform: uppercase; color: #64748b;">${escapeHtml(doc.title)}</div>
+          <div style="font-weight: 700;">${escapeHtml(doc.docId)}</div>
+          <div style="font-size: 13px; color: #475569;">${escapeHtml(doc.date)}</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom: 16px;">
+        <div style="font-size: 12px; text-transform: uppercase; color: #64748b;">Bill to</div>
+        <div style="font-weight: 600;">${escapeHtml(doc.billTo.name)}</div>
+        ${doc.billTo.phone ? `<div style="font-size: 13px; color:#475569;">${escapeHtml(doc.billTo.phone)}</div>` : ''}
+        ${doc.billTo.address ? `<div style="font-size: 13px; color:#475569;">${escapeHtml(doc.billTo.address)}</div>` : ''}
+      </div>
+
+      <table style="width:100%; border-collapse: collapse;">
+        <thead>
+          <tr>
+            <th style="text-align:left; padding: 8px 0; border-bottom: 1px solid #cbd5e1; width: 48px;">Img</th>
+            <th style="text-align:left; padding: 8px 0; border-bottom: 1px solid #cbd5e1;">Item</th>
+            <th style="text-align:right; padding: 8px 0; border-bottom: 1px solid #cbd5e1;">Qty</th>
+            ${priceColumns}
+          </tr>
+        </thead>
+        <tbody>${lineRows}</tbody>
+      </table>
+      ${totalsBlock}
+    </div>
+  </body>
+</html>`;
+}
+
+function downloadInvoiceFile(doc: InvoiceDocProps): void {
+  const blob = new Blob([buildInvoiceDownloadHtml(doc)], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const suffix = doc.hidePrices ? 'packing-slip' : 'invoice';
+  a.href = url;
+  a.download = `${doc.docId}-${suffix}.html`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 function AllOrdersView() {
@@ -241,7 +342,16 @@ function AllOrdersView() {
               <Card>
                 <CardHeader className="pb-3"><CardTitle className="text-base">Actions</CardTitle></CardHeader>
                 <CardContent className="space-y-2">
-                  <Button variant="outline" className="w-full" size="sm" type="button" onClick={() => setDocPreview('invoice')}>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    size="sm"
+                    type="button"
+                    onClick={() => {
+                      if (!order) return;
+                      downloadInvoiceFile(orderToInvoiceProps(order, site, false));
+                    }}
+                  >
                     <FileText className="w-4 h-4 mr-2" /> Download Invoice
                   </Button>
                   <Button variant="outline" className="w-full" size="sm" type="button" onClick={() => setDocPreview('packing')}>
@@ -316,7 +426,10 @@ function AllOrdersView() {
           {docInvoiceProps ? <InvoiceDocument {...docInvoiceProps} /> : null}
           <DialogFooter className="gap-2 sm:gap-0">
             <Button type="button" variant="outline" onClick={() => setDocPreview(null)}>Close</Button>
-            <Button type="button" onClick={runPrint}><Download className="w-4 h-4 mr-2" /> Print / Save PDF</Button>
+            <Button type="button" onClick={() => { if (docInvoiceProps) downloadInvoiceFile(docInvoiceProps); }}>
+              <Download className="w-4 h-4 mr-2" /> Download Bill
+            </Button>
+            <Button type="button" variant="outline" onClick={runPrint}><Download className="w-4 h-4 mr-2" /> Print</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

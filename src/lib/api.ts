@@ -37,6 +37,11 @@ const ADMIN_TOKEN_KEY = "khudrapasal_admin_token";
 export const VENDOR_TOKEN_KEY = "khudrapasal_vendor_token";
 export const PORTAL_TOKEN_KEY = "khudrapasal_portal_token";
 const LOGIN_SURFACE_KEY = "khudrapasal_login_surface";
+const looksLikeJwt = (token: string) => token.split(".").length === 3;
+
+function buildAuthHeaderValue(token: string): string {
+  return looksLikeJwt(token) ? `Bearer ${token}` : `Token ${token}`;
+}
 
 /** From unified login API, or `not_vendor` after a failed vendor access probe (legacy sessions). */
 export type LoginSurface = "admin" | "vendor" | "portal" | "not_vendor";
@@ -62,6 +67,12 @@ export function getAuthToken(): string | null {
     localStorage.getItem(VENDOR_TOKEN_KEY) ||
     localStorage.getItem(PORTAL_TOKEN_KEY)
   );
+}
+
+export function isStorefrontCustomerSession(): boolean {
+  if (!getAuthToken()) return false;
+  const surface = getLoginSurface();
+  return surface === null || surface === "portal";
 }
 
 /** Pass `surface` from unified login so portals can avoid calling vendor APIs with a customer/admin token. */
@@ -409,7 +420,7 @@ async function apiFetch<T>(path: string, init?: RequestInit, authenticated = fal
   }
   if (authenticated) {
     const token = getAuthToken();
-    if (token) headers.set("Authorization", `Token ${token}`);
+    if (token) headers.set("Authorization", buildAuthHeaderValue(token));
   }
 
   const response = await fetch(`${API_BASE}${path}`, { ...init, headers });
@@ -484,7 +495,7 @@ async function vendorFetch<T>(path: string, init?: RequestInit, authenticated = 
   }
   if (authenticated) {
     const token = getAuthToken();
-    if (token) headers.set("Authorization", `Token ${token}`);
+    if (token) headers.set("Authorization", buildAuthHeaderValue(token));
   }
 
   const response = await fetch(`${API_BASE}${path}`, { ...init, headers });
@@ -506,7 +517,7 @@ async function vendorFetchBlob(path: string, authenticated = true): Promise<Blob
   const headers = new Headers();
   if (authenticated) {
     const token = getAuthToken();
-    if (token) headers.set("Authorization", `Token ${token}`);
+    if (token) headers.set("Authorization", buildAuthHeaderValue(token));
   }
   const response = await fetch(`${API_BASE}${path}`, { headers });
   if (!response.ok) {
@@ -536,7 +547,7 @@ async function portalFetch<T>(path: string, init?: RequestInit, authenticated = 
   headers.set("Content-Type", "application/json");
   if (authenticated) {
     const token = getAuthToken();
-    if (token) headers.set("Authorization", `Token ${token}`);
+    if (token) headers.set("Authorization", buildAuthHeaderValue(token));
   }
 
   const response = await fetch(`${API_BASE}${path}`, { ...init, headers });
@@ -559,7 +570,7 @@ async function portalFetchMultipart<T>(path: string, init: RequestInit, authenti
   const headers = new Headers(init.headers ?? {});
   if (authenticated) {
     const token = getAuthToken();
-    if (token) headers.set("Authorization", `Token ${token}`);
+    if (token) headers.set("Authorization", buildAuthHeaderValue(token));
   }
   const response = await fetch(`${API_BASE}${path}`, { ...init, headers });
   if (!response.ok) {
@@ -839,6 +850,16 @@ export type UnifiedAuthSuccess = {
   user: Record<string, unknown>;
 };
 
+export type GoogleJwtAuthSuccess = {
+  access: string;
+  refresh: string;
+  user: {
+    pk: number;
+    email: string;
+    name: string;
+  };
+};
+
 export const authApi = {
   login: (phone: string, password: string, portal: AuthPortalKey = "portal") =>
     apiFetch<UnifiedAuthSuccess>("/auth/login/", {
@@ -865,6 +886,11 @@ export const authApi = {
     apiFetch<UnifiedAuthSuccess>("/auth/otp/verify/", {
       method: "POST",
       body: JSON.stringify(payload),
+    }),
+  loginWithGoogleCredential: (access_token: string) =>
+    apiFetch<GoogleJwtAuthSuccess>("/auth/google/", {
+      method: "POST",
+      body: JSON.stringify({ access_token }),
     }),
 };
 

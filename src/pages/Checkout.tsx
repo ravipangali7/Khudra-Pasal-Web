@@ -6,8 +6,8 @@ import { useCart } from '@/contexts/CartContext';
 import logo from '@/assets/logo.png';
 import { cn } from '@/lib/utils';
 import {
-  getAuthToken,
   getCheckoutPlacedPortal,
+  isStorefrontCustomerSession,
   portalApi,
   type PortalCheckoutWalletContext,
   PortalApiError,
@@ -34,6 +34,7 @@ type CheckoutLocationState = {
 const Checkout = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const hasStorefrontSession = isStorefrontCustomerSession();
   const queryClient = useQueryClient();
   const { cartItems, cartTotal, cartCount, updateQuantity, removeFromCart, clearCart } = useCart();
   const checkoutState = (location.state as CheckoutLocationState | null) ?? null;
@@ -74,8 +75,13 @@ const Checkout = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
+    if (hasStorefrontSession) return;
+    navigate('/login', { replace: true, state: { from: '/checkout' } });
+  }, [hasStorefrontSession, navigate]);
+
+  useEffect(() => {
     let cancelled = false;
-    if (!getAuthToken()) return;
+    if (!hasStorefrontSession) return;
     void (async () => {
       try {
         const d = await portalApi.deliveryDefault();
@@ -99,10 +105,10 @@ const Checkout = () => {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [hasStorefrontSession]);
 
   useEffect(() => {
-    if (!getAuthToken() || step !== 'payment') {
+    if (!hasStorefrontSession || step !== 'payment') {
       return;
     }
     let cancelled = false;
@@ -122,7 +128,7 @@ const Checkout = () => {
     return () => {
       cancelled = true;
     };
-  }, [step]);
+  }, [hasStorefrontSession, step]);
 
   const formatPrice = (price: number) => `Rs. ${price.toLocaleString('en-NP')}`;
 
@@ -141,7 +147,7 @@ const Checkout = () => {
 
   const walletPayBlocked =
     walletCtxLoading ||
-    !getAuthToken() ||
+    !hasStorefrontSession ||
     !walletCheckoutCtx?.default ||
     (effectivePayWallet != null && totalAmount > effectivePayWallet.balance);
 
@@ -152,7 +158,7 @@ const Checkout = () => {
   ];
 
   const handleAutoLocation = () => {
-    if (!getAuthToken()) {
+    if (!hasStorefrontSession) {
       toast.error('Sign in to detect and save your delivery location');
       navigate('/login', { state: { from: '/checkout' } });
       return;
@@ -232,7 +238,7 @@ const Checkout = () => {
       setStep('delivery');
     } else if (step === 'delivery') {
       if (validateDelivery()) {
-        if (!getAuthToken()) {
+        if (!hasStorefrontSession) {
           toast.error('Sign in to pay with your KhudraPasal Wallet');
           navigate('/login', { state: { from: '/checkout' } });
           return;
@@ -243,7 +249,7 @@ const Checkout = () => {
   };
 
   const handlePlaceOrder = async () => {
-    if (!getAuthToken()) {
+    if (!hasStorefrontSession) {
       toast.error('Sign in to place an order');
       navigate('/login', { state: { from: '/checkout' } });
       return;
@@ -655,7 +661,7 @@ const Checkout = () => {
                 <p className="text-sm text-muted-foreground mb-4">
                   Checkout is paid from your wallet balance. Add money in your portal if you need more.
                 </p>
-                {!getAuthToken() ? (
+                {!hasStorefrontSession ? (
                   <div className="rounded-xl border border-border bg-muted/30 p-4 text-center space-y-3">
                     <p className="text-sm text-muted-foreground">Sign in to use your wallet at checkout.</p>
                     <Link

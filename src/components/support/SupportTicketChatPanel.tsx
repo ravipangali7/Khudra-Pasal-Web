@@ -104,8 +104,8 @@ function PendingAttachmentTile({
             <Video className="w-7 h-7 text-muted-foreground" />
           </div>
         ) : kind === 'pdf' ? (
-          <div className="w-full h-full flex flex-col items-center justify-center gap-1 p-1 bg-red-500/10">
-            <FileText className="w-7 h-7 text-red-600 dark:text-red-400" />
+          <div className="w-full h-full flex flex-col items-center justify-center gap-1 p-1 bg-amber-500/10">
+            <FileText className="w-7 h-7 text-amber-600 dark:text-amber-400" />
           </div>
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center gap-1 p-1 bg-muted">

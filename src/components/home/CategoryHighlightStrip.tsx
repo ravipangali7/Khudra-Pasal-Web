@@ -8,7 +8,7 @@ const CARD_STYLES = [
   'bg-emerald-100/90 text-emerald-900 border-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-100 dark:border-emerald-800/60',
   'bg-white border-border shadow-sm text-foreground',
   'bg-sky-50/95 text-sky-950 border-sky-200/80 dark:bg-sky-950/30 dark:text-sky-100 dark:border-sky-800/50',
-  'bg-rose-100/90 text-rose-900 border-rose-200/80 dark:bg-rose-950/40 dark:text-rose-100 dark:border-rose-800/60',
+  'bg-amber-100/90 text-amber-900 border-amber-200/80 dark:bg-amber-950/40 dark:text-amber-100 dark:border-amber-800/60',
 ];
 
 const HIGHLIGHT_COUNT = 4;

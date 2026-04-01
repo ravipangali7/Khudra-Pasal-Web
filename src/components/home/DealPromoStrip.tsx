@@ -10,7 +10,7 @@ interface DealPromoStripProps {
 }
 
 const TILE_STYLES = [
-  'from-pink-100 to-rose-50 border-pink-200/70 text-rose-950 dark:from-pink-950/50 dark:to-rose-950/30 dark:border-pink-800/50 dark:text-pink-50',
+  'from-amber-100 to-yellow-50 border-amber-200/70 text-amber-950 dark:from-amber-950/50 dark:to-yellow-950/30 dark:border-amber-800/50 dark:text-amber-50',
   'from-emerald-100 to-teal-50 border-emerald-200/70 text-emerald-950 dark:from-emerald-950/50 dark:to-teal-950/30 dark:border-emerald-800/50 dark:text-emerald-50',
   'from-sky-100 to-blue-50 border-sky-200/70 text-sky-950 dark:from-sky-950/50 dark:to-blue-950/30 dark:border-sky-800/50 dark:text-sky-50',
   'from-violet-100 to-purple-50 border-violet-200/70 text-violet-950 dark:from-violet-950/50 dark:to-purple-950/30 dark:border-violet-800/50 dark:text-violet-50',

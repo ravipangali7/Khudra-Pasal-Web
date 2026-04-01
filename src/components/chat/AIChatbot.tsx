@@ -39,7 +39,7 @@ const AIChatbot = () => {
         onClick={() => setIsOpen(true)}
         className={cn(
           'fixed z-50 w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-110',
-          'bg-gradient-to-br from-primary to-pink-600 text-white',
+          'bg-gradient-to-br from-primary to-amber-600 text-white',
           isOpen ? 'hidden' : 'flex',
         )}
         style={{

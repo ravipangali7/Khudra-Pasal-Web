@@ -16,7 +16,7 @@ import {
 import { adminApi } from '@/lib/api';
 import { useAdminList } from '../hooks/useAdminList';
 
-const COLORS = ['hsl(36, 100%, 50%)', 'hsl(270, 80%, 35%)', 'hsl(142, 71%, 45%)', 'hsl(217, 91%, 60%)', 'hsl(347, 77%, 50%)'];
+const COLORS = ['hsl(36, 100%, 50%)', 'hsl(270, 80%, 35%)', 'hsl(142, 71%, 45%)', 'hsl(217, 91%, 60%)', 'hsl(32, 92%, 48%)'];
 
 function fmtRs(n: number) {
   if (!Number.isFinite(n)) return 'Rs. 0';

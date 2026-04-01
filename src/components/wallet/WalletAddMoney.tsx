@@ -42,7 +42,7 @@ const WalletAddMoney = ({ isOpen, onClose, onConfirmTopup, defaultAmount }: Wall
   const addMethods: AddMoneyMethod[] = [
     { id: 'esewa', name: 'eSewa', icon: '💚', color: 'from-green-500 to-green-600' },
     { id: 'khalti', name: 'Khalti', icon: '💜', color: 'from-purple-500 to-purple-600' },
-    { id: 'connectips', name: 'Connect IPS', icon: '🔗', color: 'from-red-500 to-red-600' },
+    { id: 'connectips', name: 'Connect IPS', icon: '🔗', color: 'from-amber-500 to-amber-600' },
     { id: 'qr', name: 'Manual QR Upload', icon: '📱', color: 'from-gray-600 to-gray-700' },
   ];
 

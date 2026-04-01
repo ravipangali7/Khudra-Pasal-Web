@@ -51,8 +51,8 @@ const ReelsMobileFooter: React.FC = () => {
                 <motion.div
                   className="w-[52px] h-[52px] rounded-full flex items-center justify-center"
                   style={{
-                    background: 'linear-gradient(135deg, #E63946 0%, #c62828 100%)',
-                    boxShadow: '0 0 24px rgba(230, 57, 70, 0.35)',
+                    background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
+                    boxShadow: '0 0 24px rgba(245, 158, 11, 0.35)',
                   }}
                   animate={active ? { scale: [1, 1.08, 1] } : {}}
                   transition={{ repeat: Infinity, duration: 2 }}
@@ -66,7 +66,7 @@ const ReelsMobileFooter: React.FC = () => {
                 </motion.div>
                 <span
                   className="text-[9px] font-bold mt-0.5"
-                  style={{ color: active ? '#E63946' : 'rgba(85,85,85,1)' }}
+                  style={{ color: active ? '#F59E0B' : 'rgba(85,85,85,1)' }}
                 >
                   Reels
                 </span>
@@ -84,17 +84,17 @@ const ReelsMobileFooter: React.FC = () => {
               className="flex flex-col items-center gap-0.5 py-2 px-3 relative"
             >
               <motion.div animate={active ? { scale: 1.1 } : { scale: 1 }}>
-                <Icon className="w-5 h-5" style={{ color: active ? '#E63946' : 'rgba(85,85,85,1)' }} />
+                <Icon className="w-5 h-5" style={{ color: active ? '#F59E0B' : 'rgba(85,85,85,1)' }} />
               </motion.div>
               {tab.id === 'cart' && cartCount > 0 && (
-                <span className="absolute -top-0.5 right-1 w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">
+                <span className="absolute -top-0.5 right-1 w-4 h-4 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center">
                   {cartCount}
                 </span>
               )}
               <span
                 className="text-[10px]"
                 style={{
-                  color: active ? '#E63946' : 'rgba(85,85,85,1)',
+                  color: active ? '#F59E0B' : 'rgba(85,85,85,1)',
                   fontWeight: active ? 700 : 400,
                 }}
               >

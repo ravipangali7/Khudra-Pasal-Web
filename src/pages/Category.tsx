@@ -84,7 +84,7 @@ const Category = () => {
       <CategoryNav activeCategory={activeCategory} onCategoryChange={handleCategoryChange} />
 
       <main className="container mx-auto space-y-6 px-4 py-4">
-        <HeroBanner placement="category" categoryFilter={activeCategory} />
+        <HeroBanner key={activeCategory} placement="homepage" />
 
         <div className="space-y-3">
           <label className="search-bar flex cursor-text items-center gap-3">

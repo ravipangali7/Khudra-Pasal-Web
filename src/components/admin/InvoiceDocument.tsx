@@ -34,9 +34,38 @@ export type InvoiceDocProps = {
 export function invoicePrintStyles() {
   return `
     @media print {
-      body * { visibility: hidden; }
-      #invoice-print-root, #invoice-print-root * { visibility: visible; }
-      #invoice-print-root { position: absolute; left: 0; top: 0; width: 100%; padding: 24px; }
+      @page { size: auto; margin: 10mm; }
+      html, body {
+        height: auto !important;
+        overflow: visible !important;
+        background: #fff !important;
+      }
+      body * { visibility: hidden !important; }
+      #invoice-print-root, #invoice-print-root * { visibility: visible !important; }
+      #invoice-print-root {
+        position: static !important;
+        left: auto !important;
+        top: auto !important;
+        width: 100% !important;
+        max-width: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: 0 !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+        background: #fff !important;
+      }
+      #invoice-print-root table,
+      #invoice-print-root tr,
+      #invoice-print-root td,
+      #invoice-print-root th {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+      #invoice-print-root img {
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+      }
     }
   `;
 }

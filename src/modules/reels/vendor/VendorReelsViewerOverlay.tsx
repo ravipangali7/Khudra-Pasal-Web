@@ -6,7 +6,8 @@ import ReelCard from '../feed/ReelCard';
 import ReelCommentDrawer from '../feed/ReelCommentDrawer';
 import AddedToCartToast from '../feed/AddedToCartToast';
 import ReelsFeedSkeleton from '../feed/ReelsFeedSkeleton';
-import { vendorApi, extractResults, websiteApi } from '@/lib/api';
+import { isStorefrontCustomerSession, vendorApi, extractResults, websiteApi } from '@/lib/api';
+import { savePendingCartIntent } from '@/lib/pendingCartIntent';
 import { mapApiReelToUi } from '../api/reelMappers';
 import { useCart } from '@/contexts/CartContext';
 import { toast } from 'sonner';
@@ -46,6 +47,34 @@ const VendorReelsViewerOverlay: React.FC<Props> = ({ vendorId, initialReelId, on
   const viewTimerRef = useRef<number | null>(null);
   const toastTimerRef = useRef<number | null>(null);
   const { addToCart } = useCart();
+  const toCartProduct = useCallback(
+    (reel: Reel) => ({
+      id: String(reel.product.id),
+      name: reel.product.name,
+      description: reel.caption || reel.product.name,
+      price: reel.product.price,
+      originalPrice: reel.product.originalPrice || undefined,
+      image: reel.product.image,
+      category: 'reels',
+      rating: reel.product.rating,
+      reviewCount: reel.product.reviews,
+      inStock: reel.product.inStock,
+      unit: '1 item',
+    }),
+    [],
+  );
+
+  const redirectToLogin = useCallback((reel: Reel, quantity = 1) => {
+    const nextPath = `${location.pathname}${location.search}`;
+    if (reel.product?.id) {
+      savePendingCartIntent({
+        product: toCartProduct(reel),
+        quantity,
+        nextPath,
+      });
+    }
+    navigate(`/login?next=${encodeURIComponent(nextPath)}&shop=1`);
+  }, [location.pathname, location.search, navigate, toCartProduct]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -210,26 +239,18 @@ const VendorReelsViewerOverlay: React.FC<Props> = ({ vendorId, initialReelId, on
   const handleAddToCart = useCallback(
     (reel: Reel) => {
       if (!reel.product?.id) return;
+      if (!isStorefrontCustomerSession()) {
+        redirectToLogin(reel, 1);
+        return;
+      }
       reelCartInteractionMut.mutate({ reelId: reel.id });
-      addToCart({
-        id: String(reel.product.id),
-        name: reel.product.name,
-        description: reel.caption || reel.product.name,
-        price: reel.product.price,
-        originalPrice: reel.product.originalPrice || undefined,
-        image: reel.product.image,
-        category: 'reels',
-        rating: reel.product.rating,
-        reviewCount: reel.product.reviews,
-        inStock: reel.product.inStock,
-        unit: '1 item',
-      });
+      addToCart(toCartProduct(reel));
       patchReel(reel.id, (r) => ({ ...r, hasAddedToCart: true }));
       setShowToast(true);
       if (toastTimerRef.current != null) window.clearTimeout(toastTimerRef.current);
       toastTimerRef.current = window.setTimeout(() => setShowToast(false), 3000);
     },
-    [addToCart, reelCartInteractionMut, patchReel],
+    [addToCart, patchReel, reelCartInteractionMut, redirectToLogin, toCartProduct],
   );
 
   const handleLike = useCallback(
@@ -277,22 +298,11 @@ const VendorReelsViewerOverlay: React.FC<Props> = ({ vendorId, initialReelId, on
   const handleBuyNow = useCallback(
     (reel: Reel, quantity = 1) => {
       if (!reel.product?.id) return;
-      addToCart(
-        {
-          id: String(reel.product.id),
-          name: reel.product.name,
-          description: reel.caption || reel.product.name,
-          price: reel.product.price,
-          originalPrice: reel.product.originalPrice || undefined,
-          image: reel.product.image,
-          category: 'reels',
-          rating: reel.product.rating,
-          reviewCount: reel.product.reviews,
-          inStock: reel.product.inStock,
-          unit: '1 item',
-        },
-        quantity,
-      );
+      if (!isStorefrontCustomerSession()) {
+        redirectToLogin(reel, quantity);
+        return;
+      }
+      addToCart(toCartProduct(reel), quantity);
       navigate('/checkout', {
         state: {
           from: `${location.pathname}${location.search}`,
@@ -307,7 +317,7 @@ const VendorReelsViewerOverlay: React.FC<Props> = ({ vendorId, initialReelId, on
         },
       });
     },
-    [addToCart, location.pathname, location.search, navigate],
+    [addToCart, location.pathname, location.search, navigate, redirectToLogin, toCartProduct],
   );
 
   useEffect(() => {

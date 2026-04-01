@@ -2,6 +2,7 @@ import { X, Minus, Plus, ShoppingBag, Trash2, CheckCircle } from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import { cn } from '@/lib/utils';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { isStorefrontCustomerSession } from '@/lib/api';
 
 const CartDrawer = () => {
   const { 
@@ -139,6 +140,10 @@ const CartDrawer = () => {
             <button 
               onClick={() => {
                 setIsCartOpen(false);
+                if (!isStorefrontCustomerSession()) {
+                  navigate('/login', { state: { from: '/checkout' } });
+                  return;
+                }
                 navigate('/checkout', { state: { from: `${location.pathname}${location.search}` } });
               }}
               className="w-full py-2.5 md:py-3.5 bg-category-fresh hover:bg-category-fresh/90 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 text-sm md:text-base"

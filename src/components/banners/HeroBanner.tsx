@@ -23,9 +23,9 @@ interface HeroBannerProps {
   placement: 'homepage' | 'category';
 }
 
-/** Soft pink → light (reference marketplace hero when no admin gradient). */
+/** Soft amber → light (reference marketplace hero when no admin gradient). */
 const DEFAULT_OVERLAY =
-  'bg-gradient-to-r from-primary/90 via-primary/35 to-white/45 dark:from-primary/80 dark:via-primary/25 dark:to-pink-950/35';
+  'bg-gradient-to-r from-primary/90 via-primary/35 to-white/45 dark:from-primary/80 dark:via-primary/25 dark:to-amber-950/35';
 
 function isInternalAppPath(href: string): boolean {
   const h = href.trim();

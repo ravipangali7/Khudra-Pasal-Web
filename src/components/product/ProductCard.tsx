@@ -6,7 +6,7 @@ import { useCart } from '@/contexts/CartContext';
 import NotifyMeModal from '@/components/modals/NotifyMeModal';
 import { cn } from '@/lib/utils';
 import { resolveThemeClass } from '@/lib/categoryTheme';
-import { getAuthToken } from '@/lib/api';
+import { isStorefrontCustomerSession } from '@/lib/api';
 import { savePendingCartIntent } from '@/lib/pendingCartIntent';
 
 /** Top-right badge on the image when the product is not flagged as bestseller. */
@@ -80,7 +80,7 @@ const ProductCard = ({
     if (isSoldOut) {
       setShowNotifyModal(true);
     } else {
-      if (!getAuthToken()) {
+      if (!isStorefrontCustomerSession()) {
         const nextPath = `${window.location.pathname}${window.location.search}`;
         savePendingCartIntent({
           product,
@@ -154,13 +154,13 @@ const ProductCard = ({
 
             {showAccent && (
               <div
-                className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-sm bg-pink-500/25 border border-pink-400/30"
+                className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-sm bg-amber-500/25 border border-amber-400/30"
                 aria-hidden
               >
                 {topRightAccent === 'hot' ? (
-                  <Flame className="w-4 h-4 text-pink-600" strokeWidth={2.25} />
+                  <Flame className="w-4 h-4 text-amber-600" strokeWidth={2.25} />
                 ) : (
-                  <TrendingUp className="w-4 h-4 text-pink-600" strokeWidth={2.25} />
+                  <TrendingUp className="w-4 h-4 text-amber-600" strokeWidth={2.25} />
                 )}
               </div>
             )}

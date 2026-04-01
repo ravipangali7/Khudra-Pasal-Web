@@ -133,7 +133,7 @@ const HomePromoStrip = () => {
           const cta = row.cta_text?.trim() || 'Shop now';
           const inner = (
             <>
-              <DecorativeBlob className="bg-pink-200/40" />
+              <DecorativeBlob className="bg-amber-200/40" />
               <div className="relative z-[1] flex min-h-[120px] flex-col justify-between md:min-h-[140px]">
                 <div>
                   <h3 className="text-sm font-bold leading-tight text-white md:text-base">{row.title}</h3>
@@ -153,14 +153,14 @@ const HomePromoStrip = () => {
             <PromoNavLink
               key={row.id}
               href={href}
-              className="relative block overflow-hidden rounded-2xl border border-primary/25 bg-gradient-to-br from-primary to-pink-600 p-4 text-left shadow-card transition-shadow hover:shadow-product"
+              className="relative block overflow-hidden rounded-2xl border border-primary/25 bg-gradient-to-br from-primary to-amber-600 p-4 text-left shadow-card transition-shadow hover:shadow-product"
             >
               {inner}
             </PromoNavLink>
           ) : (
             <div
               key={row.id}
-              className="relative overflow-hidden rounded-2xl border border-primary/25 bg-gradient-to-br from-primary to-pink-600 p-4 shadow-card"
+              className="relative overflow-hidden rounded-2xl border border-primary/25 bg-gradient-to-br from-primary to-amber-600 p-4 shadow-card"
             >
               {inner}
             </div>

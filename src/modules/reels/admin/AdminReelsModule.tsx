@@ -400,7 +400,7 @@ const AdminReelsModule: React.FC = () => {
         {[
           { label: 'Total Reels', value: reelsData.length, icon: Play, color: 'text-blue-400' },
           { label: 'Total Views', value: formatCount(reelsData.reduce((a, r) => a + r.views, 0)), icon: Eye, color: 'text-emerald-400' },
-          { label: 'Total Likes', value: formatCount(reelsData.reduce((a, r) => a + r.likes, 0)), icon: Heart, color: 'text-pink-400' },
+          { label: 'Total Likes', value: formatCount(reelsData.reduce((a, r) => a + r.likes, 0)), icon: Heart, color: 'text-amber-400' },
           { label: 'Flagged', value: reelsData.filter(r => r.status === 'flagged').length, icon: AlertTriangle, color: 'text-amber-400' },
         ].map(s => (
           <div key={s.label} className="rounded-xl border bg-card p-4">

@@ -72,10 +72,10 @@ function LegacyProductsCategoryPathRedirect() {
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
-      <CartProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
+      <BrowserRouter>
+        <CartProvider>
+          <Toaster />
+          <Sonner />
           <AuthUiProvider>
             <ScrollToTopOnNavigate />
             <Routes>
@@ -113,8 +113,8 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
             </Routes>
           </AuthUiProvider>
-        </BrowserRouter>
-      </CartProvider>
+        </CartProvider>
+      </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
 );

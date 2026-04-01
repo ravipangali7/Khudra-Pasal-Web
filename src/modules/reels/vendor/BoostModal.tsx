@@ -27,7 +27,7 @@ interface BoostModalProps {
 const boostTypes = [
   { id: 'standard', label: 'Standard', icon: Zap, description: 'Show in trending feed', color: '#3B82F6', multiplier: '2x' },
   { id: 'premium', label: 'Premium', icon: TrendingUp, description: 'Priority placement + explore page', color: '#F59E0B', multiplier: '5x' },
-  { id: 'mega', label: 'Mega', icon: Crown, description: 'Top of all feeds + push notifications', color: '#E63946', multiplier: '10x' },
+  { id: 'mega', label: 'Mega', icon: Crown, description: 'Top of all feeds + push notifications', color: '#F59E0B', multiplier: '10x' },
 ];
 
 const BoostModal: React.FC<BoostModalProps> = ({

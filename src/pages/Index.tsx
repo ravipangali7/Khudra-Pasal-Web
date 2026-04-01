@@ -37,11 +37,11 @@ const categoryHeaderStyles: Record<string, string> = {
   default: 'bg-gradient-to-r from-muted/40 to-muted/25 dark:from-muted/20 dark:to-muted/10',
   cafe: 'bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20',
   home: 'bg-gradient-to-r from-sky-50 to-teal-50 dark:from-sky-950/20 dark:to-teal-950/20',
-  toys: 'bg-gradient-to-r from-pink-50 to-violet-50 dark:from-pink-950/20 dark:to-violet-950/20',
+  toys: 'bg-gradient-to-r from-amber-50 to-violet-50 dark:from-amber-950/20 dark:to-violet-950/20',
   fresh: 'bg-gradient-to-r from-emerald-50 to-lime-50 dark:from-emerald-950/20 dark:to-lime-950/20',
   electronics: 'bg-gradient-to-r from-slate-50 to-blue-50 dark:from-slate-950/20 dark:to-blue-950/20',
   mobiles: 'bg-gradient-to-r from-indigo-50 to-cyan-50 dark:from-indigo-950/20 dark:to-cyan-950/20',
-  beauty: 'bg-gradient-to-r from-rose-50 to-fuchsia-50 dark:from-rose-950/20 dark:to-fuchsia-950/20',
+  beauty: 'bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-950/20 dark:to-yellow-950/20',
   fashion: 'bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-950/20 dark:to-purple-950/20',
 };
 
@@ -197,9 +197,9 @@ const Index = () => {
       <CartDrawer />
 
       <main className="container mx-auto px-4 py-4 space-y-6">
+        <HeroBanner key={activeCategory} placement="homepage" />
         {activeCategory === 'all' && (
           <>
-            <HeroBanner placement="homepage" />
             <HomePromoStrip />
             <ShopByCategory onCategoryClick={handleCategoryChange} />
             <DiscountPromoCard discountedCount={bestDealsProducts.length} />
@@ -297,7 +297,6 @@ const Index = () => {
 
         {activeCategory !== 'all' && (
           <>
-            <HeroBanner placement="category" categoryFilter={activeCategory} />
             <div className="space-y-3">
               <label className="search-bar flex cursor-text items-center gap-3">
                 <Search className="h-5 w-5 shrink-0 text-muted-foreground" aria-hidden />
