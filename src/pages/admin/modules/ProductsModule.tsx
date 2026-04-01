@@ -147,6 +147,7 @@ function ProductsList({ filterInHouse }: { filterInHouse?: boolean }) {
   const [existingGallery, setExistingGallery] = useState<{ id: string; image_url: string; sort_order: number }[]>([]);
   const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
   const [removedGalleryIds, setRemovedGalleryIds] = useState<string[]>([]);
+  const [saveError, setSaveError] = useState('');
   /** Avoid resetting local gallery picks when React Query refetches the same product (focus, invalidation). */
   const hydratedEditProductIdRef = useRef<string | null>(null);
   const galleryPreviews = useMemo(() => galleryFiles.map((f) => URL.createObjectURL(f)), [galleryFiles]);
@@ -224,6 +225,17 @@ function ProductsList({ filterInHouse }: { filterInHouse?: boolean }) {
     setGalleryFiles([]);
     setRemovedGalleryIds([]);
   }, [resolvedModalOpen, routeEdit]);
+
+  const keptGalleryCount = useMemo(
+    () => existingGallery.filter((g) => !removedGalleryIds.includes(g.id)).length,
+    [existingGallery, removedGalleryIds],
+  );
+  const hasUsableProductImage = useMemo(() => {
+    if (primaryImage) return true;
+    if (formData.existingImageUrl) return true;
+    if (keptGalleryCount > 0 || galleryFiles.length > 0) return true;
+    return false;
+  }, [primaryImage, formData.existingImageUrl, keptGalleryCount, galleryFiles.length]);
 
   const updateField = (key: string, value: any) => {
     setFormData(prev => {
@@ -385,14 +397,35 @@ function ProductsList({ filterInHouse }: { filterInHouse?: boolean }) {
         description="This will permanently delete the product."
       />
 
-      <CRUDModal open={resolvedModalOpen} onClose={() => { adminRoute?.navigateToList(); setModalOpen(false); setFormData({}); setFormErrors({}); setPrimaryImage(null); setSlugEdited(false); setExistingGallery([]); setGalleryFiles([]); setRemovedGalleryIds([]); }} title={routeEdit ? 'Edit Product' : routeAdd ? 'Add Product' : 'Add / Edit Product'} size="xl" onSave={async () => {
+      <CRUDModal
+        open={resolvedModalOpen}
+        onClose={() => {
+          adminRoute?.navigateToList();
+          setModalOpen(false);
+          setFormData({});
+          setFormErrors({});
+          setSaveError('');
+          setPrimaryImage(null);
+          setSlugEdited(false);
+          setExistingGallery([]);
+          setGalleryFiles([]);
+          setRemovedGalleryIds([]);
+        }}
+        title={routeEdit ? 'Edit Product' : routeAdd ? 'Add Product' : 'Add / Edit Product'}
+        size="xl"
+        loading={createMutation.isPending || updateMutation.isPending}
+        error={saveError || undefined}
+        onSave={async () => {
+        setSaveError('');
         // Validate required fields
         const errors: Record<string, string> = {};
         if (!formData.name?.trim()) errors.name = 'Product name is required';
         if (!formData.price || Number(formData.price) <= 0) errors.price = 'Valid price is required';
         if (!formData.sku?.trim()) errors.sku = 'SKU is required';
         if (!routeEdit && !primaryImage) errors.image = 'Primary image is required';
-        if (routeEdit && !primaryImage && !formData.existingImageUrl) errors.image = 'Product image is missing; upload a new image';
+        if (routeEdit && !hasUsableProductImage) {
+          errors.image = 'Product image is missing; upload a primary image or at least one gallery image';
+        }
         if (Object.keys(errors).length > 0) {
           setFormErrors(errors);
           return;
@@ -427,21 +460,28 @@ function ProductsList({ filterInHouse }: { filterInHouse?: boolean }) {
         if (primaryImage) fd.append('image', primaryImage);
         galleryFiles.forEach((f) => fd.append('gallery_images', f));
         removedGalleryIds.forEach((id) => fd.append('delete_gallery_image_ids', id));
-        if (routeEdit && adminRoute?.itemId) {
-          await updateMutation.mutateAsync({ id: adminRoute.itemId, payload: fd });
-        } else {
-          await createMutation.mutateAsync(fd);
+        try {
+          if (routeEdit && adminRoute?.itemId) {
+            await updateMutation.mutateAsync({ id: adminRoute.itemId, payload: fd });
+          } else {
+            await createMutation.mutateAsync(fd);
+          }
+        } catch (e) {
+          setSaveError(formatApiError(e));
+          return;
         }
         adminRoute?.navigateToList();
         setModalOpen(false);
         setFormData({});
         setFormErrors({});
+        setSaveError('');
         setPrimaryImage(null);
         setSlugEdited(false);
         setExistingGallery([]);
         setGalleryFiles([]);
         setRemovedGalleryIds([]);
-      }}>
+      }}
+      >
         <Tabs defaultValue="basic" className="w-full">
           <TabsList className="grid w-full grid-cols-5 mb-4">
             <TabsTrigger value="basic">Basic Info</TabsTrigger>
