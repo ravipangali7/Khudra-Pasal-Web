@@ -4,7 +4,6 @@ import Header from '@/components/layout/Header';
 import CategoryNav from '@/components/layout/CategoryNav';
 import MobileFooterNav from '@/components/layout/MobileFooterNav';
 import Footer from '@/components/layout/Footer';
-import CartDrawer from '@/components/cart/CartDrawer';
 import ScrollToTop from '@/components/ui/ScrollToTop';
 import ProductCard from '@/components/product/ProductCard';
 import { mapWebsiteProductToUi, websiteApi } from '@/lib/api';
@@ -33,7 +32,6 @@ const DiscountedProducts = () => {
     <div className="min-h-screen bg-background pb-16 md:pb-0">
       <Header cartCount={cartCount} />
       <CategoryNav activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
-      <CartDrawer />
 
       <main className="container mx-auto px-4 py-6 space-y-6">
         <div className="space-y-3">

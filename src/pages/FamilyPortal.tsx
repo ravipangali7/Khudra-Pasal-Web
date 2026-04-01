@@ -95,7 +95,6 @@ import ProfileMenu from '@/components/profile/ProfileMenu';
 import PortalFamilyChildProfileModule from '@/components/portal/PortalFamilyChildProfileModule';
 import PortalProductsCatalogSection from '@/components/portal/PortalProductsCatalogSection';
 import PortalNotificationsModal from '@/components/portal/PortalNotificationsModal';
-import CartDrawer from '@/components/cart/CartDrawer';
 import FloatingCart from '@/components/cart/FloatingCart';
 import { useCart } from '@/contexts/CartContext';
 
@@ -3163,7 +3162,6 @@ export function FamilyPortal() {
       ordersDeepLink={null}
     />
     <FloatingCart />
-    <CartDrawer />
     <LogoutConfirmDialog
       open={logoutConfirmOpen}
       onOpenChange={setLogoutConfirmOpen}

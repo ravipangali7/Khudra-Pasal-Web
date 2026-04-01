@@ -4,7 +4,6 @@ import { Search, ChevronRight, ShoppingBag } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import Header from '@/components/layout/Header';
 import MobileFooterNav from '@/components/layout/MobileFooterNav';
-import CartDrawer from '@/components/cart/CartDrawer';
 import AIChatbot from '@/components/chat/AIChatbot';
 import ProductCard from '@/components/product/ProductCard';
 import {
@@ -343,7 +342,6 @@ const ProductListing = () => {
         ) : null}
       </div>
 
-      <CartDrawer />
       <AIChatbot />
       <MobileFooterNav />
     </div>

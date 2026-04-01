@@ -15,7 +15,6 @@ import HomePromoStrip from '@/components/home/HomePromoStrip';
 import DiscountPromoCard from '@/components/home/DiscountPromoCard';
 import SmallBannerSection from '@/components/banners/SmallBannerSection';
 import FooterPromoGrid from '@/components/banners/FooterPromoGrid';
-import CartDrawer from '@/components/cart/CartDrawer';
 import ScrollToTop from '@/components/ui/ScrollToTop';
 import AIChatbot from '@/components/chat/AIChatbot';
 import type { StorefrontCategorySlug } from '@/types';
@@ -194,7 +193,6 @@ const Index = () => {
       <div className={headerClass}>
         <CategoryNav activeCategory={activeCategory} onCategoryChange={handleCategoryChange} />
       </div>
-      <CartDrawer />
 
       <main className="container mx-auto px-4 py-4 space-y-6">
         <HeroBanner key={activeCategory} placement="homepage" />

@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Routes, Route, useParams } from "react-router-dom";
 import { CartProvider } from "@/contexts/CartContext";
+import CartDrawer from "@/components/cart/CartDrawer";
 import { AuthUiProvider } from "@/contexts/AuthUiContext";
 import ScrollToTopOnNavigate from "@/components/ScrollToTopOnNavigate";
 import Index from "./pages/Index";
@@ -115,6 +116,7 @@ const App = () => (
               <Route path="/vendor/reels" element={<VendorReelsPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
+            <CartDrawer />
           </AuthUiProvider>
         </CartProvider>
       </BrowserRouter>

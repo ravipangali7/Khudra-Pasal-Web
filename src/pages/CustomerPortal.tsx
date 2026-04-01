@@ -58,7 +58,6 @@ import WalletTransfer from '@/components/wallet/WalletTransfer';
 import WalletWithdraw from '@/components/wallet/WalletWithdraw';
 import WalletAddMoney from '@/components/wallet/WalletAddMoney';
 import AIChatbot from '@/components/chat/AIChatbot';
-import CartDrawer from '@/components/cart/CartDrawer';
 import MobileFooterNav from '@/components/layout/MobileFooterNav';
 import AdminTable from '@/components/admin/AdminTable';
 import PortalMyOrdersSection from '@/components/portal/PortalMyOrdersSection';
@@ -1539,8 +1538,6 @@ const CustomerPortal = () => {
 
       {/* AI Chatbot */}
       <AIChatbot />
-
-      <CartDrawer />
 
       {/* Mobile Footer */}
       <MobileFooterNav />

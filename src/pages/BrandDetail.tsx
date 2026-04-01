@@ -7,7 +7,6 @@ import Footer from "@/components/layout/Footer";
 import MobileFooterNav from "@/components/layout/MobileFooterNav";
 import ScrollToTop from "@/components/ui/ScrollToTop";
 import AIChatbot from "@/components/chat/AIChatbot";
-import CartDrawer from "@/components/cart/CartDrawer";
 import ProductCard from "@/components/product/ProductCard";
 import { getApiErrorHttpStatus, mapWebsiteProductToUi, websiteApi } from "@/lib/api";
 import { storefrontRoutes } from "@/lib/routes";
@@ -55,7 +54,6 @@ const BrandDetail = () => {
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
       <Header cartCount={cartCount} />
-      <CartDrawer />
 
       <main className="container mx-auto space-y-6 px-4 py-4">
         <div className="flex flex-wrap items-center gap-3">
