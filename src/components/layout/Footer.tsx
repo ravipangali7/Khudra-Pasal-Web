@@ -15,6 +15,11 @@ const Footer = () => {
     queryKey: ['footer-categories'],
     queryFn: () => websiteApi.categories(),
   });
+  const { data: cmsQuickLinks = [], isLoading: cmsLinksLoading } = useQuery({
+    queryKey: ['website', 'cms-pages-list'],
+    queryFn: () => websiteApi.cmsPagesPublic(),
+    staleTime: 60_000,
+  });
   const displayCategories =
     categories?.map((cat) => ({
       id: cat.slug,
@@ -92,13 +97,22 @@ const Footer = () => {
             <div>
               <h3 className="mb-4 font-bold text-foreground">Quick Links</h3>
               <ul className="space-y-3">
-                {['About Us', 'Contact Us', 'FAQs', 'Terms & Conditions', 'Privacy Policy', 'Refund Policy'].map((link) => (
-                  <li key={link}>
-                    <a href="#" className="text-sm text-muted-foreground transition-colors hover:text-primary">
-                      {link}
-                    </a>
-                  </li>
-                ))}
+                {cmsLinksLoading ? (
+                  <li className="text-sm text-muted-foreground">Loading…</li>
+                ) : cmsQuickLinks.length === 0 ? (
+                  <li className="text-sm text-muted-foreground">No pages yet.</li>
+                ) : (
+                  cmsQuickLinks.map((page) => (
+                    <li key={page.slug}>
+                      <Link
+                        to={`/page/${page.slug}`}
+                        className="text-sm text-muted-foreground transition-colors hover:text-primary"
+                      >
+                        {page.title}
+                      </Link>
+                    </li>
+                  ))
+                )}
               </ul>
             </div>
 

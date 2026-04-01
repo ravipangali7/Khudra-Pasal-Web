@@ -702,6 +702,8 @@ export const websiteApi = {
     apiFetch<Array<{ id: number; name: string; rating: number; comment: string; date: string }>>(
       `/website/products/${encodeURIComponent(identifier)}/reviews/`,
     ),
+  cmsPagesPublic: () =>
+    apiFetch<Array<{ title: string; slug: string }>>("/website/cms-pages/"),
   cmsPagePublic: (slug: string) =>
     apiFetch<{
       title: string;

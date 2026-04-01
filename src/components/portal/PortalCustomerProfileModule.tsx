@@ -23,8 +23,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Lock } from 'lucide-react';
 import { extractResults, portalApi } from '@/lib/api';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -86,9 +84,6 @@ export default function PortalCustomerProfileModule() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
-  const [oldP, setOldP] = useState('');
-  const [newP, setNewP] = useState('');
-  const [newP2, setNewP2] = useState('');
 
   useEffect(() => {
     if (!data) return;
@@ -129,17 +124,6 @@ export default function PortalCustomerProfileModule() {
       setEditOpen(false);
       if (bannerInputRef.current) bannerInputRef.current.value = '';
       if (logoInputRef.current) logoInputRef.current.value = '';
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const pwdMut = useMutation({
-    mutationFn: () => portalApi.changePassword(oldP, newP),
-    onSuccess: () => {
-      toast.success('Password updated');
-      setOldP('');
-      setNewP('');
-      setNewP2('');
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -385,47 +369,6 @@ export default function PortalCustomerProfileModule() {
           </div>
         ))}
       </div>
-
-      <Card className="max-w-xl">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Lock className="h-5 w-5" />
-            Password
-          </CardTitle>
-          <CardDescription>Change your sign-in password for the customer portal.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="space-y-2">
-            <Label>Current password</Label>
-            <Input type="password" value={oldP} onChange={(e) => setOldP(e.target.value)} autoComplete="current-password" />
-          </div>
-          <div className="space-y-2">
-            <Label>New password</Label>
-            <Input type="password" value={newP} onChange={(e) => setNewP(e.target.value)} autoComplete="new-password" />
-          </div>
-          <div className="space-y-2">
-            <Label>Confirm</Label>
-            <Input type="password" value={newP2} onChange={(e) => setNewP2(e.target.value)} autoComplete="new-password" />
-          </div>
-          <Button
-            type="button"
-            onClick={() => {
-              if (newP.length < 6) {
-                toast.error('New password must be at least 6 characters');
-                return;
-              }
-              if (newP !== newP2) {
-                toast.error('Passwords do not match');
-                return;
-              }
-              pwdMut.mutate();
-            }}
-            disabled={pwdMut.isPending}
-          >
-            {pwdMut.isPending ? 'Updating…' : 'Update password'}
-          </Button>
-        </CardContent>
-      </Card>
 
       <div className="rounded-2xl border border-border bg-card shadow-sm p-4 sm:p-5">
         <div className="flex items-center justify-between mb-4">
