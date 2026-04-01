@@ -50,7 +50,7 @@ const Checkout = () => {
     return '/portal';
   }, [checkoutState?.from]);
   const [buyNowQuantity, setBuyNowQuantity] = useState(Math.max(1, buyNow?.quantity ?? 1));
-  const [step, setStep] = useState<CheckoutStep>('cart');
+  const [step, setStep] = useState<CheckoutStep>(() => (buyNow ? 'delivery' : 'cart'));
   const [wantDelivery, setWantDelivery] = useState(true);
   const [useAutoLocation, setUseAutoLocation] = useState(false);
   const [isLocating, setIsLocating] = useState(false);

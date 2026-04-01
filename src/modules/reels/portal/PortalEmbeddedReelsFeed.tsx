@@ -4,6 +4,7 @@ import { websiteApi, extractResults } from '@/lib/api';
 import { mapApiReelToUi } from '../api/reelMappers';
 import ReelsVerticalFeed from '../feed/ReelsVerticalFeed';
 import { useReelFeedController, useReelViewRecording } from '../feed/useReelFeedController';
+import { useReelsQueryAuthRev } from '../feed/useReelsQueryAuthRev';
 import type { Reel } from '../types';
 import '../reels-theme.css';
 
@@ -23,9 +24,10 @@ const PortalEmbeddedReelsFeed: React.FC<Props> = ({ title, vendorIds, className 
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRafRef = useRef<number | null>(null);
   const ctl = useReelFeedController(displayReels, setDisplayReels);
+  const reelsAuthRev = useReelsQueryAuthRev();
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['portal', 'embedded-reels-trending', vendorIds ?? 'all'],
+    queryKey: ['portal', 'embedded-reels-trending', vendorIds ?? 'all', reelsAuthRev],
     queryFn: async () => {
       const pageSize = 40;
       const scoped = await websiteApi.reelsTrendingAllVendors({

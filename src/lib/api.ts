@@ -747,13 +747,13 @@ export const websiteApi = {
   deals: () => apiFetch<WebsiteFlashDealRow[]>("/website/deals/"),
   /** Optional vendor_ids: comma-separated vendor PKs (narrows feed). */
   reels: (params?: QueryParams) =>
-    apiFetch<PagedResponse<ApiReelPublicRow>>(`/website/reels/${buildQuery(params)}`),
+    apiFetch<PagedResponse<ApiReelPublicRow>>(`/website/reels/${buildQuery(params)}`, undefined, true),
   /** All vendors (or narrowed by vendor_id / vendor_slug / vendor_ids), engagement-sorted. */
   reelsTrending: (params?: QueryParams) =>
-    apiFetch<PagedResponse<ApiReelPublicRow>>(`/reels/trending/${buildQuery(params)}`),
+    apiFetch<PagedResponse<ApiReelPublicRow>>(`/reels/trending/${buildQuery(params)}`, undefined, true),
   /** Same as reelsTrending; explicit path for portal / marketplace dashboards. */
   reelsTrendingAllVendors: (params?: QueryParams) =>
-    apiFetch<PagedResponse<ApiReelPublicRow>>(`/reels/trending/all-vendors/${buildQuery(params)}`),
+    apiFetch<PagedResponse<ApiReelPublicRow>>(`/reels/trending/all-vendors/${buildQuery(params)}`, undefined, true),
   /** Vendors that have at least one public reel (paginated). */
   reelsVendorsDirectory: (params?: QueryParams) =>
     apiFetch<PagedResponse<VendorWithPublicReelsRow>>(`/reels/vendors/${buildQuery(params)}`),
@@ -761,6 +761,8 @@ export const websiteApi = {
   reelsByVendor: (vendorId: number | string, params?: QueryParams) =>
     apiFetch<PagedResponse<ApiReelPublicRow>>(
       `/reels/vendor/${encodeURIComponent(String(vendorId))}/${buildQuery(params)}`,
+      undefined,
+      true,
     ),
   reelInteraction: (reelId: number | string, type: ReelInteractionType) =>
     apiFetch<{ id: number; created: boolean; type: ReelInteractionType }>(

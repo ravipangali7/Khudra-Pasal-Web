@@ -10,6 +10,7 @@ import { websiteApi, extractResults } from '@/lib/api';
 import { mapApiReelToUi } from '../api/reelMappers';
 import { getUniqueVendorsFromReels } from '../reelHelpers';
 import { useReelFeedController, useReelViewRecording } from './useReelFeedController';
+import { useReelsQueryAuthRev } from './useReelsQueryAuthRev';
 import type { Reel } from '../types';
 import '../reels-theme.css';
 
@@ -48,13 +49,14 @@ const ReelsFeedPage: React.FC = () => {
   const lastDeepLinkScrollKeyRef = useRef<string | null>(null);
   const scrollRafRef = useRef<number | null>(null);
   const ctl = useReelFeedController(displayReels, setDisplayReels);
+  const reelsAuthRev = useReelsQueryAuthRev();
 
   useEffect(() => {
     setSelectedVendorId(vendorParam);
   }, [vendorParam]);
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['website', 'reels', activeTab, selectedVendorId],
+    queryKey: ['website', 'reels', activeTab, selectedVendorId, reelsAuthRev],
     queryFn: () =>
       websiteApi.reels({
         tab: activeTab,

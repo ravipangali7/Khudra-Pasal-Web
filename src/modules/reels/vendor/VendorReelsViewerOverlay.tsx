@@ -302,7 +302,6 @@ const VendorReelsViewerOverlay: React.FC<Props> = ({ vendorId, initialReelId, on
         redirectToLogin(reel, quantity);
         return;
       }
-      addToCart(toCartProduct(reel), quantity);
       navigate('/checkout', {
         state: {
           from: `${location.pathname}${location.search}`,
@@ -317,7 +316,7 @@ const VendorReelsViewerOverlay: React.FC<Props> = ({ vendorId, initialReelId, on
         },
       });
     },
-    [addToCart, location.pathname, location.search, navigate, redirectToLogin, toCartProduct],
+    [location.pathname, location.search, navigate, redirectToLogin],
   );
 
   useEffect(() => {

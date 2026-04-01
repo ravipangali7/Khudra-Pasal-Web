@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { websiteApi, extractResults } from '@/lib/api';
 import { mapApiReelToUi } from '../api/reelMappers';
+import { useReelsQueryAuthRev } from '../feed/useReelsQueryAuthRev';
 import type { Reel } from '../types';
 
 const formatReelCount = (n: number) =>
@@ -21,8 +22,9 @@ interface PortalDashboardReelsStripProps {
  */
 const PortalDashboardReelsStrip: React.FC<PortalDashboardReelsStripProps> = ({ className = '' }) => {
   const navigate = useNavigate();
+  const reelsAuthRev = useReelsQueryAuthRev();
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['portal', 'dashboard-reels-strip', 'all-vendors'],
+    queryKey: ['portal', 'dashboard-reels-strip', 'all-vendors', reelsAuthRev],
     queryFn: () => websiteApi.reelsTrendingAllVendors({ page_size: 16 }),
   });
 

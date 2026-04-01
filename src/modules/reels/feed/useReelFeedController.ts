@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { isStorefrontCustomerSession, websiteApi } from '@/lib/api';
 import { savePendingCartIntent } from '@/lib/pendingCartIntent';
@@ -29,6 +29,7 @@ export function useReelFeedController(
 ) {
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   const { addToCart } = useCart();
   const [showToast, setShowToast] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
@@ -84,6 +85,11 @@ export function useReelFeedController(
       }
       return websiteApi.removeReelInteraction(reelId, type);
     },
+    onSuccess: (_data, vars) => {
+      if (vars.type === 'bookmark') {
+        void queryClient.invalidateQueries({ queryKey: ['portal', 'reels-favourites'] });
+      }
+    },
     onError: (error: Error) => {
       toast.error(error.message || 'Action failed');
     },
@@ -125,7 +131,6 @@ export function useReelFeedController(
         redirectToLoginForReel(reel, quantity);
         return;
       }
-      addToCart(toCartProduct(reel), quantity);
       navigate('/checkout', {
         state: {
           from: `${location.pathname}${location.search}`,
@@ -140,7 +145,7 @@ export function useReelFeedController(
         },
       });
     },
-    [addToCart, location.pathname, location.search, navigate, redirectToLoginForReel],
+    [location.pathname, location.search, navigate, redirectToLoginForReel],
   );
 
   const handleLike = useCallback(

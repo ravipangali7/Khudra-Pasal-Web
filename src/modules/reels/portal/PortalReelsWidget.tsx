@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { websiteApi, extractResults } from '@/lib/api';
 import { mapApiReelToUi } from '../api/reelMappers';
+import { useReelsQueryAuthRev } from '../feed/useReelsQueryAuthRev';
 import type { Reel } from '../types';
 
 const formatCount = (n: number) =>
@@ -27,8 +28,9 @@ interface PortalReelsWidgetProps {
 /** Self-contained widget to embed in any portal page */
 const PortalReelsWidget: React.FC<PortalReelsWidgetProps> = ({ variant }) => {
   const navigate = useNavigate();
+  const reelsAuthRev = useReelsQueryAuthRev();
   const { data, isLoading } = useQuery({
-    queryKey: ['portal', 'reels-trending', variant],
+    queryKey: ['portal', 'reels-trending', variant, reelsAuthRev],
     queryFn: () => websiteApi.reelsTrending({ page_size: 32 }),
   });
   const reels = useMemo(() => extractResults(data).map(mapApiReelToUi), [data]);

@@ -7,6 +7,7 @@ import BoostModal from './BoostModal';
 import type { Reel } from '../types';
 import { extractResults, vendorApi, websiteApi } from '@/lib/api';
 import { mapApiReelToUi } from '../api/reelMappers';
+import { useReelsQueryAuthRev } from '../feed/useReelsQueryAuthRev';
 import { useVendorReelViewer } from './VendorReelViewerContext';
 import '../reels-theme.css';
 
@@ -48,6 +49,7 @@ const MyReelsGrid: React.FC<MyReelsGridProps> = ({ onNewReel, vendorId, vendorSl
   const slug = vendorSlug ?? (import.meta.env.VITE_DEV_VENDOR_SLUG as string | undefined) ?? null;
   const id = vendorId ?? null;
   const enabled = Boolean(useVendorPortal || slug || id);
+  const reelsAuthRev = useReelsQueryAuthRev();
 
   const delMut = useMutation({
     mutationFn: (reelPk: string) => vendorApi.deleteReel(reelPk),
@@ -58,7 +60,7 @@ const MyReelsGrid: React.FC<MyReelsGridProps> = ({ onNewReel, vendorId, vendorSl
   });
 
   const { data, isLoading } = useQuery({
-    queryKey: ['website', 'my-reels', slug, id, useVendorPortal],
+    queryKey: ['website', 'my-reels', slug, id, useVendorPortal, reelsAuthRev],
     enabled,
     queryFn: () =>
       useVendorPortal
