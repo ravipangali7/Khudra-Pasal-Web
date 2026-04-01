@@ -29,6 +29,9 @@ function deepExtras(raw: unknown): AdminExtras {
   return out;
 }
 
+/** Stable fallback so `useEffect(..., [cfg])` deps do not change every render when a section is absent. */
+const EMPTY_EXTRAS_SECTION: Record<string, unknown> = {};
+
 function CommunicationCenter({
   communication,
   onSave,
@@ -336,13 +339,13 @@ export default function SettingsModule() {
     [updateSite],
   );
 
-  const analytics = extras.analytics ?? {};
-  const appearance = extras.appearance ?? {};
-  const emailCfg = extras.email ?? {};
-  const taxCfg = extras.tax ?? {};
-  const socialCfg = extras.social ?? {};
-  const envCfg = extras.environment ?? {};
-  const systemCfg = extras.system ?? {};
+  const analytics = extras.analytics ?? EMPTY_EXTRAS_SECTION;
+  const appearance = extras.appearance ?? EMPTY_EXTRAS_SECTION;
+  const emailCfg = extras.email ?? EMPTY_EXTRAS_SECTION;
+  const taxCfg = extras.tax ?? EMPTY_EXTRAS_SECTION;
+  const socialCfg = extras.social ?? EMPTY_EXTRAS_SECTION;
+  const envCfg = extras.environment ?? EMPTY_EXTRAS_SECTION;
+  const systemCfg = extras.system ?? EMPTY_EXTRAS_SECTION;
 
   const [fbPixel, setFbPixel] = useState({ enabled: true, id: '', gtm: '', ga4: '', ga4Enabled: false });
   useEffect(() => {
@@ -587,14 +590,14 @@ export default function SettingsModule() {
 
         <TabsContent value="communication">
           <CommunicationCenter
-            communication={(extras.communication as Record<string, unknown>) ?? {}}
+            communication={(extras.communication as Record<string, unknown>) ?? EMPTY_EXTRAS_SECTION}
             onSave={async (next) => { await saveExtrasSection('communication', next); }}
           />
         </TabsContent>
 
         <TabsContent value="reels">
           <ReelsSettingsPanel
-            reels={(extras.reels as Record<string, unknown>) ?? {}}
+            reels={(extras.reels as Record<string, unknown>) ?? EMPTY_EXTRAS_SECTION}
             onSave={async (next) => { await saveExtrasSection('reels', next); }}
           />
         </TabsContent>
