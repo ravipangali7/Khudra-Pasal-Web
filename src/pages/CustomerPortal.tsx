@@ -48,6 +48,8 @@ import {
 } from '@/lib/api';
 import { useCart } from '@/contexts/CartContext';
 import { mapApiNavToPortalItems } from '@/lib/navIcons';
+import { getCustomerPortalSidebarFallback } from '@/lib/customerPortalSidebarFallback';
+import PortalSidebar from '@/components/portal/PortalSidebar';
 import UnifiedAuthLoginPage from '@/components/auth/UnifiedAuthLoginPage';
 import WalletTransfer from '@/components/wallet/WalletTransfer';
 import WalletWithdraw from '@/components/wallet/WalletWithdraw';
@@ -385,7 +387,11 @@ const CustomerPortal = () => {
     return name.slice(0, 2).toUpperCase();
   };
 
-  const sidebarItems = useMemo(() => mapApiNavToPortalItems(navData?.items), [navData]);
+  const sidebarItems = useMemo(() => {
+    const fromApi = mapApiNavToPortalItems(navData?.items);
+    if (fromApi.length > 0) return fromApi;
+    return getCustomerPortalSidebarFallback(userRole);
+  }, [navData, userRole]);
 
   const { segment: activeSection, goTo, isSegmentKnown } = usePortalSectionPath('/portal', sidebarItems);
   const stayOnSwitchPortal = searchParams.get('stay') === '1';
@@ -464,7 +470,7 @@ const CustomerPortal = () => {
     );
   }
 
-  if (navLoading || !sidebarItems.length) {
+  if (navLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-muted-foreground">
         Loading portal…
@@ -487,50 +493,42 @@ const CustomerPortal = () => {
         />
       )}
 
-      {/* Sidebar */}
-      <aside className={cn(
-        "fixed lg:sticky top-0 left-0 h-screen w-64 bg-card border-r border-border z-50 transition-transform duration-300",
-        sidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
-      )}>
-        <div className="p-4 border-b border-border">
+      {/* Sidebar shell: header + shared PortalSidebar + footer */}
+      <div
+        className={cn(
+          'fixed lg:sticky top-0 left-0 z-50 flex h-screen w-64 flex-col bg-card border-r border-border transition-transform duration-300',
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0',
+        )}
+      >
+        <div className="shrink-0 border-b border-border p-4">
           <div className="flex items-center justify-between">
             <h1 className="text-xl font-bold text-primary">KhudraPasal</h1>
-            <button 
+            <button
+              type="button"
               onClick={() => setSidebarOpen(false)}
-              className="lg:hidden p-1 hover:bg-muted rounded"
+              className="p-1 hover:bg-muted rounded lg:hidden"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">Customer Portal</p>
+          <p className="mt-1 text-xs text-muted-foreground">Customer Portal</p>
         </div>
 
-        <nav className="p-3 space-y-1">
-          {sidebarItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.id}
-                onClick={() => {
-                  goTo(item.id);
-                  setSidebarOpen(false);
-                }}
-                className={cn(
-                  "w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
-                  activeSection === item.id 
-                    ? "bg-primary text-primary-foreground" 
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                )}
-              >
-                <Icon className="w-5 h-5" />
-                {item.label}
-              </button>
-            );
-          })}
-        </nav>
+        <div className="min-h-0 flex-1 flex flex-col">
+          <PortalSidebar
+            items={sidebarItems}
+            activeItem={activeSection}
+            onItemClick={(id) => {
+              goTo(id);
+              setSidebarOpen(false);
+            }}
+            collapsible={false}
+            className="h-full min-h-0 flex-1 border-0 bg-transparent shadow-none rounded-none w-full"
+          />
+        </div>
 
         {/* User Info */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-border space-y-2">
+        <div className="shrink-0 space-y-2 border-t border-border p-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
               <span className="text-primary font-bold text-sm">{displayInitials(me?.name)}</span>
@@ -549,7 +547,7 @@ const CustomerPortal = () => {
             Sign out
           </button>
         </div>
-      </aside>
+      </div>
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col min-h-screen">

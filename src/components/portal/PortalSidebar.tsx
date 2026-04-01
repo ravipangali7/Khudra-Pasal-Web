@@ -74,6 +74,8 @@ const PortalSidebar = ({
     );
   };
 
+  const showHeaderRow = collapsible || Boolean(title?.trim());
+
   return (
     <aside
       className={cn(
@@ -82,25 +84,26 @@ const PortalSidebar = ({
         className
       )}
     >
-      {/* Header */}
-      <div className="p-4 border-b border-border flex items-center justify-between">
-        {!collapsed && title && (
-          <h2 className="font-semibold text-foreground truncate">{title}</h2>
-        )}
-        {collapsible && (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-8 w-8 shrink-0"
-            onClick={() => setCollapsed(!collapsed)}
-          >
-            {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-          </Button>
-        )}
-      </div>
+      {showHeaderRow ? (
+        <div className="p-4 border-b border-border flex items-center justify-between">
+          {!collapsed && title && (
+            <h2 className="font-semibold text-foreground truncate">{title}</h2>
+          )}
+          {collapsible && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 shrink-0"
+              onClick={() => setCollapsed(!collapsed)}
+            >
+              {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+            </Button>
+          )}
+        </div>
+      ) : null}
 
       {/* Navigation */}
-      <ScrollArea className="flex-1 p-2">
+      <ScrollArea className="flex-1 p-2 min-h-0">
         <nav className="space-y-1">
           {items.map((item) => {
             const descendantActive = subtreeHasActiveItem(item, activeItem);
