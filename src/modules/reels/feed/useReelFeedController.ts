@@ -1,16 +1,34 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
-import { websiteApi } from '@/lib/api';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { isStorefrontCustomerSession, websiteApi } from '@/lib/api';
+import { savePendingCartIntent } from '@/lib/pendingCartIntent';
 import { useCart } from '@/contexts/CartContext';
 import { toast } from 'sonner';
 import type { Reel } from '../types';
+
+function toCartProduct(reel: Reel) {
+  return {
+    id: String(reel.product.id),
+    name: reel.product.name,
+    description: reel.caption || reel.product.name,
+    price: reel.product.price,
+    originalPrice: reel.product.originalPrice || undefined,
+    image: reel.product.image,
+    category: 'reels',
+    rating: reel.product.rating,
+    reviewCount: reel.product.reviews,
+    inStock: reel.product.inStock,
+    unit: '1 item',
+  };
+}
 
 export function useReelFeedController(
   _displayReels: Reel[],
   setDisplayReels: React.Dispatch<React.SetStateAction<Reel[]>>,
 ) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { addToCart } = useCart();
   const [showToast, setShowToast] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
@@ -25,6 +43,28 @@ export function useReelFeedController(
     },
     [setDisplayReels],
   );
+
+  const redirectToLoginForReel = useCallback(
+    (reel: Reel, quantity = 1) => {
+      const nextPath = `${location.pathname}${location.search}`;
+      if (reel.product?.id) {
+        savePendingCartIntent({
+          product: toCartProduct(reel),
+          quantity,
+          nextPath,
+        });
+      }
+      navigate(`/login?next=${encodeURIComponent(nextPath)}&shop=1`);
+    },
+    [location.pathname, location.search, navigate],
+  );
+
+  const requireCustomerForEngagement = useCallback(() => {
+    if (isStorefrontCustomerSession()) return true;
+    const nextPath = `${location.pathname}${location.search}`;
+    navigate(`/login?next=${encodeURIComponent(nextPath)}&shop=1`);
+    return false;
+  }, [location.pathname, location.search, navigate]);
 
   const interactionMut = useMutation({
     mutationFn: async ({
@@ -57,21 +97,16 @@ export function useReelFeedController(
 
   const handleAddToCart = useCallback(
     (reel: Reel) => {
-      if (!reel.product?.id) return;
+      if (!reel.product?.id) {
+        toast.error('No product is linked to this reel.');
+        return;
+      }
+      if (!isStorefrontCustomerSession()) {
+        addToCart(toCartProduct(reel));
+        return;
+      }
       reelCartInteractionMut.mutate({ reelId: reel.id });
-      addToCart({
-        id: String(reel.product.id),
-        name: reel.product.name,
-        description: reel.caption || reel.product.name,
-        price: reel.product.price,
-        originalPrice: reel.product.originalPrice || undefined,
-        image: reel.product.image,
-        category: 'reels',
-        rating: reel.product.rating,
-        reviewCount: reel.product.reviews,
-        inStock: reel.product.inStock,
-        unit: '1 item',
-      });
+      addToCart(toCartProduct(reel));
       patchReel(reel.id, (r) => ({ ...r, hasAddedToCart: true }));
       setShowToast(true);
       if (toastTimerRef.current != null) window.clearTimeout(toastTimerRef.current);
@@ -80,33 +115,67 @@ export function useReelFeedController(
     [addToCart, reelCartInteractionMut, patchReel],
   );
 
+  const handleBuyNow = useCallback(
+    (reel: Reel, quantity = 1) => {
+      if (!reel.product?.id) {
+        toast.error('No product is linked to this reel.');
+        return;
+      }
+      if (!isStorefrontCustomerSession()) {
+        redirectToLoginForReel(reel, quantity);
+        return;
+      }
+      addToCart(toCartProduct(reel), quantity);
+      navigate('/checkout', {
+        state: {
+          from: `${location.pathname}${location.search}`,
+          buyNow: {
+            productId: reel.product.id,
+            productName: reel.product.name,
+            price: reel.product.price,
+            image: reel.product.image,
+            quantity,
+            reelId: reel.id,
+          },
+        },
+      });
+    },
+    [addToCart, location.pathname, location.search, navigate, redirectToLoginForReel],
+  );
+
   const handleLike = useCallback(
     (reel: Reel) => {
+      if (!requireCustomerForEngagement()) return;
       const next = !reel.liked;
       patchReel(reel.id, (r) => ({ ...r, liked: next, likes: next ? r.likes + 1 : Math.max(0, r.likes - 1) }));
       interactionMut.mutate({ reelId: reel.id, type: 'like', enabled: next });
     },
-    [interactionMut, patchReel],
+    [interactionMut, patchReel, requireCustomerForEngagement],
   );
 
   const handleBookmark = useCallback(
     (reel: Reel) => {
+      if (!requireCustomerForEngagement()) return;
       const next = !reel.bookmarked;
       patchReel(reel.id, (r) => ({ ...r, bookmarked: next }));
       interactionMut.mutate({ reelId: reel.id, type: 'bookmark', enabled: next });
     },
-    [interactionMut, patchReel],
+    [interactionMut, patchReel, requireCustomerForEngagement],
   );
 
   const handleShare = useCallback(
     (reel: Reel) => {
+      if (!requireCustomerForEngagement()) return;
+      const shareUrl = `${window.location.origin}/reels?reel=${reel.id}`;
       patchReel(reel.id, (r) => ({ ...r, shares: (r.shares ?? 0) + 1 }));
       if (navigator.share) {
-        void navigator.share({ title: 'KhudraPasal Reel', text: reel.caption, url: window.location.href }).catch(() => {});
+        void navigator
+          .share({ title: 'KhudraPasal Reel', text: reel.caption || 'Check out this reel', url: shareUrl })
+          .catch(() => {});
       }
       interactionMut.mutate({ reelId: reel.id, type: 'share' });
     },
-    [interactionMut, patchReel],
+    [interactionMut, patchReel, requireCustomerForEngagement],
   );
 
   const handleComment = useCallback((reel: Reel) => {
@@ -132,6 +201,7 @@ export function useReelFeedController(
     setCommentDrawerReelId,
     patchReel,
     handleAddToCart,
+    handleBuyNow,
     handleLike,
     handleBookmark,
     handleShare,

@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { X, Send } from 'lucide-react';
-import { websiteApi } from '@/lib/api';
+import { isStorefrontCustomerSession, websiteApi } from '@/lib/api';
 import { toast } from 'sonner';
 import EmojiPickerOverlay from './EmojiPickerOverlay';
 
@@ -21,11 +22,15 @@ type Props = {
 };
 
 const ReelCommentDrawer: React.FC<Props> = ({ reelId, open, onClose, onCommentAdded }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [draft, setDraft] = useState('');
   const [optimisticRows, setOptimisticRows] = useState<ReelCommentRow[]>([]);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const nextTempIdRef = useRef(-1);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const hasSession = isStorefrontCustomerSession();
 
   const commentsQuery = useQuery({
     queryKey: ['reel-comments', reelId],
@@ -83,6 +88,11 @@ const ReelCommentDrawer: React.FC<Props> = ({ reelId, open, onClose, onCommentAd
     });
   };
 
+  const goToLogin = () => {
+    const nextPath = `${location.pathname}${location.search}`;
+    navigate(`/login?next=${encodeURIComponent(nextPath)}&shop=1`);
+  };
+
   if (!open || reelId == null) return null;
 
   return (
@@ -98,7 +108,10 @@ const ReelCommentDrawer: React.FC<Props> = ({ reelId, open, onClose, onCommentAd
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {commentsQuery.isLoading && <p className="text-xs text-white/60">Loading comments...</p>}
-          {!commentsQuery.isLoading && comments.length === 0 && (
+          {commentsQuery.isError && (
+            <p className="text-xs text-amber-200/90">Could not load comments. Try signing in or refresh.</p>
+          )}
+          {!commentsQuery.isLoading && !commentsQuery.isError && comments.length === 0 && (
             <p className="text-xs text-white/60">No comments yet. Start the conversation.</p>
           )}
           {comments.map((comment) => (
@@ -109,53 +122,67 @@ const ReelCommentDrawer: React.FC<Props> = ({ reelId, open, onClose, onCommentAd
           ))}
         </div>
 
-        <form
-          className="p-3 border-t border-white/10 flex items-end gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const body = draft.trim();
-            if (!body || addMut.isPending) return;
-            const tempId = nextTempIdRef.current;
-            nextTempIdRef.current -= 1;
-            setOptimisticRows((prev) => [
-              {
-                id: tempId,
-                body,
-                user_name: 'You',
-                created_at: new Date().toISOString(),
-                parent: null,
-              },
-              ...prev,
-            ]);
-            addMut.mutate({ body, tempId });
-          }}
-        >
-          <div className="relative">
+        {hasSession ? (
+          <form
+            className="p-3 border-t border-white/10 flex items-end gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const body = draft.trim();
+              if (!body || addMut.isPending) return;
+              const tempId = nextTempIdRef.current;
+              nextTempIdRef.current -= 1;
+              setOptimisticRows((prev) => [
+                {
+                  id: tempId,
+                  body,
+                  user_name: 'You',
+                  created_at: new Date().toISOString(),
+                  parent: null,
+                },
+                ...prev,
+              ]);
+              addMut.mutate({ body, tempId });
+            }}
+          >
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowEmojiPicker((prev) => !prev)}
+                className="w-11 h-11 rounded-xl bg-white text-black border border-white/15 flex items-center justify-center"
+                aria-label="Pick emoji"
+                title="Pick emoji"
+              >
+                🙂
+              </button>
+            </div>
+            <textarea
+              ref={textareaRef}
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              className="flex-1 rounded-xl bg-white border border-white/15 text-black placeholder:text-gray-500 text-sm p-2.5 min-h-[44px] max-h-28"
+              placeholder="Write a comment... add emoji 🙂"
+            />
+            <button
+              type="submit"
+              disabled={addMut.isPending || !draft.trim()}
+              className="w-11 h-11 rounded-xl bg-[var(--reels-accent)] text-white flex items-center justify-center disabled:opacity-50"
+            >
+              <Send className="w-4 h-4" />
+            </button>
+          </form>
+        ) : (
+          <div className="p-4 border-t border-white/10 space-y-3">
+            <p className="text-xs text-white/70">Sign in to post a comment.</p>
             <button
               type="button"
-              onClick={() => setShowEmojiPicker((prev) => !prev)}
-              className="w-11 h-11 rounded-xl bg-white text-black border border-white/15 flex items-center justify-center"
-              aria-label="Pick emoji"
-              title="Pick emoji"
+              onClick={goToLogin}
+              className="w-full rounded-xl py-3 text-sm font-semibold text-white"
+              style={{ background: 'var(--reels-accent)' }}
             >
-              🙂
+              Sign in
             </button>
           </div>
-          <textarea
-            ref={textareaRef}
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            className="flex-1 rounded-xl bg-white border border-white/15 text-black placeholder:text-gray-500 text-sm p-2.5 min-h-[44px] max-h-28"
-            placeholder="Write a comment... add emoji 🙂"
-          />
-          <button
-            type="submit"
-            disabled={addMut.isPending || !draft.trim()}
-            className="w-11 h-11 rounded-xl bg-[var(--reels-accent)] text-white flex items-center justify-center disabled:opacity-50"
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </form>
+        )}
       </div>
       <EmojiPickerOverlay
         open={showEmojiPicker}

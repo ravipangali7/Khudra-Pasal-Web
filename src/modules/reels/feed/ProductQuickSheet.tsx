@@ -11,9 +11,18 @@ interface ProductQuickSheetProps {
   onClose: () => void;
   onAddToCart: () => void;
   onBuyNow?: (quantity: number) => void;
+  /** When false (e.g. API had no linked product), commerce buttons are disabled. */
+  hasLinkedProduct?: boolean;
 }
 
-const ProductQuickSheet: React.FC<ProductQuickSheetProps> = ({ product, isOpen, onClose, onAddToCart, onBuyNow }) => {
+const ProductQuickSheet: React.FC<ProductQuickSheetProps> = ({
+  product,
+  isOpen,
+  onClose,
+  onAddToCart,
+  onBuyNow,
+  hasLinkedProduct = true,
+}) => {
   const [quantity, setQuantity] = useState(1);
   const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({});
   const [expanded, setExpanded] = useState(false);
@@ -127,8 +136,12 @@ const ProductQuickSheet: React.FC<ProductQuickSheetProps> = ({ product, isOpen, 
 
             {/* Sticky bottom */}
             <div className="sticky bottom-0 px-5 pb-6 pt-3 flex gap-3" style={{ background: 'var(--reels-surface)', borderTop: '1px solid var(--reels-border)' }}>
-              <ReelsButton variant="cart" onClick={onAddToCart} className="flex-1 text-sm">🛒 Add to Cart</ReelsButton>
-              <ReelsButton variant="buy" onClick={() => onBuyNow?.(quantity)} className="flex-1 text-sm">⚡ Buy Now</ReelsButton>
+              <ReelsButton variant="cart" onClick={onAddToCart} className="flex-1 text-sm" disabled={!hasLinkedProduct}>
+                🛒 Add to Cart
+              </ReelsButton>
+              <ReelsButton variant="buy" onClick={() => onBuyNow?.(quantity)} className="flex-1 text-sm" disabled={!hasLinkedProduct}>
+                ⚡ Buy Now
+              </ReelsButton>
             </div>
           </motion.div>
         </>

@@ -778,7 +778,7 @@ export const websiteApi = {
     apiFetch<{ results: Array<{ id: number; body: string; user_name: string; created_at: string; parent: number | null }> }>(
       `/website/reels/${encodeURIComponent(String(reelId))}/comments/`,
       undefined,
-      true,
+      false,
     ),
   addReelComment: (reelId: number | string, body: string, parent_id?: number) =>
     apiFetch<{ id: number; body: string; user_name: string; created_at: string; parent: number | null }>(

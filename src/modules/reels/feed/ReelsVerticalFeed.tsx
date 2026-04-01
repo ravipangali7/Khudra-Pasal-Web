@@ -47,6 +47,7 @@ const ReelsVerticalFeed: React.FC<ReelsVerticalFeedProps> = ({
             isMuted={ctl.isMuted || index !== activeIndex}
             onToggleMute={ctl.handleToggleMute}
             onAddToCart={ctl.handleAddToCart}
+            onBuyNow={ctl.handleBuyNow}
             onToggleLike={ctl.handleLike}
             onToggleBookmark={ctl.handleBookmark}
             onShare={ctl.handleShare}

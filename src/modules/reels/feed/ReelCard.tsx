@@ -109,6 +109,7 @@ const ReelCard: React.FC<ReelCardProps> = ({
       {/* Product quick sheet */}
       <ProductQuickSheet
         product={reel.product}
+        hasLinkedProduct={Boolean(reel.product?.id)}
         isOpen={sheetOpen}
         onClose={() => setSheetOpen(false)}
         onAddToCart={() => {

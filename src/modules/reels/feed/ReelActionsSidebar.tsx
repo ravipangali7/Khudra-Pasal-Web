@@ -47,6 +47,27 @@ const ActionButton: React.FC<{
   </motion.button>
 );
 
+const ViewsStat: React.FC<{ views: number; index: number }> = ({ views, index }) => (
+  <motion.div
+    className="flex flex-col items-center gap-1 pointer-events-none select-none"
+    aria-hidden
+    initial={{ opacity: 0, x: 20 }}
+    animate={{ opacity: 1, x: 0 }}
+    transition={{ delay: 0.5 + index * 0.1, type: 'spring', stiffness: 300 }}
+  >
+    <div
+      className="w-12 h-12 rounded-full flex items-center justify-center backdrop-blur-md"
+      style={{
+        background: 'var(--reels-glass)',
+        border: '1px solid var(--reels-glass-border)',
+      }}
+    >
+      <Eye className="w-5 h-5 text-white" />
+    </div>
+    <span className="reels-font-mono text-[10px] font-medium text-white">{formatCount(views)}</span>
+  </motion.div>
+);
+
 const ReelActionsSidebar: React.FC<ReelActionsSidebarProps> = ({
   views,
   likes,
@@ -71,12 +92,7 @@ const ReelActionsSidebar: React.FC<ReelActionsSidebarProps> = ({
         onClick={onLike}
         active={liked}
       />
-      <ActionButton
-        index={1}
-        icon={<Eye className="w-5 h-5 text-white" />}
-        label={formatCount(views)}
-        onClick={() => {}}
-      />
+      <ViewsStat views={views} index={1} />
       <ActionButton
         index={2}
         icon={<MessageCircle className="w-5 h-5 text-white" />}

@@ -18,6 +18,7 @@ const ReelProductOverlay: React.FC<ReelProductOverlayProps> = ({
   reel, onProductTap, onAddToCart, onBuyNow, expanded, onToggleCaption
 }) => {
   const { product, vendor, caption } = reel;
+  const productLinked = Boolean(reel.product?.id);
 
   return (
     <motion.div
@@ -67,10 +68,20 @@ const ReelProductOverlay: React.FC<ReelProductOverlayProps> = ({
 
       {/* Action buttons */}
       <div className="flex gap-2">
-        <ReelsButton variant="cart" onClick={onAddToCart} className="flex-[55] px-4 text-sm">
+        <ReelsButton
+          variant="cart"
+          onClick={onAddToCart}
+          className="flex-[55] px-4 text-sm"
+          disabled={!productLinked}
+        >
           🛒 Add to Cart
         </ReelsButton>
-        <ReelsButton variant="buy" onClick={onBuyNow} className="flex-[45] px-4 text-sm">
+        <ReelsButton
+          variant="buy"
+          onClick={onBuyNow}
+          className="flex-[45] px-4 text-sm"
+          disabled={!productLinked}
+        >
           ⚡ Buy Now
         </ReelsButton>
       </div>
