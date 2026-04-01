@@ -153,10 +153,23 @@ function ProductsList({ filterInHouse }: { filterInHouse?: boolean }) {
       galleryPreviews.forEach((u) => URL.revokeObjectURL(u));
     };
   }, [galleryPreviews]);
-  const createMutation = useAdminMutation(adminApi.createProduct, [['admin', 'products']]);
+  const createMutation = useAdminMutation(
+    adminApi.createProduct,
+    [['admin', 'products']],
+    (data) => {
+      const d = data as { id?: string };
+      const keys: (string | number)[][] = [['product-detail']];
+      if (d.id) keys.unshift(['admin', 'product', d.id]);
+      return keys;
+    },
+  );
   const updateMutation = useAdminMutation(
     ({ id, payload }: { id: string; payload: FormData }) => adminApi.updateProduct(id, payload),
     [['admin', 'products']],
+    (_data, variables) => [
+      ['admin', 'product', variables.id],
+      ['product-detail'],
+    ],
   );
   const deleteMutation = useAdminMutation(adminApi.deleteProduct, [['admin', 'products']]);
 
@@ -278,15 +291,32 @@ function ProductsList({ filterInHouse }: { filterInHouse?: boolean }) {
           <p className="text-sm text-muted-foreground">Loading…</p>
         ) : productDetail ? (
           <div className="space-y-4 max-h-[70vh] overflow-y-auto">
-            <div className="flex gap-4">
-              {productDetail.image_url ? (
-                <img src={resolveMediaUrl(productDetail.image_url)} alt="" className="w-32 h-32 rounded-lg object-cover border" />
-              ) : null}
-              <div className="space-y-1 text-sm">
-                <p className="text-lg font-semibold">{productDetail.name}</p>
-                <p className="text-muted-foreground">SKU: {productDetail.sku} · {productDetail.type}</p>
-                <Badge className={cn(productDetail.status === 'active' && 'bg-emerald-500')}>{productDetail.status}</Badge>
+            <div className="flex flex-col gap-3">
+              <div className="flex gap-4">
+                {productDetail.image_url ? (
+                  <img src={resolveMediaUrl(productDetail.image_url)} alt="" className="w-32 h-32 rounded-lg object-cover border shrink-0" />
+                ) : null}
+                <div className="space-y-1 text-sm min-w-0">
+                  <p className="text-lg font-semibold">{productDetail.name}</p>
+                  <p className="text-muted-foreground">SKU: {productDetail.sku} · {productDetail.type}</p>
+                  <Badge className={cn(productDetail.status === 'active' && 'bg-emerald-500')}>{productDetail.status}</Badge>
+                </div>
               </div>
+              {(productDetail.images?.length ?? 0) > 0 ? (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-2">Gallery</p>
+                  <div className="flex flex-wrap gap-2">
+                    {(productDetail.images ?? []).map((im) => (
+                      <img
+                        key={im.id}
+                        src={resolveMediaUrl(im.image_url)}
+                        alt=""
+                        className="h-20 w-20 rounded-md border object-cover"
+                      />
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </div>
             <div className="grid md:grid-cols-2 gap-3 text-sm">
               <div><span className="text-muted-foreground">Category</span><p className="font-medium">{productDetail.category_name}</p></div>
