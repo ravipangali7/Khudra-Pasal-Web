@@ -712,6 +712,7 @@ export const websiteApi = {
       seo_title: string;
       seo_description: string;
       last_updated: string;
+      featured_image_url: string;
     }>(`/website/cms-pages/${encodeURIComponent(slug)}/`),
   blogPosts: (params?: { search?: string }) =>
     apiFetch<
@@ -1172,6 +1173,7 @@ export const adminApi = {
       seoTitle: string;
       seoDesc: string;
       lastUpdated: string;
+      imageUrl: string;
     }>(`/admin/cms-pages/${encodeURIComponent(id)}/`, undefined, true),
   notifications: (params?: QueryParams) => adminPaged<Record<string, unknown>>("notifications", params),
   refunds: (params?: QueryParams) => adminPaged<Record<string, unknown>>("refunds", params),
@@ -1280,9 +1282,9 @@ export const adminApi = {
   updateBanner: (id: string, payload: Record<string, unknown> | FormData) =>
     adminWrite<Record<string, unknown>>(`banners/${id}`, "PATCH", payload),
   deleteBanner: (id: string) => adminWrite<{ ok: true }>(`banners/${id}`, "DELETE"),
-  createCmsPage: (payload: Record<string, unknown>) =>
+  createCmsPage: (payload: Record<string, unknown> | FormData) =>
     adminWrite<Record<string, unknown>>("cms-pages/create", "POST", payload),
-  updateCmsPage: (id: string, payload: Record<string, unknown>) =>
+  updateCmsPage: (id: string, payload: Record<string, unknown> | FormData) =>
     adminWrite<Record<string, unknown>>(`cms-pages/${id}`, "PATCH", payload),
   deleteCmsPage: (id: string) => adminWrite<{ ok: true }>(`cms-pages/${id}`, "DELETE"),
   createPurchaseOrder: (payload: {

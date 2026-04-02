@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import DOMPurify from 'isomorphic-dompurify';
 import { FileText, Edit, Trash2, MoreVertical, Eye } from 'lucide-react';
 import AdminTable from '@/components/admin/AdminTable';
@@ -28,9 +28,11 @@ type CmsPageRow = {
   lastUpdated: string;
   seoTitle: string;
   seoDesc: string;
+  imageUrl?: string;
 };
 
 export default function CMSModule() {
+  const queryClient = useQueryClient();
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -45,6 +47,9 @@ export default function CMSModule() {
     status: 'draft',
   });
   const [slugEdited, setSlugEdited] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageCleared, setImageCleared] = useState(false);
+  const [localPreviewUrl, setLocalPreviewUrl] = useState<string | null>(null);
 
   const { data: cmsPages = [], isLoading, isError } = useAdminList<CmsPageRow>(
     ['admin', 'cms-pages'],
@@ -52,7 +57,8 @@ export default function CMSModule() {
   );
   const createMutation = useAdminMutation(adminApi.createCmsPage, [['admin', 'cms-pages']]);
   const updateMutation = useAdminMutation(
-    ({ id, payload }: { id: string; payload: Record<string, unknown> }) => adminApi.updateCmsPage(id, payload),
+    ({ id, payload }: { id: string; payload: Record<string, unknown> | FormData }) =>
+      adminApi.updateCmsPage(id, payload),
     [['admin', 'cms-pages']],
   );
   const deleteMutation = useAdminMutation(adminApi.deleteCmsPage, [['admin', 'cms-pages']]);
@@ -70,6 +76,16 @@ export default function CMSModule() {
   });
 
   useEffect(() => {
+    if (!imageFile) {
+      setLocalPreviewUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(imageFile);
+    setLocalPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [imageFile]);
+
+  useEffect(() => {
     if (!editDetail || !editItem) return;
     setForm({
       title: editDetail.title,
@@ -80,11 +96,15 @@ export default function CMSModule() {
       status: editDetail.status,
     });
     setSlugEdited(true);
+    setImageFile(null);
+    setImageCleared(false);
   }, [editDetail, editItem?.id]);
 
   const resetForm = () => {
     setForm({ title: '', slug: '', content: '', seoTitle: '', seoDesc: '', status: 'draft' });
     setSlugEdited(false);
+    setImageFile(null);
+    setImageCleared(false);
   };
 
   const openEdit = (item: CmsPageRow) => {
@@ -98,23 +118,42 @@ export default function CMSModule() {
       status: item.status,
     });
     setSlugEdited(true);
+    setImageFile(null);
+    setImageCleared(false);
     setModalOpen(true);
   };
 
+  const buildCmsPayload = () => ({
+    title: form.title,
+    slug: form.slug,
+    content: form.content,
+    seo_title: form.seoTitle,
+    seo_description: form.seoDesc,
+    status: form.status,
+  });
+
   const savePage = async () => {
-    const payload = {
-      title: form.title,
-      slug: form.slug,
-      content: form.content,
-      seo_title: form.seoTitle,
-      seo_description: form.seoDesc,
-      status: form.status,
-    };
-    if (editItem) {
-      await updateMutation.mutateAsync({ id: editItem.id, payload });
+    const base = buildCmsPayload();
+    if (imageFile) {
+      const fd = new FormData();
+      Object.entries(base).forEach(([k, v]) => fd.append(k, String(v)));
+      fd.append('image', imageFile);
+      if (editItem) {
+        await updateMutation.mutateAsync({ id: editItem.id, payload: fd });
+      } else {
+        await createMutation.mutateAsync(fd);
+      }
+    } else if (editItem && imageCleared) {
+      await updateMutation.mutateAsync({
+        id: editItem.id,
+        payload: { ...base, clear_featured_image: true },
+      });
+    } else if (editItem) {
+      await updateMutation.mutateAsync({ id: editItem.id, payload: base });
     } else {
-      await createMutation.mutateAsync(payload);
+      await createMutation.mutateAsync(base);
     }
+    await queryClient.invalidateQueries({ queryKey: ['website-cms'] });
     setModalOpen(false);
     setEditItem(null);
     resetForm();
@@ -189,6 +228,45 @@ export default function CMSModule() {
               <CmsRichTextEditor value={form.content} onChange={(html) => setForm((prev) => ({ ...prev, content: html }))} />
             </div>
           </div>
+          <div>
+            <Label>Featured image</Label>
+            <p className="text-xs text-muted-foreground mt-1 mb-2">
+              Optional hero image for the public page (saved with the page).
+            </p>
+            <Input
+              type="file"
+              accept="image/*"
+              className="cursor-pointer"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) {
+                  setImageFile(f);
+                  setImageCleared(false);
+                }
+                e.target.value = '';
+              }}
+            />
+            {localPreviewUrl || (!imageCleared && editDetail?.imageUrl) ? (
+              <div className="mt-3 space-y-2">
+                <img
+                  src={localPreviewUrl || editDetail?.imageUrl || ''}
+                  alt=""
+                  className="max-h-40 rounded-md border object-contain bg-muted/30"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setImageFile(null);
+                    setImageCleared(true);
+                  }}
+                >
+                  Remove image
+                </Button>
+              </div>
+            ) : null}
+          </div>
           <div className="border-t pt-4 space-y-4">
             <h4 className="font-medium text-sm">SEO Fields</h4>
             <div><Label>SEO Title</Label><Input placeholder="Meta title" value={form.seoTitle} onChange={(e) => setForm((prev) => ({ ...prev, seoTitle: e.target.value }))} /></div>
@@ -205,6 +283,13 @@ export default function CMSModule() {
               Public URL: <code className="text-foreground">/page/{previewItem.slug}</code> (when published)
             </p>
             <div className="border rounded-lg p-6 bg-muted/20 min-h-[200px] prose prose-sm dark:prose-invert max-w-none">
+              {previewDetail?.imageUrl ? (
+                <img
+                  src={previewDetail.imageUrl}
+                  alt=""
+                  className="w-full max-h-48 object-cover rounded-md mb-4 not-prose"
+                />
+              ) : null}
               <h1 className="text-2xl font-bold mb-2">{previewDetail?.title ?? previewItem.title}</h1>
               {previewHtml ? (
                 <div dangerouslySetInnerHTML={{ __html: previewHtml }} />

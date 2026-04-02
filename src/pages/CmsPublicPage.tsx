@@ -47,6 +47,13 @@ export default function CmsPublicPage() {
       <Header />
       <main className="flex-1 container mx-auto px-4 py-10 max-w-3xl">
         <article>
+          {data.featured_image_url ? (
+            <img
+              src={data.featured_image_url}
+              alt=""
+              className="w-full max-h-[min(24rem,50vh)] object-cover rounded-xl mb-6 border bg-muted/20"
+            />
+          ) : null}
           <h1 className="text-3xl font-bold text-foreground mb-2">{data.title}</h1>
           {data.seo_description ? (
             <p className="text-sm text-muted-foreground mb-8">{data.seo_description}</p>
