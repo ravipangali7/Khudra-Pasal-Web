@@ -8,6 +8,7 @@ import {
   Loader2,
   MessageSquare,
   Package,
+  Trash2,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -56,6 +57,14 @@ export default function AdminNotificationsModal({ open, onOpenChange }: AdminNot
     },
     onError: (e: Error) => toast.error(e.message || 'Could not update notifications.'),
   });
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => adminApi.deleteNotification(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'me-notifications'] });
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'me-notifications-unread'] });
+    },
+    onError: (e: Error) => toast.error(e.message || 'Could not delete notification.'),
+  });
 
   const handleMarkAllRead = () => {
     markReadMutation.mutate({ all: true });
@@ -78,7 +87,7 @@ export default function AdminNotificationsModal({ open, onOpenChange }: AdminNot
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md max-h-[85vh] flex flex-col p-0 gap-0 overflow-hidden">
+      <DialogContent className="sm:max-w-xl max-h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
         <DialogHeader className="px-6 pt-6 pb-3 border-b border-border shrink-0">
           <div className="flex items-center justify-between gap-2 pr-8">
             <DialogTitle className="flex items-center gap-2 text-lg">
@@ -170,9 +179,27 @@ export default function AdminNotificationsModal({ open, onOpenChange }: AdminNot
                             <span className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-primary align-middle" />
                           )}
                         </p>
-                        {n.action_url ? (
-                          <ExternalLink className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5" />
-                        ) : null}
+                        <div className="flex items-center gap-1 shrink-0">
+                          {n.action_url ? (
+                            <ExternalLink className="w-3.5 h-3.5 text-muted-foreground mt-0.5" />
+                          ) : null}
+                          <button
+                            type="button"
+                            className="inline-flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-destructive hover:bg-muted/70"
+                            disabled={deleteMutation.isPending}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void deleteMutation.mutateAsync(n.id);
+                            }}
+                            aria-label="Delete notification"
+                          >
+                            {deleteMutation.isPending ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-3.5 h-3.5" />
+                            )}
+                          </button>
+                        </div>
                       </div>
                       {body ? (
                         <p className="text-xs text-muted-foreground mt-1 leading-relaxed line-clamp-3">{body}</p>

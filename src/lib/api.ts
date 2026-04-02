@@ -1487,6 +1487,14 @@ export const vendorApi = {
         action_url: string;
       }>;
     }>("/vendor/notifications/", undefined, true),
+  notificationsMarkRead: (body: { all?: boolean; ids?: string[] }) =>
+    vendorFetch<{ ok: boolean; updated: number }>(
+      "/vendor/notifications/mark-read/",
+      { method: "POST", body: JSON.stringify(body) },
+      true,
+    ),
+  deleteNotification: (id: string) =>
+    vendorFetch<{ ok: boolean }>(`/vendor/notifications/${encodeURIComponent(id)}/`, { method: "DELETE" }, true),
   profile: () => vendorFetch<Record<string, unknown>>("/vendor/profile/", undefined, true),
   updateProfile: (payload: Record<string, unknown> | FormData) =>
     vendorWrite<Record<string, unknown>>("profile", "PATCH", payload),
@@ -2135,6 +2143,8 @@ export const portalApi = {
       { method: "POST", body: JSON.stringify(body) },
       true,
     ),
+  deleteNotification: (id: string) =>
+    portalFetch<{ ok: boolean }>(`/portal/notifications/${encodeURIComponent(id)}/`, { method: "DELETE" }, true),
   familyChildren: () => portalFetch<PortalChildAccountRow[]>("/portal/family/children/", undefined, true),
   familyOverview: () => portalFetch<PortalFamilyOverview>("/portal/family/members/", undefined, true),
   createFamilyGroup: (payload: { name: string; type?: string }) =>

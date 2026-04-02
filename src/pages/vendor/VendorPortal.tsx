@@ -5,8 +5,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Loader2, Trash2 } from 'lucide-react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import AdminLayout from '@/components/admin/AdminLayout';
 import AdminSidebar from '@/components/admin/AdminSidebar';
 import UnifiedAuthLoginPage from '@/components/auth/UnifiedAuthLoginPage';
@@ -113,6 +115,31 @@ export default function VendorPortal() {
     refetchInterval: notificationsOpen ? 8_000 : false,
   });
   const vendorNotifications = vendorNotifResp?.results ?? [];
+  const markReadMutation = useMutation({
+    mutationFn: (body: { all?: boolean; ids?: string[] }) => vendorApi.notificationsMarkRead(body),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['vendor', 'notifications'] }),
+    onError: (e: Error) => toast.error(e.message || 'Could not mark notification as read.'),
+  });
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => vendorApi.deleteNotification(id),
+    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['vendor', 'notifications'] }),
+    onError: (e: Error) => toast.error(e.message || 'Could not delete notification.'),
+  });
+  const handleNotificationActivate = async (id: string, isRead: boolean, destination: string) => {
+    if (!isRead) {
+      try {
+        await markReadMutation.mutateAsync({ ids: [id] });
+      } catch {
+        // Keep navigation flow even if read status update fails.
+      }
+    }
+    setNotificationsOpen(false);
+    if (destination.startsWith('http://') || destination.startsWith('https://')) {
+      window.open(destination, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    navigate(destination);
+  };
 
   const vendorNumericId = useMemo(() => {
     const id = (vMe as { id?: unknown } | undefined)?.id;
@@ -357,7 +384,7 @@ export default function VendorPortal() {
       />
 
       <Dialog open={notificationsOpen} onOpenChange={setNotificationsOpen}>
-        <DialogContent className="max-w-lg sm:max-w-xl max-h-[min(85vh,640px)] flex flex-col p-0 gap-0">
+        <DialogContent className="max-w-xl sm:max-w-2xl max-h-[min(90vh,760px)] flex flex-col p-0 gap-0">
           <DialogHeader className="p-6 pb-2 shrink-0">
             <DialogTitle>Notifications</DialogTitle>
             <p className="text-sm text-muted-foreground font-normal">
@@ -372,34 +399,32 @@ export default function VendorPortal() {
                 {vendorNotifications.map((n) => {
                   const ordersPath = buildVendorModulePath('all-orders');
                   const rawUrl = (n.action_url || '').trim();
-                  const isOrdersUrl =
-                    rawUrl === '/vendor/all-orders' || rawUrl === ordersPath;
-                  const deepLink = rawUrl && !isOrdersUrl ? rawUrl : '';
+                  const destination = rawUrl || ordersPath;
+                  const unread = n.is_read === false;
                   return (
                     <li
                       key={n.id}
                       className={cn(
-                        'rounded-lg border bg-card p-3 text-sm shadow-sm',
-                        deepLink && 'cursor-pointer hover:bg-muted/50 transition-colors',
+                        'rounded-lg border p-3 text-sm shadow-sm transition-colors cursor-pointer hover:bg-muted/50',
+                        unread ? 'border-primary/30 bg-primary/5' : 'border-border bg-card',
                       )}
-                      onClick={() => {
-                        if (!deepLink) return;
-                        setNotificationsOpen(false);
-                        navigate(deepLink);
-                      }}
-                      onKeyDown={(e) => {
-                        if (!deepLink) return;
+                      onClick={() => void handleNotificationActivate(n.id, Boolean(n.is_read), destination)}
+                      onKeyDown={async (e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault();
-                          setNotificationsOpen(false);
-                          navigate(deepLink);
+                          await handleNotificationActivate(n.id, Boolean(n.is_read), destination);
                         }
                       }}
-                      role={deepLink ? 'button' : undefined}
-                      tabIndex={deepLink ? 0 : undefined}
+                      role="button"
+                      tabIndex={0}
                     >
                       <div className="flex items-start justify-between gap-2">
-                        <p className="font-medium leading-snug">{n.title}</p>
+                        <p className="font-medium leading-snug text-foreground">
+                          {n.title}
+                          {unread && (
+                            <span className="ml-1.5 inline-block w-1.5 h-1.5 rounded-full bg-primary align-middle" />
+                          )}
+                        </p>
                         <span className="text-xs text-muted-foreground whitespace-nowrap shrink-0">
                           {n.time ? new Date(n.time).toLocaleString() : ''}
                         </span>
@@ -418,6 +443,24 @@ export default function VendorPortal() {
                           }}
                         >
                           View orders
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 text-muted-foreground hover:text-destructive"
+                          disabled={deleteMutation.isPending}
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            await deleteMutation.mutateAsync(n.id);
+                          }}
+                        >
+                          {deleteMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                          <span className="sr-only">Delete notification</span>
                         </Button>
                       </div>
                     </li>
