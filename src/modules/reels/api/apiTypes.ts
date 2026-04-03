@@ -33,6 +33,7 @@ export interface ApiReelPublicRow {
     in_stock: boolean;
     rating: number;
     reviews: number;
+    category_slug?: string;
   } | null;
   is_sponsored?: boolean;
   boost_expires_at?: string | null;

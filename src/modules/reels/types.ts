@@ -8,6 +8,8 @@ export interface ReelProduct {
   inStock: boolean;
   rating: number;
   reviews: number;
+  /** Leaf category slug for storefront / child rules (from API when present). */
+  categorySlug?: string;
   description?: string;
   variants?: { type: string; options: string[] }[];
 }

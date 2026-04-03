@@ -16,6 +16,7 @@ import {
   type WebsiteVendorMini,
   websiteApi,
 } from "@/lib/api";
+import { evaluateChildProductCommerce } from "@/lib/childShoppingRules";
 
 const PAGE_SIZE = 100;
 
@@ -118,6 +119,7 @@ function PortalCatalogProductCard({
           price: ui.price,
           image: ui.image || undefined,
           quantity: 1,
+          categorySlug: product.category_slug,
           ...(sellerId != null && Number.isFinite(sellerId) ? { sellerId } : {}),
         },
       },
@@ -274,15 +276,6 @@ export default function PortalProductsCatalogSection({
     return s;
   }, [variant, childRules]);
 
-  const approvalSlugs = useMemo(() => {
-    if (variant !== "child" || !childRules?.product_restrictions?.length) return new Set<string>();
-    const s = new Set<string>();
-    for (const r of childRules.product_restrictions) {
-      if (r.requires_approval && r.category_slug) s.add(r.category_slug);
-    }
-    return s;
-  }, [variant, childRules]);
-
   const filteredProducts = useMemo(() => {
     const list = data ?? [];
     if (variant !== "child" || blockedSlugs.size === 0) return list;
@@ -386,12 +379,20 @@ export default function PortalProductsCatalogSection({
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
               {group.products.map((product) => {
-                const needsApproval =
-                  variant === "child" && approvalSlugs.has(product.category_slug) && !blockedSlugs.has(product.category_slug);
-                const commerceDisabled = Boolean(variant === "child" && (purchasesOff || needsApproval));
-                const commerceDisabledMessage = purchasesOff
-                  ? "Online purchases are turned off for your account."
-                  : "This category requires parent approval before you can purchase.";
+                const ev =
+                  variant === "child" && childRules
+                    ? evaluateChildProductCommerce(
+                        {
+                          category: product.category_slug || "all",
+                          price: Number(product.price || 0),
+                        },
+                        childRules,
+                      )
+                    : null;
+                const commerceDisabled = Boolean(ev?.commerceDisabled);
+                const commerceDisabledMessage =
+                  ev?.message ||
+                  (purchasesOff ? "Online purchases are turned off for your account." : "");
 
                 return (
                   <PortalCatalogProductCard
@@ -399,7 +400,7 @@ export default function PortalProductsCatalogSection({
                     product={product}
                     commerceDisabled={commerceDisabled}
                     commerceDisabledMessage={commerceDisabledMessage}
-                    needsApprovalBadge={needsApproval}
+                    needsApprovalBadge={Boolean(ev?.needsApproval)}
                   />
                 );
               })}

@@ -361,6 +361,7 @@ const CustomerPortal = () => {
             image: product.image_url || undefined,
             quantity: 1,
             sellerId: product.seller?.id,
+            categorySlug: product.category_slug,
           },
         },
       });

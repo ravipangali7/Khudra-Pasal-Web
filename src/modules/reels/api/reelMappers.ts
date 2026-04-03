@@ -80,6 +80,7 @@ export function mapApiReelToUi(row: ApiReelPublicRow): Reel {
           inStock: p.in_stock,
           rating: p.rating,
           reviews: p.reviews,
+          categorySlug: p.category_slug || undefined,
         }
       : {
           id: 0,

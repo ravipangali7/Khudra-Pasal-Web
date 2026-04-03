@@ -15,6 +15,8 @@ import {
   websiteApi,
   type WebsiteCartApi,
 } from '@/lib/api';
+import { useChildShoppingRules } from '@/contexts/ChildShoppingRulesContext';
+import { evaluateChildProductCommerce } from '@/lib/childShoppingRules';
 import { savePendingCartIntent } from '@/lib/pendingCartIntent';
 import { toast } from 'sonner';
 
@@ -70,6 +72,7 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider = ({ children }: { children: ReactNode }) => {
+  const { isChildShopper, rules, isLoadingRules } = useChildShoppingRules();
   const navigate = useNavigate();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -149,6 +152,13 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         navigate(`/login?next=${encodeURIComponent(nextPath)}&shop=1`);
         return;
       }
+      if (isChildShopper && rules && !isLoadingRules) {
+        const ev = evaluateChildProductCommerce(product, rules);
+        if (ev.commerceDisabled) {
+          toast.error(ev.message);
+          return;
+        }
+      }
       const rollback = cartItemsRef.current;
       const listingScope = options?.listingScope;
       const listingKey =
@@ -194,7 +204,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         }
       })();
     },
-    [applyServerCart, navigate],
+    [applyServerCart, navigate, isChildShopper, rules, isLoadingRules],
   );
 
   const removeFromCart = useCallback(
@@ -232,6 +242,19 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       }
 
       const prevItem = cartItemsRef.current.find((i) => i.product.id === productId);
+      if (
+        prevItem &&
+        quantity > prevItem.quantity &&
+        isChildShopper &&
+        rules &&
+        !isLoadingRules
+      ) {
+        const ev = evaluateChildProductCommerce(prevItem.product, rules);
+        if (ev.commerceDisabled) {
+          toast.error(ev.message);
+          return;
+        }
+      }
       const snapshot = cartItemsRef.current;
 
       setCartItems((prev) =>
@@ -255,7 +278,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         }
       })();
     },
-    [removeFromCart, refreshServerCart],
+    [removeFromCart, refreshServerCart, isChildShopper, rules, isLoadingRules],
   );
 
   const getItemQuantity = useCallback((productId: string) => {

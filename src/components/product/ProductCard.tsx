@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Star, Minus, Plus, Bell, Flame, TrendingUp } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Product } from '@/types';
@@ -7,6 +7,9 @@ import NotifyMeModal from '@/components/modals/NotifyMeModal';
 import { cn } from '@/lib/utils';
 import { resolveThemeClass } from '@/lib/categoryTheme';
 import { isStorefrontCustomerSession } from '@/lib/api';
+import { useChildShoppingRules } from '@/contexts/ChildShoppingRulesContext';
+import { evaluateChildProductCommerce } from '@/lib/childShoppingRules';
+import { toast } from 'sonner';
 import { savePendingCartIntent } from '@/lib/pendingCartIntent';
 
 /** Top-right badge on the image when the product is not flagged as bestseller. */
@@ -37,7 +40,14 @@ const ProductCard = ({
   const theme = resolveThemeClass(categoryTheme || product.category);
   const navigate = useNavigate();
   const { addToCart, getItemQuantity, updateQuantity, isListingCartActive } = useCart();
+  const { isChildShopper, rules, isLoadingRules } = useChildShoppingRules();
   const [showNotifyModal, setShowNotifyModal] = useState(false);
+
+  const childCommerce = useMemo(() => {
+    if (!isChildShopper || !rules || isLoadingRules) return null;
+    return evaluateChildProductCommerce(product, rules);
+  }, [isChildShopper, rules, isLoadingRules, product]);
+  const childCommerceDisabled = Boolean(childCommerce?.commerceDisabled);
 
   const quantity = getItemQuantity(product.id);
   const showCartControls = listingScope
@@ -79,6 +89,8 @@ const ProductCard = ({
     e.stopPropagation();
     if (isSoldOut) {
       setShowNotifyModal(true);
+    } else if (childCommerceDisabled && childCommerce) {
+      toast.message(childCommerce.message);
     } else {
       if (!isStorefrontCustomerSession()) {
         const nextPath = `${window.location.pathname}${window.location.search}`;
@@ -98,6 +110,10 @@ const ProductCard = ({
   const handleQuantityChange = (e: React.MouseEvent, newQuantity: number) => {
     e.preventDefault();
     e.stopPropagation();
+    if (newQuantity > quantity && childCommerceDisabled && childCommerce) {
+      toast.message(childCommerce.message);
+      return;
+    }
     updateQuantity(product.id, newQuantity);
   };
 
@@ -169,8 +185,14 @@ const ProductCard = ({
               <button
                 type="button"
                 onClick={handleAddToCart}
-                className="absolute bottom-2 right-2 z-20 px-3.5 py-1.5 rounded-lg text-white text-xs font-bold shadow-md hover:opacity-95 active:scale-[0.97] transition-all"
-                style={{ backgroundColor: ADD_ORANGE }}
+                disabled={childCommerceDisabled}
+                className={cn(
+                  'absolute bottom-2 right-2 z-20 px-3.5 py-1.5 rounded-lg text-white text-xs font-bold shadow-md transition-all',
+                  childCommerceDisabled
+                    ? 'opacity-50 cursor-not-allowed bg-muted-foreground'
+                    : 'hover:opacity-95 active:scale-[0.97]',
+                )}
+                style={childCommerceDisabled ? undefined : { backgroundColor: ADD_ORANGE }}
                 aria-label="Add to cart"
               >
                 ADD
@@ -197,7 +219,11 @@ const ProductCard = ({
               <button
                 type="button"
                 onClick={(e) => handleQuantityChange(e, quantity + 1)}
-                className="pr-3 pl-2 py-2 md:pr-2.5 md:pl-1.5 md:py-1.5 hover:bg-white/15 transition-colors rounded-r-full"
+                disabled={childCommerceDisabled}
+                className={cn(
+                  'pr-3 pl-2 py-2 md:pr-2.5 md:pl-1.5 md:py-1.5 transition-colors rounded-r-full',
+                  childCommerceDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/15',
+                )}
                 aria-label="Increase quantity"
               >
                 <Plus className="w-4 h-4 md:w-3.5 md:h-3.5 stroke-[2.5]" />

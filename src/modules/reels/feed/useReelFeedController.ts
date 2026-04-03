@@ -4,6 +4,8 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { isStorefrontCustomerSession, websiteApi } from '@/lib/api';
 import { savePendingCartIntent } from '@/lib/pendingCartIntent';
 import { useCart } from '@/contexts/CartContext';
+import { useChildShoppingRules } from '@/contexts/ChildShoppingRulesContext';
+import { evaluateChildProductCommerce } from '@/lib/childShoppingRules';
 import { toast } from 'sonner';
 import type { Reel } from '../types';
 
@@ -15,7 +17,7 @@ function toCartProduct(reel: Reel) {
     price: reel.product.price,
     originalPrice: reel.product.originalPrice || undefined,
     image: reel.product.image,
-    category: 'reels',
+    category: reel.product.categorySlug || 'all',
     rating: reel.product.rating,
     reviewCount: reel.product.reviews,
     inStock: reel.product.inStock,
@@ -31,6 +33,7 @@ export function useReelFeedController(
   const location = useLocation();
   const queryClient = useQueryClient();
   const { addToCart } = useCart();
+  const { isChildShopper, rules, isLoadingRules } = useChildShoppingRules();
   const [showToast, setShowToast] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [commentDrawerReelId, setCommentDrawerReelId] = useState<number | null>(null);
@@ -131,6 +134,19 @@ export function useReelFeedController(
         redirectToLoginForReel(reel, quantity);
         return;
       }
+      if (isChildShopper && rules && !isLoadingRules) {
+        const ev = evaluateChildProductCommerce(
+          {
+            category: reel.product.categorySlug || 'all',
+            price: reel.product.price,
+          },
+          rules,
+        );
+        if (ev.commerceDisabled) {
+          toast.message(ev.message);
+          return;
+        }
+      }
       navigate('/checkout', {
         state: {
           from: `${location.pathname}${location.search}`,
@@ -141,11 +157,20 @@ export function useReelFeedController(
             image: reel.product.image,
             quantity,
             reelId: reel.id,
+            categorySlug: reel.product.categorySlug,
           },
         },
       });
     },
-    [location.pathname, location.search, navigate, redirectToLoginForReel],
+    [
+      location.pathname,
+      location.search,
+      navigate,
+      redirectToLoginForReel,
+      isChildShopper,
+      rules,
+      isLoadingRules,
+    ],
   );
 
   const handleLike = useCallback(

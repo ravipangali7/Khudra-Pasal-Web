@@ -10,6 +10,8 @@ import { isStorefrontCustomerSession, vendorApi, extractResults, websiteApi } fr
 import { savePendingCartIntent } from '@/lib/pendingCartIntent';
 import { mapApiReelToUi } from '../api/reelMappers';
 import { useCart } from '@/contexts/CartContext';
+import { useChildShoppingRules } from '@/contexts/ChildShoppingRulesContext';
+import { evaluateChildProductCommerce } from '@/lib/childShoppingRules';
 import { toast } from 'sonner';
 import type { Reel } from '../types';
 import '../reels-theme.css';
@@ -47,6 +49,7 @@ const VendorReelsViewerOverlay: React.FC<Props> = ({ vendorId, initialReelId, on
   const viewTimerRef = useRef<number | null>(null);
   const toastTimerRef = useRef<number | null>(null);
   const { addToCart } = useCart();
+  const { isChildShopper, rules, isLoadingRules } = useChildShoppingRules();
   const toCartProduct = useCallback(
     (reel: Reel) => ({
       id: String(reel.product.id),
@@ -55,7 +58,7 @@ const VendorReelsViewerOverlay: React.FC<Props> = ({ vendorId, initialReelId, on
       price: reel.product.price,
       originalPrice: reel.product.originalPrice || undefined,
       image: reel.product.image,
-      category: 'reels',
+      category: reel.product.categorySlug || 'all',
       rating: reel.product.rating,
       reviewCount: reel.product.reviews,
       inStock: reel.product.inStock,
@@ -302,6 +305,19 @@ const VendorReelsViewerOverlay: React.FC<Props> = ({ vendorId, initialReelId, on
         redirectToLogin(reel, quantity);
         return;
       }
+      if (isChildShopper && rules && !isLoadingRules) {
+        const ev = evaluateChildProductCommerce(
+          {
+            category: reel.product.categorySlug || 'all',
+            price: reel.product.price,
+          },
+          rules,
+        );
+        if (ev.commerceDisabled) {
+          toast.message(ev.message);
+          return;
+        }
+      }
       navigate('/checkout', {
         state: {
           from: `${location.pathname}${location.search}`,
@@ -312,11 +328,20 @@ const VendorReelsViewerOverlay: React.FC<Props> = ({ vendorId, initialReelId, on
             image: reel.product.image,
             quantity,
             reelId: reel.id,
+            categorySlug: reel.product.categorySlug,
           },
         },
       });
     },
-    [location.pathname, location.search, navigate, redirectToLogin],
+    [
+      location.pathname,
+      location.search,
+      navigate,
+      redirectToLogin,
+      isChildShopper,
+      rules,
+      isLoadingRules,
+    ],
   );
 
   useEffect(() => {

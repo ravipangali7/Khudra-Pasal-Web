@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate, useParams, Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Share2, Heart, Star, Minus, Plus, ShoppingCart, MessageCircle, ChevronRight, ChevronDown, Sparkles, Grid3X3, Shield, Gift } from 'lucide-react';
@@ -26,6 +26,9 @@ import {
   websiteApi,
 } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { useChildShoppingRules } from '@/contexts/ChildShoppingRulesContext';
+import { evaluateChildProductCommerce } from '@/lib/childShoppingRules';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -121,6 +124,7 @@ const ProductDetail = () => {
     staleTime: 60_000,
   });
   const { addToCart, getItemQuantity, updateQuantity, cartCount } = useCart();
+  const { isChildShopper, rules, isLoadingRules } = useChildShoppingRules();
   const [selectedImage, setSelectedImage] = useState(0);
   const [activeTab, setActiveTab] = useState('home');
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
@@ -136,6 +140,23 @@ const ProductDetail = () => {
 
   const quantity = getItemQuantity(product.id);
   const isInCart = quantity > 0;
+
+  const childCommerce = useMemo(() => {
+    if (product.id === '0' || !isChildShopper || !rules || isLoadingRules) return null;
+    return evaluateChildProductCommerce(product, rules);
+  }, [product, isChildShopper, rules, isLoadingRules]);
+  const childCommerceDisabled = Boolean(childCommerce?.commerceDisabled);
+
+  const guardChildCartAction = useCallback(
+    (fn: () => void) => {
+      if (childCommerceDisabled && childCommerce) {
+        toast.message(childCommerce.message);
+        return;
+      }
+      fn();
+    },
+    [childCommerceDisabled, childCommerce],
+  );
   const { data: wishlistRows = [], isLoading: isWishlistLoading } = useQuery({
     queryKey: ['product-wishlist'],
     queryFn: () => websiteApi.wishlist(),
@@ -476,9 +497,13 @@ const ProductDetail = () => {
                   <button
                     onClick={() => {
                       if (!requireAuth()) return;
-                      updateQuantity(product.id, quantity + 1);
+                      guardChildCartAction(() => updateQuantity(product.id, quantity + 1));
                     }}
-                    className="p-3 text-white hover:bg-white/20 transition-colors"
+                    disabled={childCommerceDisabled}
+                    className={cn(
+                      'p-3 text-white transition-colors',
+                      childCommerceDisabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-white/20',
+                    )}
                   >
                     <Plus className="w-5 h-5" />
                   </button>
@@ -487,9 +512,15 @@ const ProductDetail = () => {
                 <button
                   onClick={() => {
                     if (!requireAuth()) return;
-                    addToCart(product);
+                    guardChildCartAction(() => addToCart(product));
                   }}
-                  className="flex-1 md:flex-none flex items-center justify-center gap-2 px-8 py-3 bg-primary text-primary-foreground rounded-xl font-semibold hover:opacity-90 transition-opacity"
+                  disabled={childCommerceDisabled}
+                  className={cn(
+                    'flex-1 md:flex-none flex items-center justify-center gap-2 px-8 py-3 rounded-xl font-semibold transition-opacity',
+                    childCommerceDisabled
+                      ? 'bg-muted text-muted-foreground cursor-not-allowed'
+                      : 'bg-primary text-primary-foreground hover:opacity-90',
+                  )}
                 >
                   <ShoppingCart className="w-5 h-5" />
                   Add to Cart

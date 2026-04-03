@@ -41,6 +41,8 @@ import {
   type PortalCheckoutWalletContext,
   PortalApiError,
 } from '@/lib/api';
+import { useChildShoppingRules } from '@/contexts/ChildShoppingRulesContext';
+import { evaluateChildProductCommerce } from '@/lib/childShoppingRules';
 import { toast } from 'sonner';
 
 type CheckoutStep = 'cart' | 'delivery' | 'payment';
@@ -53,6 +55,7 @@ type BuyNowState = {
   quantity?: number;
   reelId?: number;
   sellerId?: number;
+  categorySlug?: string;
 };
 
 type CheckoutLocationState = {
@@ -66,6 +69,7 @@ const Checkout = () => {
   const hasStorefrontSession = isStorefrontCustomerSession();
   const queryClient = useQueryClient();
   const { cartItems, cartTotal, cartCount, updateQuantity, removeFromCart, clearCart } = useCart();
+  const { isChildShopper, rules, isLoadingRules } = useChildShoppingRules();
   const checkoutState = (location.state as CheckoutLocationState | null) ?? null;
   const buyNow = checkoutState?.buyNow;
   const postCheckoutPath = useMemo(() => {
@@ -379,6 +383,27 @@ const Checkout = () => {
     if (!buyNow && items.some((i) => !Number.isFinite(i.product_id))) {
       toast.error('Invalid cart items');
       return;
+    }
+
+    if (isChildShopper && rules && !isLoadingRules) {
+      if (buyNow) {
+        const ev = evaluateChildProductCommerce(
+          { category: buyNow.categorySlug || 'all', price: buyNow.price },
+          rules,
+        );
+        if (ev.commerceDisabled) {
+          toast.error(ev.message);
+          return;
+        }
+      } else {
+        for (const item of cartItems) {
+          const ev = evaluateChildProductCommerce(item.product, rules);
+          if (ev.commerceDisabled) {
+            toast.error(ev.message);
+            return;
+          }
+        }
+      }
     }
 
     const payload: Record<string, unknown> = {
