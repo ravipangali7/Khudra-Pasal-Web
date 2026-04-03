@@ -727,7 +727,8 @@ export const websiteApi = {
   /** Active products from approved vendors only; ordering favors featured then newest. */
   productsAllVendors: (params?: QueryParams) =>
     apiFetch<PagedResponse<WebsiteProduct>>(`/products/all-vendors/${buildQuery(params)}`),
-  productDetail: (identifier: string) => apiFetch<WebsiteProduct>(`/website/products/${encodeURIComponent(identifier)}/`),
+  productDetail: (identifier: string) =>
+    apiFetch<WebsiteProduct>(`/website/products/${encodeURIComponent(identifier)}/`, undefined, true),
   productReviews: (identifier: string) =>
     apiFetch<Array<{ id: number; name: string; rating: number; comment: string; date: string }>>(
       `/website/products/${encodeURIComponent(identifier)}/reviews/`,

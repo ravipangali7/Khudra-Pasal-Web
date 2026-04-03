@@ -31,7 +31,7 @@ const PortalReelsWidget: React.FC<PortalReelsWidgetProps> = ({ variant }) => {
   const reelsAuthRev = useReelsQueryAuthRev();
   const { data, isLoading } = useQuery({
     queryKey: ['portal', 'reels-trending', variant, reelsAuthRev],
-    queryFn: () => websiteApi.reelsTrending({ page_size: 32 }),
+    queryFn: () => websiteApi.reelsTrending({ page_size: 32, only_direct_mp4: true }),
   });
   const reels = useMemo(() => extractResults(data).map(mapApiReelToUi), [data]);
 

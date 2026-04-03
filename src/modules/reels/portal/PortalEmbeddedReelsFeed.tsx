@@ -32,12 +32,16 @@ const PortalEmbeddedReelsFeed: React.FC<Props> = ({ title, vendorIds, className 
       const pageSize = 40;
       const scoped = await websiteApi.reelsTrendingAllVendors({
         page_size: pageSize,
+        only_direct_mp4: true,
         ...(vendorIds ? { vendor_ids: vendorIds } : {}),
       });
       const rows = extractResults(scoped);
       // Scoped feed may be empty — fall back to global trending
       if (rows.length === 0 && vendorIds) {
-        const fallback = await websiteApi.reelsTrendingAllVendors({ page_size: pageSize });
+        const fallback = await websiteApi.reelsTrendingAllVendors({
+          page_size: pageSize,
+          only_direct_mp4: true,
+        });
         if (extractResults(fallback).length > 0) return fallback;
       }
       return scoped;

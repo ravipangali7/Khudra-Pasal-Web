@@ -61,6 +61,7 @@ const ReelsFeedPage: React.FC = () => {
       websiteApi.reels({
         tab: activeTab,
         page_size: 80,
+        only_direct_mp4: true,
         ...vendorQueryFromSelection(selectedVendorId),
       }),
   });

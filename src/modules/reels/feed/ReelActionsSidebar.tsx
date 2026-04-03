@@ -80,7 +80,7 @@ const ReelActionsSidebar: React.FC<ReelActionsSidebarProps> = ({
   onSave,
 }) => {
   return (
-    <div className="absolute right-3 bottom-[260px] z-[5] flex flex-col items-center gap-4">
+    <div className="absolute right-3 top-1/2 z-[30] flex -translate-y-1/2 flex-col items-center gap-4">
       <ActionButton
         index={0}
         icon={

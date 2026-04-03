@@ -25,7 +25,8 @@ const PortalDashboardReelsStrip: React.FC<PortalDashboardReelsStripProps> = ({ c
   const reelsAuthRev = useReelsQueryAuthRev();
   const { data, isLoading, isError } = useQuery({
     queryKey: ['portal', 'dashboard-reels-strip', 'all-vendors', reelsAuthRev],
-    queryFn: () => websiteApi.reelsTrendingAllVendors({ page_size: 16 }),
+    queryFn: () =>
+      websiteApi.reelsTrendingAllVendors({ page_size: 16, only_direct_mp4: true }),
   });
 
   const reels = useMemo(() => extractResults(data).map(mapApiReelToUi), [data]);

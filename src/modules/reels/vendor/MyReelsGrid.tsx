@@ -67,6 +67,7 @@ const MyReelsGrid: React.FC<MyReelsGridProps> = ({ onNewReel, vendorId, vendorSl
         ? vendorApi.reels({ page_size: 80 })
         : websiteApi.reels({
             page_size: 80,
+            only_direct_mp4: true,
             ...(id ? { vendor_id: id } : {}),
             ...(!id && slug ? { vendor_slug: slug } : {}),
           }),

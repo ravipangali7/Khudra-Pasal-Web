@@ -75,7 +75,7 @@ const ReelCard: React.FC<ReelCardProps> = ({
       <button
         type="button"
         onClick={handleToggleMute}
-        className="absolute bottom-28 left-4 z-[5] w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md"
+        className="absolute bottom-28 left-4 z-[30] w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md"
         style={{ background: 'var(--reels-glass)', border: '1px solid var(--reels-glass-border)' }}
         aria-label={isMuted ? 'Enable sound' : 'Mute sound'}
         title={isMuted ? 'Enable sound' : 'Mute sound'}
