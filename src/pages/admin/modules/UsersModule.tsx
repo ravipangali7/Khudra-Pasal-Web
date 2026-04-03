@@ -59,6 +59,12 @@ import { useAdminCrudPolicy } from '../hooks/useAdminCrudPolicy';
 const CUSTOMER_DOC_ACCEPT =
   'image/jpeg,image/jpg,image/png,image/webp,application/pdf,.pdf,.png,.jpg,.jpeg,.webp';
 
+const VENDOR_KYC_DOC_TYPES = [
+  { value: 'citizenship', label: 'Citizenship' },
+  { value: 'passport', label: 'Passport' },
+  { value: 'driving_license', label: 'Driving license' },
+] as const;
+
 interface UsersModuleProps {
   activeSection: string;
 }
@@ -630,6 +636,7 @@ function CustomersView() {
 
 // ==================== SELLERS / VENDORS VIEW ====================
 function SellersView() {
+  const queryClient = useQueryClient();
   const adminRoute = useAdminRouteContext();
   const crud = useAdminCrudPolicy();
   const [addOpen, setAddOpen] = useState(false);
@@ -657,6 +664,12 @@ function SellersView() {
   const [aStatus, setAStatus] = useState('pending');
   const [aLogo, setALogo] = useState<File | null>(null);
   const [aBanner, setABanner] = useState<File | null>(null);
+  const [aKycDocType, setAKycDocType] = useState('');
+  const [aKycIdNumber, setAKycIdNumber] = useState('');
+  const [aKycApprove, setAKycApprove] = useState(false);
+  const [aKycImage, setAKycImage] = useState<File | null>(null);
+  const [aKycBack, setAKycBack] = useState<File | null>(null);
+  const [aKycFile, setAKycFile] = useState<File | null>(null);
 
   const [eStoreName, setEStoreName] = useState('');
   const [eOwnerName, setEOwnerName] = useState('');
@@ -707,6 +720,12 @@ function SellersView() {
     setAStatus('pending');
     setALogo(null);
     setABanner(null);
+    setAKycDocType('');
+    setAKycIdNumber('');
+    setAKycApprove(false);
+    setAKycImage(null);
+    setAKycBack(null);
+    setAKycFile(null);
     setVendorErr('');
   };
 
@@ -716,8 +735,22 @@ function SellersView() {
       setVendorErr('Store name, owner name, and phone are required.');
       return;
     }
+    const hasKycFiles = Boolean(aKycImage || aKycFile || aKycBack);
+    if (hasKycFiles && !aKycDocType.trim()) {
+      setVendorErr('Select a KYC document type when uploading KYC files.');
+      return;
+    }
+    if (aKycDocType.trim() && !hasKycFiles && !aKycApprove) {
+      setVendorErr('Add a KYC document (image or PDF) or enable “Verify KYC now”.');
+      return;
+    }
     try {
-      const useMultipart = Boolean(aLogo || aBanner);
+      const useMultipart = Boolean(aLogo || aBanner || aKycImage || aKycFile || aKycBack);
+      const kycPayload = {
+        kyc_approve: aKycApprove,
+        ...(aKycDocType.trim() ? { kyc_document_type: aKycDocType.trim() } : {}),
+        ...(aKycIdNumber.trim() ? { kyc_document_id_number: aKycIdNumber.trim() } : {}),
+      };
       if (useMultipart) {
         const fd = new FormData();
         fd.append('store_name', aStoreName.trim());
@@ -731,8 +764,14 @@ function SellersView() {
         fd.append('can_post', aCanPost ? 'true' : 'false');
         fd.append('can_sell', aCanSell ? 'true' : 'false');
         fd.append('status', aStatus);
+        fd.append('kyc_approve', aKycApprove ? 'true' : 'false');
+        if (aKycDocType.trim()) fd.append('kyc_document_type', aKycDocType.trim());
+        if (aKycIdNumber.trim()) fd.append('kyc_document_id_number', aKycIdNumber.trim());
         if (aLogo) fd.append('logo', aLogo);
         if (aBanner) fd.append('banner', aBanner);
+        if (aKycImage) fd.append('kyc_document_image', aKycImage);
+        if (aKycFile) fd.append('kyc_document_file', aKycFile);
+        if (aKycBack) fd.append('kyc_document_back', aKycBack);
         await vendorCreateMut.mutateAsync(fd);
       } else {
         await vendorCreateMut.mutateAsync({
@@ -747,8 +786,10 @@ function SellersView() {
           can_post: aCanPost,
           can_sell: aCanSell,
           status: aStatus,
+          ...kycPayload,
         });
       }
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'kyc-submissions'] });
       resetAddVendor();
       adminRoute?.navigateToList();
       setAddOpen(false);
@@ -983,6 +1024,73 @@ function SellersView() {
             <div className="flex items-center justify-between p-3 border rounded-lg">
               <span className="font-medium text-sm">Allow selling</span>
               <Switch checked={aCanSell} onCheckedChange={setACanSell} />
+            </div>
+          </div>
+          <div className="border rounded-lg p-3 space-y-3">
+            <p className="text-sm font-medium">KYC (optional)</p>
+            <p className="text-xs text-muted-foreground">
+              Upload the vendor&apos;s identity documents and/or mark them as KYC-verified immediately (same as approving in User KYC).
+            </p>
+            <div>
+              <Label>Document type</Label>
+              <Select
+                value={aKycDocType || '__none__'}
+                onValueChange={(v) => setAKycDocType(v === '__none__' ? '' : v)}
+              >
+                <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">None</SelectItem>
+                  {VENDOR_KYC_DOC_TYPES.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Document ID number</Label>
+              <Input
+                placeholder="Optional"
+                value={aKycIdNumber}
+                onChange={(e) => setAKycIdNumber(e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <Label>ID document (image)</Label>
+                <Input
+                  type="file"
+                  accept={CUSTOMER_DOC_ACCEPT}
+                  className="cursor-pointer"
+                  onChange={(e) => setAKycImage(e.target.files?.[0] ?? null)}
+                />
+              </div>
+              <div>
+                <Label>ID document (PDF)</Label>
+                <Input
+                  type="file"
+                  accept={CUSTOMER_DOC_ACCEPT}
+                  className="cursor-pointer"
+                  onChange={(e) => setAKycFile(e.target.files?.[0] ?? null)}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <Label>Back of ID (optional)</Label>
+                <Input
+                  type="file"
+                  accept={CUSTOMER_DOC_ACCEPT}
+                  className="cursor-pointer"
+                  onChange={(e) => setAKycBack(e.target.files?.[0] ?? null)}
+                />
+              </div>
+            </div>
+            <div className="flex items-center justify-between p-3 border rounded-lg bg-muted/20">
+              <div>
+                <span className="font-medium text-sm block">Verify KYC now</span>
+                <span className="text-xs text-muted-foreground">
+                  Sets the owner account to verified; with uploads, records an admin-approved KYC document.
+                </span>
+              </div>
+              <Switch checked={aKycApprove} onCheckedChange={setAKycApprove} />
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
