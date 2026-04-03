@@ -1,14 +1,43 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useQueryClient } from '@tanstack/react-query';
-import { ChevronLeft, MapPin, User, Phone, FileText, CheckCircle, Truck, CreditCard, Shield, Minus, Plus, Trash2, Navigation, Map, Wallet } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  ChevronLeft,
+  MapPin,
+  User,
+  Phone,
+  FileText,
+  CheckCircle,
+  Truck,
+  CreditCard,
+  Shield,
+  Minus,
+  Plus,
+  Trash2,
+  Navigation,
+  Map,
+  Wallet,
+  ChevronsUpDown,
+  Check,
+} from 'lucide-react';
 import { useCart } from '@/contexts/CartContext';
 import logo from '@/assets/logo.png';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   getCheckoutPlacedPortal,
   isStorefrontCustomerSession,
   portalApi,
+  websiteApi,
   type PortalCheckoutWalletContext,
   PortalApiError,
 } from '@/lib/api';
@@ -73,6 +102,20 @@ const Checkout = () => {
   /** Last known GPS coords for order + backend (set from saved defaults or "Use current location"). */
   const [deliveryCoords, setDeliveryCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [shippingZoneId, setShippingZoneId] = useState('');
+  const [zonePopoverOpen, setZonePopoverOpen] = useState(false);
+  const [deliveryQuote, setDeliveryQuote] = useState<{
+    fee: number;
+    seller_pays_shipping: boolean;
+  } | null>(null);
+  const [quoteLoading, setQuoteLoading] = useState(false);
+  const [deliveryQuoteFailed, setDeliveryQuoteFailed] = useState(false);
+
+  const { data: shippingZones = [], isLoading: zonesLoading } = useQuery({
+    queryKey: ['website', 'shipping-zones'],
+    queryFn: () => websiteApi.shippingZones(),
+    staleTime: 60_000,
+  });
 
   useEffect(() => {
     if (hasStorefrontSession) return;
@@ -134,8 +177,66 @@ const Checkout = () => {
 
   const baseSubtotal = buyNow ? buyNow.price * buyNowQuantity : cartTotal;
   const baseCount = buyNow ? buyNowQuantity : cartCount;
-  const deliveryFee = baseSubtotal >= 500 ? 0 : 50;
-  const totalAmount = baseSubtotal + (wantDelivery ? deliveryFee : 0);
+
+  const selectedShippingZone = useMemo(
+    () => shippingZones.find((z) => z.id === shippingZoneId),
+    [shippingZones, shippingZoneId],
+  );
+
+  useEffect(() => {
+    if (shippingZones.length === 1 && !shippingZoneId) {
+      setShippingZoneId(shippingZones[0].id);
+    }
+  }, [shippingZones, shippingZoneId]);
+
+  useEffect(() => {
+    if (!wantDelivery || !shippingZoneId) {
+      setDeliveryQuote(null);
+      setQuoteLoading(false);
+      setDeliveryQuoteFailed(false);
+      return;
+    }
+    let cancelled = false;
+    setQuoteLoading(true);
+    setDeliveryQuoteFailed(false);
+    const t = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const q = await websiteApi.shippingQuote({
+            zone_id: shippingZoneId,
+            order_total: baseSubtotal,
+          });
+          if (cancelled) return;
+          setDeliveryQuoteFailed(false);
+          setDeliveryQuote({
+            fee: q.fee,
+            seller_pays_shipping: q.seller_pays_shipping,
+          });
+        } catch (e) {
+          if (cancelled) return;
+          setDeliveryQuote(null);
+          setDeliveryQuoteFailed(true);
+          const msg = e instanceof Error ? e.message : 'Could not get delivery quote';
+          toast.error(msg);
+        } finally {
+          if (!cancelled) setQuoteLoading(false);
+        }
+      })();
+    }, 320);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [wantDelivery, shippingZoneId, baseSubtotal]);
+
+  const deliveryFee = !wantDelivery ? 0 : (deliveryQuote?.fee ?? 0);
+  const deliveryPricingReady =
+    !wantDelivery ||
+    (Boolean(shippingZoneId) &&
+      !quoteLoading &&
+      !deliveryQuoteFailed &&
+      deliveryQuote !== null);
+  const totalAmount = baseSubtotal + deliveryFee;
 
   const effectivePayWallet = useMemo(() => {
     if (!walletCheckoutCtx?.default) return null;
@@ -149,6 +250,7 @@ const Checkout = () => {
     walletCtxLoading ||
     !hasStorefrontSession ||
     !walletCheckoutCtx?.default ||
+    (wantDelivery && !deliveryPricingReady) ||
     (effectivePayWallet != null && totalAmount > effectivePayWallet.balance);
 
   const steps: { key: CheckoutStep; label: string; icon: typeof Truck }[] = [
@@ -220,15 +322,27 @@ const Checkout = () => {
 
   const validateDelivery = () => {
     if (!wantDelivery) return true;
-    
+
     const newErrors: Record<string, string> = {};
-    
+
+    if (zonesLoading) {
+      newErrors.quote = 'Loading delivery zones…';
+    } else if (shippingZones.length === 0) {
+      newErrors.shippingZone = 'No delivery zones available';
+    }
+    if (!shippingZoneId) newErrors.shippingZone = 'Select a delivery zone';
+    if (wantDelivery && shippingZoneId) {
+      if (quoteLoading) newErrors.quote = 'Calculating delivery fee…';
+      else if (deliveryQuoteFailed || deliveryQuote === null) {
+        newErrors.quote = 'Delivery fee could not be calculated. Try again or pick another zone.';
+      }
+    }
     if (!formData.fullName.trim()) newErrors.fullName = 'Name is required';
     if (!formData.mobile.trim() || !/^9[0-9]{9}$/.test(formData.mobile)) {
       newErrors.mobile = 'Valid 10-digit mobile required';
     }
     if (!formData.areaLocation.trim()) newErrors.areaLocation = 'Location is required';
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -284,6 +398,7 @@ const Checkout = () => {
     }
 
     if (wantDelivery) {
+      payload.shipping_zone_id = shippingZoneId;
       payload.delivery = {
         full_name: formData.fullName,
         mobile: formData.mobile,
@@ -292,6 +407,7 @@ const Checkout = () => {
         landmark: formData.landmark || '',
         google_map_link: formData.googleMapLink || '',
         delivery_notes: formData.notes || '',
+        shipping_zone_id: shippingZoneId,
         ...(deliveryCoords != null
           ? { latitude: deliveryCoords.lat, longitude: deliveryCoords.lng }
           : {}),
@@ -305,6 +421,10 @@ const Checkout = () => {
       totalAmount > effectivePayWallet.balance;
     if (walletInsufficient) {
       toast.error('Insufficient balance');
+      return;
+    }
+    if (wantDelivery && !deliveryPricingReady) {
+      toast.error('Wait for delivery pricing or fix zone selection');
       return;
     }
 
@@ -514,6 +634,85 @@ const Checkout = () => {
 
                 {wantDelivery ? (
                   <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-2">
+                        <MapPin className="w-4 h-4 inline mr-2" />
+                        Delivery zone <span className="text-destructive">*</span>
+                      </label>
+                      <Popover open={zonePopoverOpen} onOpenChange={setZonePopoverOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={zonePopoverOpen}
+                            disabled={zonesLoading || shippingZones.length === 0}
+                            className={cn(
+                              'w-full justify-between font-normal h-12 rounded-xl',
+                              errors.shippingZone ? 'border-destructive' : '',
+                            )}
+                          >
+                            {zonesLoading
+                              ? 'Loading zones…'
+                              : selectedShippingZone
+                                ? selectedShippingZone.name
+                                : shippingZones.length === 0
+                                  ? 'No zones configured'
+                                  : 'Search and select zone…'}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                          <Command>
+                            <CommandInput placeholder="Search by zone or area…" />
+                            <CommandList>
+                              <CommandEmpty>No zone matches.</CommandEmpty>
+                              <CommandGroup>
+                                {shippingZones.map((z) => (
+                                  <CommandItem
+                                    key={z.id}
+                                    value={`${z.name} ${z.areas || ''}`}
+                                    onSelect={() => {
+                                      setShippingZoneId(z.id);
+                                      setZonePopoverOpen(false);
+                                      setErrors((e) => {
+                                        const next = { ...e };
+                                        delete next.shippingZone;
+                                        return next;
+                                      });
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        'mr-2 h-4 w-4',
+                                        shippingZoneId === z.id ? 'opacity-100' : 'opacity-0',
+                                      )}
+                                    />
+                                    <div className="min-w-0 flex-1">
+                                      <div className="font-medium truncate">{z.name}</div>
+                                      {z.areas ? (
+                                        <div className="text-xs text-muted-foreground line-clamp-2">
+                                          {z.areas}
+                                        </div>
+                                      ) : null}
+                                    </div>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                      {errors.shippingZone ? (
+                        <p className="text-xs text-destructive mt-1">{errors.shippingZone}</p>
+                      ) : null}
+                      {errors.quote ? (
+                        <p className="text-xs text-destructive mt-1">{errors.quote}</p>
+                      ) : quoteLoading && shippingZoneId ? (
+                        <p className="text-xs text-muted-foreground mt-1">Updating delivery fee…</p>
+                      ) : null}
+                    </div>
+
                     {/* Auto Location Button */}
                     <button
                       type="button"
@@ -786,15 +985,17 @@ const Checkout = () => {
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Delivery Fee</span>
                     <span className={deliveryFee === 0 ? 'text-category-fresh font-medium' : ''}>
-                      {deliveryFee === 0 ? 'FREE' : formatPrice(deliveryFee)}
+                      {quoteLoading && shippingZoneId
+                        ? '…'
+                        : deliveryFee === 0
+                          ? 'FREE'
+                          : formatPrice(deliveryFee)}
                     </span>
                   </div>
                 )}
-                {wantDelivery && baseSubtotal < 500 && (
-                  <p className="text-xs text-muted-foreground">
-                    Add Rs. {500 - baseSubtotal} more for free delivery
-                  </p>
-                )}
+                {wantDelivery && deliveryQuote?.seller_pays_shipping && deliveryFee === 0 ? (
+                  <p className="text-xs text-muted-foreground">Delivery cost covered by seller</p>
+                ) : null}
               </div>
 
               <div className="flex justify-between py-4 font-bold text-lg">

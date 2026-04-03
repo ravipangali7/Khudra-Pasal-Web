@@ -1,8 +1,35 @@
+import type { ComponentType, SVGProps } from 'react';
 import { Mail, Phone, MapPin, Facebook, Instagram, Twitter, Youtube, CreditCard, Truck, Shield, HeadphonesIcon } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { websiteApi } from '@/lib/api';
 import logo from '@/assets/logo.png';
+
+function normalizeExternalUrl(raw: string): string {
+  const s = raw.trim();
+  if (!s) return '';
+  if (/^https?:\/\//i.test(s)) return s;
+  return `https://${s}`;
+}
+
+function TikTokIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden {...props}>
+      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5 20.1a6.34 6.34 0 0 0 10.86-4.43v-7a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1-.1z" />
+    </svg>
+  );
+}
+
+const SOCIAL_ICONS: Record<
+  string,
+  { Icon: ComponentType<{ className?: string }>; label: string }
+> = {
+  facebook: { Icon: Facebook, label: 'Facebook' },
+  instagram: { Icon: Instagram, label: 'Instagram' },
+  twitter: { Icon: Twitter, label: 'Twitter / X' },
+  youtube: { Icon: Youtube, label: 'YouTube' },
+  tiktok: { Icon: TikTokIcon, label: 'TikTok' },
+};
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
@@ -69,16 +96,24 @@ const Footer = () => {
                   'Your trusted online marketplace for everyday essentials. Fresh products, great prices, and fast delivery across Nepal.'}
               </p>
               <p className="mb-3 text-sm font-medium text-foreground">Feel free to buy from here</p>
-              <div className="mb-6 flex items-center gap-3">
-                {[Facebook, Instagram, Twitter, Youtube].map((Icon, i) => (
-                  <a
-                    key={i}
-                    href="#"
-                    className="flex h-10 w-10 items-center justify-center rounded-full bg-card text-muted-foreground shadow-sm ring-1 ring-border/60 transition-all hover:bg-primary hover:text-primary-foreground"
-                  >
-                    <Icon className="h-5 w-5" />
-                  </a>
-                ))}
+              <div className="mb-6 flex flex-wrap items-center gap-3">
+                {(['facebook', 'instagram', 'twitter', 'youtube', 'tiktok'] as const).map((key) => {
+                  const href = normalizeExternalUrl(storeInfo?.social_links?.[key] ?? '');
+                  if (!href) return null;
+                  const { Icon, label } = SOCIAL_ICONS[key];
+                  return (
+                    <a
+                      key={key}
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={label}
+                      className="flex h-10 w-10 items-center justify-center rounded-full bg-card text-muted-foreground shadow-sm ring-1 ring-border/60 transition-all hover:bg-primary hover:text-primary-foreground"
+                    >
+                      <Icon className="h-5 w-5" />
+                    </a>
+                  );
+                })}
               </div>
               <div className="flex flex-wrap gap-3">
                 <img

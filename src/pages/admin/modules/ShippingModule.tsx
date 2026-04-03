@@ -142,12 +142,17 @@ function ShippingMethodsView() {
   });
   const [sellerPays, setSellerPays] = useState(false);
   const [freeGlobal, setFreeGlobal] = useState(false);
+  const [defaultCheckoutWeightKg, setDefaultCheckoutWeightKg] = useState('1');
   const [shipSetErr, setShipSetErr] = useState('');
   const [shipSetOk, setShipSetOk] = useState(false);
   useEffect(() => {
     if (!shipSettings) return;
     setSellerPays(!!shipSettings.seller_pays_shipping);
     setFreeGlobal(!!shipSettings.free_shipping_global);
+    const w = shipSettings.default_checkout_weight_kg;
+    setDefaultCheckoutWeightKg(
+      typeof w === 'number' ? String(w) : String(w ?? '1'),
+    );
     setShipSetErr('');
   }, [shipSettings]);
   const saveShipSettings = useAdminMutation(adminApi.updateShippingSettings, [['admin', 'shipping-settings']]);
@@ -159,6 +164,7 @@ function ShippingMethodsView() {
       await saveShipSettings.mutateAsync({
         seller_pays_shipping: sellerPays,
         free_shipping_global: freeGlobal,
+        default_checkout_weight_kg: parseFloat(defaultCheckoutWeightKg) || 1,
       });
       setShipSetOk(true);
       setTimeout(() => setShipSetOk(false), 4000);
@@ -379,6 +385,23 @@ function ShippingMethodsView() {
           <div className="flex items-center justify-between p-3 border rounded-lg">
             <div><p className="font-medium text-sm">Global free shipping</p><p className="text-xs text-muted-foreground">Applies platform-wide free shipping when order total &gt; 0 (see API rules)</p></div>
             <Switch checked={freeGlobal} onCheckedChange={(v) => setFreeGlobal(!!v)} />
+          </div>
+          <div className="p-3 border rounded-lg space-y-2">
+            <div>
+              <p className="font-medium text-sm">Default checkout weight (kg)</p>
+              <p className="text-xs text-muted-foreground">
+                Used for storefront shipping quotes when products have no per-item weight (0–500).
+              </p>
+            </div>
+            <Input
+              type="number"
+              min={0}
+              max={500}
+              step="0.001"
+              className="max-w-[200px]"
+              value={defaultCheckoutWeightKg}
+              onChange={(e) => setDefaultCheckoutWeightKg(e.target.value)}
+            />
           </div>
           {shipSetOk ? <p className="text-sm text-emerald-600">Saved.</p> : null}
           {shipSetErr ? <p className="text-sm text-destructive">{shipSetErr}</p> : null}

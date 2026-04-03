@@ -125,6 +125,14 @@ export type WebsiteBrand = {
   logo_url: string;
 };
 
+export type WebsiteSocialLinks = {
+  facebook: string;
+  instagram: string;
+  twitter: string;
+  youtube: string;
+  tiktok: string;
+};
+
 export type WebsiteStoreInfo = {
   site_name: string;
   site_description: string;
@@ -134,6 +142,22 @@ export type WebsiteStoreInfo = {
   currency: string;
   footer_text: string;
   site_logo_url: string;
+  social_links?: WebsiteSocialLinks;
+};
+
+export type WebsiteShippingZone = {
+  id: string;
+  name: string;
+  areas: string;
+};
+
+export type WebsiteShippingQuote = {
+  fee: number;
+  currency: string;
+  zone: { id: string; name: string };
+  weight_kg: number;
+  breakdown: unknown[];
+  seller_pays_shipping: boolean;
 };
 
 /** Root category + nested children + capped products (GET /website/catalog/). */
@@ -687,6 +711,12 @@ export function mapWebsiteCartToCartItems(cart: WebsiteCartApi): CartItem[] {
 
 export const websiteApi = {
   storeInfo: () => apiFetch<WebsiteStoreInfo>("/website/store-info/"),
+  shippingZones: () => apiFetch<WebsiteShippingZone[]>("/website/shipping-zones/"),
+  shippingQuote: (body: { zone_id: string; order_total: number; weight_kg?: number }) =>
+    apiFetch<WebsiteShippingQuote>("/website/shipping-quote/", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   brands: () => apiFetch<WebsiteBrand[]>("/website/brands/"),
   categories: () => apiFetch<WebsiteCategory[]>("/website/categories/"),
   /** Root categories with nested children and `per_category` products per root (default 12). */
