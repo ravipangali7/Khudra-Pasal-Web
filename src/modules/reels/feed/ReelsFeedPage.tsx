@@ -45,6 +45,7 @@ const ReelsFeedPage: React.FC = () => {
   const [selectedVendorId, setSelectedVendorId] = useState<string | null>(vendorParam);
   const [showVendorPicker, setShowVendorPicker] = useState(false);
   const [displayReels, setDisplayReels] = useState<Reel[]>([]);
+  const [activePlaybackProgress, setActivePlaybackProgress] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const lastDeepLinkScrollKeyRef = useRef<string | null>(null);
   const scrollRafRef = useRef<number | null>(null);
@@ -79,6 +80,21 @@ const ReelsFeedPage: React.FC = () => {
     setActiveIndex(0);
     if (containerRef.current) containerRef.current.scrollTop = 0;
   }, [activeTab, selectedVendorId]);
+
+  useEffect(() => {
+    setActivePlaybackProgress(0);
+  }, [activeIndex]);
+
+  const scrollToNextReel = useCallback(() => {
+    const container = containerRef.current;
+    if (!container || displayReels.length === 0) return;
+    const h = container.clientHeight;
+    if (!h) return;
+    const next = Math.min(activeIndex + 1, displayReels.length - 1);
+    if (next === activeIndex) return;
+    container.scrollTo({ top: next * h, behavior: 'smooth' });
+    setActiveIndex(next);
+  }, [activeIndex, displayReels.length]);
 
   useEffect(() => {
     const reelParam = searchParams.get('reel');
@@ -296,6 +312,11 @@ const ReelsFeedPage: React.FC = () => {
             containerRef={containerRef}
             onScroll={handleScroll}
             ctl={ctl}
+            playbackProgress={{
+              activeProgress: activePlaybackProgress,
+              onProgress: setActivePlaybackProgress,
+              onComplete: scrollToNextReel,
+            }}
           />
 
           {/* Swipe hint */}

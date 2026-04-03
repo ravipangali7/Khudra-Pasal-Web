@@ -20,6 +20,7 @@ type Props = {
  */
 const PortalEmbeddedReelsFeed: React.FC<Props> = ({ title, vendorIds, className = '' }) => {
   const [activeIndex, setActiveIndex] = useState(0);
+  const [activePlaybackProgress, setActivePlaybackProgress] = useState(0);
   const [displayReels, setDisplayReels] = useState<Reel[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollRafRef = useRef<number | null>(null);
@@ -62,6 +63,21 @@ const PortalEmbeddedReelsFeed: React.FC<Props> = ({ title, vendorIds, className 
 
   /** Avoid empty first paint: state syncs in layout effect after data arrives */
   const reelsToShow = displayReels.length > 0 ? displayReels : serverReels;
+
+  useEffect(() => {
+    setActivePlaybackProgress(0);
+  }, [activeIndex]);
+
+  const scrollToNextReel = useCallback(() => {
+    const container = containerRef.current;
+    if (!container || reelsToShow.length === 0) return;
+    const h = container.clientHeight;
+    if (!h) return;
+    const next = Math.min(activeIndex + 1, reelsToShow.length - 1);
+    if (next === activeIndex) return;
+    container.scrollTo({ top: next * h, behavior: 'smooth' });
+    setActiveIndex(next);
+  }, [activeIndex, reelsToShow.length]);
 
   useReelViewRecording(
     reelsToShow,
@@ -134,6 +150,11 @@ const PortalEmbeddedReelsFeed: React.FC<Props> = ({ title, vendorIds, className 
           onScroll={handleScroll}
           ctl={ctl}
           embedded
+          playbackProgress={{
+            activeProgress: activePlaybackProgress,
+            onProgress: setActivePlaybackProgress,
+            onComplete: scrollToNextReel,
+          }}
         />
       </div>
     </section>
