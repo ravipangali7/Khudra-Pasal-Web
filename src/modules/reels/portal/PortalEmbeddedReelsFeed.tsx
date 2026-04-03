@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { websiteApi, extractResults } from '@/lib/api';
+import { extractResults, websiteApiReelsTrendingAllVendorsPreferDirectMp4 } from '@/lib/api';
 import { mapApiReelToUi } from '../api/reelMappers';
 import ReelsVerticalFeed from '../feed/ReelsVerticalFeed';
 import { useReelFeedController, useReelViewRecording } from '../feed/useReelFeedController';
@@ -30,17 +30,15 @@ const PortalEmbeddedReelsFeed: React.FC<Props> = ({ title, vendorIds, className 
     queryKey: ['portal', 'embedded-reels-trending', vendorIds ?? 'all', reelsAuthRev],
     queryFn: async () => {
       const pageSize = 40;
-      const scoped = await websiteApi.reelsTrendingAllVendors({
+      const scoped = await websiteApiReelsTrendingAllVendorsPreferDirectMp4({
         page_size: pageSize,
-        only_direct_mp4: true,
         ...(vendorIds ? { vendor_ids: vendorIds } : {}),
       });
       const rows = extractResults(scoped);
       // Scoped feed may be empty — fall back to global trending
       if (rows.length === 0 && vendorIds) {
-        const fallback = await websiteApi.reelsTrendingAllVendors({
+        const fallback = await websiteApiReelsTrendingAllVendorsPreferDirectMp4({
           page_size: pageSize,
-          only_direct_mp4: true,
         });
         if (extractResults(fallback).length > 0) return fallback;
       }

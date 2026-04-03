@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { BadgeCheck, ExternalLink, Eye, Heart, MessageCircle, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { websiteApi, extractResults } from '@/lib/api';
+import { extractResults, websiteApiReelsTrendingAllVendorsPreferDirectMp4 } from '@/lib/api';
 import { mapApiReelToUi } from '../api/reelMappers';
 import { useReelsQueryAuthRev } from '../feed/useReelsQueryAuthRev';
 import type { Reel } from '../types';
@@ -25,8 +25,7 @@ const PortalDashboardReelsStrip: React.FC<PortalDashboardReelsStripProps> = ({ c
   const reelsAuthRev = useReelsQueryAuthRev();
   const { data, isLoading, isError } = useQuery({
     queryKey: ['portal', 'dashboard-reels-strip', 'all-vendors', reelsAuthRev],
-    queryFn: () =>
-      websiteApi.reelsTrendingAllVendors({ page_size: 16, only_direct_mp4: true }),
+    queryFn: () => websiteApiReelsTrendingAllVendorsPreferDirectMp4({ page_size: 16 }),
   });
 
   const reels = useMemo(() => extractResults(data).map(mapApiReelToUi), [data]);

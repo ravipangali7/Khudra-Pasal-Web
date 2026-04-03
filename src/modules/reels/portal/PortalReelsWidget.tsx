@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { Play, Eye, Heart, Share2, ExternalLink, BadgeCheck } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { websiteApi, extractResults } from '@/lib/api';
+import { extractResults, websiteApiReelsTrendingPreferDirectMp4 } from '@/lib/api';
 import { mapApiReelToUi } from '../api/reelMappers';
 import { useReelsQueryAuthRev } from '../feed/useReelsQueryAuthRev';
 import type { Reel } from '../types';
@@ -31,7 +31,7 @@ const PortalReelsWidget: React.FC<PortalReelsWidgetProps> = ({ variant }) => {
   const reelsAuthRev = useReelsQueryAuthRev();
   const { data, isLoading } = useQuery({
     queryKey: ['portal', 'reels-trending', variant, reelsAuthRev],
-    queryFn: () => websiteApi.reelsTrending({ page_size: 32, only_direct_mp4: true }),
+    queryFn: () => websiteApiReelsTrendingPreferDirectMp4({ page_size: 32 }),
   });
   const reels = useMemo(() => extractResults(data).map(mapApiReelToUi), [data]);
 

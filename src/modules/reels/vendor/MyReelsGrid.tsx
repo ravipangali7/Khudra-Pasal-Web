@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import ReelStatusBadge from './ReelStatusBadge';
 import BoostModal from './BoostModal';
 import type { Reel } from '../types';
-import { extractResults, vendorApi, websiteApi } from '@/lib/api';
+import { extractResults, vendorApi, websiteApiReelsPreferDirectMp4 } from '@/lib/api';
 import { mapApiReelToUi } from '../api/reelMappers';
 import { useReelsQueryAuthRev } from '../feed/useReelsQueryAuthRev';
 import { useVendorReelViewer } from './VendorReelViewerContext';
@@ -65,9 +65,8 @@ const MyReelsGrid: React.FC<MyReelsGridProps> = ({ onNewReel, vendorId, vendorSl
     queryFn: () =>
       useVendorPortal
         ? vendorApi.reels({ page_size: 80 })
-        : websiteApi.reels({
+        : websiteApiReelsPreferDirectMp4({
             page_size: 80,
-            only_direct_mp4: true,
             ...(id ? { vendor_id: id } : {}),
             ...(!id && slug ? { vendor_slug: slug } : {}),
           }),

@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import ReelsFeedSkeleton from './ReelsFeedSkeleton';
 import ReelsVerticalFeed from './ReelsVerticalFeed';
 import ReelsMobileFooter from '../navigation/ReelsMobileFooter';
-import { websiteApi, extractResults } from '@/lib/api';
+import { extractResults, websiteApiReelsPreferDirectMp4 } from '@/lib/api';
 import { mapApiReelToUi } from '../api/reelMappers';
 import { getUniqueVendorsFromReels } from '../reelHelpers';
 import { useReelFeedController, useReelViewRecording } from './useReelFeedController';
@@ -58,10 +58,9 @@ const ReelsFeedPage: React.FC = () => {
   const { data, isLoading, isError } = useQuery({
     queryKey: ['website', 'reels', activeTab, selectedVendorId, reelsAuthRev],
     queryFn: () =>
-      websiteApi.reels({
+      websiteApiReelsPreferDirectMp4({
         tab: activeTab,
         page_size: 80,
-        only_direct_mp4: true,
         ...vendorQueryFromSelection(selectedVendorId),
       }),
   });

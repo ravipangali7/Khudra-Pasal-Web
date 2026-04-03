@@ -870,6 +870,31 @@ export const websiteApi = {
     }>(`/website/family-invite/${encodeURIComponent(token)}/`),
 };
 
+/** Prefer native Direct MP4 reels; if none exist, return all platforms so feeds/widgets are not empty. */
+export async function websiteApiReelsPreferDirectMp4(
+  params?: QueryParams,
+): Promise<PagedResponse<ApiReelPublicRow>> {
+  const mp4First = await websiteApi.reels({ ...params, only_direct_mp4: true });
+  if (extractResults(mp4First).length > 0) return mp4First;
+  return websiteApi.reels(params);
+}
+
+export async function websiteApiReelsTrendingPreferDirectMp4(
+  params?: QueryParams,
+): Promise<PagedResponse<ApiReelPublicRow>> {
+  const mp4First = await websiteApi.reelsTrending({ ...params, only_direct_mp4: true });
+  if (extractResults(mp4First).length > 0) return mp4First;
+  return websiteApi.reelsTrending(params);
+}
+
+export async function websiteApiReelsTrendingAllVendorsPreferDirectMp4(
+  params?: QueryParams,
+): Promise<PagedResponse<ApiReelPublicRow>> {
+  const mp4First = await websiteApi.reelsTrendingAllVendors({ ...params, only_direct_mp4: true });
+  if (extractResults(mp4First).length > 0) return mp4First;
+  return websiteApi.reelsTrendingAllVendors(params);
+}
+
 export type ApiNavNode = {
   id: string;
   /** Stable identifier for resolving the frontend screen renderer. */
