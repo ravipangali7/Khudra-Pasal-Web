@@ -1410,7 +1410,13 @@ export function FamilyPortal() {
 
     const shareJoinUrl =
       shareLinkState?.active && shareLinkState.token
-        ? `${window.location.origin}/join-family/${encodeURIComponent(shareLinkState.token)}`
+        ? (() => {
+            const j = shareLinkState.join_url?.trim();
+            if (j) return j;
+            const viteBase = import.meta.env.VITE_PUBLIC_APP_URL?.toString().trim().replace(/\/$/, "");
+            const origin = viteBase || window.location.origin;
+            return `${origin}/join-family/${encodeURIComponent(shareLinkState.token)}`;
+          })()
         : null;
 
     return (

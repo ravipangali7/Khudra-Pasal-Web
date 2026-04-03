@@ -71,6 +71,14 @@ function LegacyProductsCategoryPathRedirect() {
   return <Navigate to={`/category/${encodeURIComponent(slug)}`} replace />;
 }
 
+/** Relative links like `join-family/:token` from `/family-portal/*` resolve here; normalize to the real join route. */
+function FamilyPortalJoinFamilyRedirect() {
+  const { token } = useParams<{ token: string }>();
+  const t = token?.trim() ?? "";
+  if (!t) return <Navigate to="/family-portal/dashboard" replace />;
+  return <Navigate to={`/join-family/${encodeURIComponent(t)}`} replace />;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -105,6 +113,10 @@ const App = () => (
               <Route path="/portal" element={<Navigate to="/portal/dashboard" replace />} />
               <Route path="/portal/*" element={<CustomerPortal />} />
               <Route path="/family-portal" element={<Navigate to="/family-portal/dashboard" replace />} />
+              <Route
+                path="/family-portal/join-family/:token"
+                element={<FamilyPortalJoinFamilyRedirect />}
+              />
               <Route path="/family-portal/*" element={<FamilyPortal />} />
               <Route path="/child-portal" element={<Navigate to="/child-portal/dashboard" replace />} />
               <Route path="/child-portal/*" element={<ChildPortal />} />
