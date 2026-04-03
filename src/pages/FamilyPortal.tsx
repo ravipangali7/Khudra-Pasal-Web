@@ -1408,6 +1408,11 @@ export function FamilyPortal() {
       );
     }
 
+    const shareJoinUrl =
+      shareLinkState?.active && shareLinkState.token
+        ? `${window.location.origin}/join-family/${encodeURIComponent(shareLinkState.token)}`
+        : null;
+
     return (
       <div className="p-4 lg:p-6 space-y-6">
         <div>
@@ -1435,16 +1440,16 @@ export function FamilyPortal() {
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Loading link…
               </div>
-            ) : shareLinkState?.active && shareLinkState.join_url ? (
+            ) : shareJoinUrl ? (
               <div className="space-y-2">
                 <div className="flex flex-col sm:flex-row gap-2">
-                  <Input readOnly value={shareLinkState.join_url} className="font-mono text-xs sm:text-sm" />
+                  <Input readOnly value={shareJoinUrl} className="font-mono text-xs sm:text-sm" />
                   <div className="flex gap-2 shrink-0">
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => void copyJoinUrl(shareLinkState.join_url!)}
+                      onClick={() => void copyJoinUrl(shareJoinUrl)}
                     >
                       <Copy className="h-4 w-4 mr-1" />
                       Copy

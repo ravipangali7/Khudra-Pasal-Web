@@ -1530,7 +1530,7 @@ const ChildPortal = () => {
       title="Child Portal"
       subtitle={showBalance ? `Total: Rs. ${walletData.totalBalance.toLocaleString()}` : 'Balance Hidden'}
       headerActions={headerActions}
-      heroGradient="from-emerald-500 to-teal-600"
+      showHeroHeader={false}
     >
       {renderContent()}
     </PortalLayout>
