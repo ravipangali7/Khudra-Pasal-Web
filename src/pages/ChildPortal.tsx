@@ -21,6 +21,7 @@ import {
   Shield,
   LogOut,
   Copy,
+  Banknote,
 } from 'lucide-react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { PORTAL_LOGIN_PATH, navigateToPortalLogin, setPostLogoutLoginPath } from '@/lib/portalLoginPaths';
@@ -263,6 +264,7 @@ const ChildPortal = () => {
     () => ({
       parentLoaded: childSummaryQuery.data?.parentLoaded ?? 0,
       selfLoaded: childSummaryQuery.data?.selfLoaded ?? 0,
+      personalBalance: childSummaryQuery.data?.personalBalance ?? 0,
       totalBalance: childSummaryQuery.data?.totalBalance ?? 0,
       spendingLimit: childSummaryQuery.data?.spendingLimit ?? 0,
       spentThisMonth: childSummaryQuery.data?.spentThisMonth ?? 0,
@@ -412,7 +414,7 @@ const ChildPortal = () => {
     return (
       <div className="p-4 lg:p-6 space-y-6">
         {/* Balance Cards */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Card className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white border-0">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-2">
@@ -422,19 +424,31 @@ const ChildPortal = () => {
               <p className="text-2xl font-bold">
                 {showBalance ? `Rs. ${walletData.parentLoaded.toLocaleString()}` : '••••••'}
               </p>
-              <p className="text-[10px] opacity-70 mt-1">Needs approval</p>
+              <p className="text-[10px] opacity-70 mt-1">Family pool — needs approval</p>
             </CardContent>
           </Card>
           <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-2">
                 <CheckCircle className="w-4 h-4 opacity-70" />
-                <p className="text-xs opacity-80">My Balance</p>
+                <p className="text-xs opacity-80">Child wallet</p>
               </div>
               <p className="text-2xl font-bold">
                 {showBalance ? `Rs. ${walletData.selfLoaded.toLocaleString()}` : '••••••'}
               </p>
-              <p className="text-[10px] opacity-70 mt-1">Free to use</p>
+              <p className="text-[10px] opacity-70 mt-1">Your wallet in this family</p>
+            </CardContent>
+          </Card>
+          <Card className="bg-gradient-to-br from-violet-500 to-violet-600 text-white border-0">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Banknote className="w-4 h-4 opacity-70" />
+                <p className="text-xs opacity-80">Personal wallet</p>
+              </div>
+              <p className="text-2xl font-bold">
+                {showBalance ? `Rs. ${walletData.personalBalance.toLocaleString()}` : '••••••'}
+              </p>
+              <p className="text-[10px] opacity-70 mt-1">Same as checkout — your own balance</p>
             </CardContent>
           </Card>
         </div>
@@ -718,7 +732,7 @@ const ChildPortal = () => {
         </Card>
 
         {/* Balance Breakdown */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-2">
@@ -728,19 +742,31 @@ const ChildPortal = () => {
               <p className="text-xl font-bold text-foreground">
                 Rs. {walletData.parentLoaded.toLocaleString()}
               </p>
-              <p className="text-[10px] text-muted-foreground mt-1">Requires approval for purchases</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Family pool — requires approval for purchases</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-2">
                 <CheckCircle className="w-4 h-4 text-emerald-600" />
-                <p className="text-xs text-muted-foreground">Self Balance</p>
+                <p className="text-xs text-muted-foreground">Child wallet</p>
               </div>
               <p className="text-xl font-bold text-foreground">
                 Rs. {walletData.selfLoaded.toLocaleString()}
               </p>
-              <p className="text-[10px] text-muted-foreground mt-1">Free to spend anytime</p>
+              <p className="text-[10px] text-muted-foreground mt-1">Your family-linked wallet (peer transfer, limits)</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <Banknote className="w-4 h-4 text-violet-600" />
+                <p className="text-xs text-muted-foreground">Personal wallet</p>
+              </div>
+              <p className="text-xl font-bold text-foreground">
+                Rs. {walletData.personalBalance.toLocaleString()}
+              </p>
+              <p className="text-[10px] text-muted-foreground mt-1">Your main account balance — also at checkout</p>
             </CardContent>
           </Card>
         </div>

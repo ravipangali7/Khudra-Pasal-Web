@@ -2083,6 +2083,8 @@ export type PortalFamilyAutoApprovalRuleRow = {
 export type PortalChildSummary = {
   parentLoaded: number;
   selfLoaded: number;
+  /** User's PERSONAL wallet (pre–family customer balance); same bucket as checkout "Personal". */
+  personalBalance: number;
   totalBalance: number;
   spendingLimit: number;
   spentThisMonth: number;
