@@ -895,6 +895,16 @@ export async function websiteApiReelsTrendingAllVendorsPreferDirectMp4(
   return websiteApi.reelsTrendingAllVendors(params);
 }
 
+/** Public vendor reel list: prefer direct MP4 when any exist (avoids TikTok embed chrome). */
+export async function websiteApiReelsByVendorPreferDirectMp4(
+  vendorId: number | string,
+  params?: QueryParams,
+): Promise<PagedResponse<ApiReelPublicRow>> {
+  const mp4First = await websiteApi.reelsByVendor(vendorId, { ...params, only_direct_mp4: true });
+  if (extractResults(mp4First).length > 0) return mp4First;
+  return websiteApi.reelsByVendor(vendorId, params);
+}
+
 export type ApiNavNode = {
   id: string;
   /** Stable identifier for resolving the frontend screen renderer. */

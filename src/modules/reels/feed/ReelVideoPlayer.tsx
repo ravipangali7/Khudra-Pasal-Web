@@ -337,16 +337,38 @@ const ReelVideoPlayer: React.FC<ReelVideoPlayerProps> = ({
     );
   }
 
+  const tiktokCropStyle: React.CSSProperties = {
+    pointerEvents: 'none',
+    position: 'absolute',
+    width: '118%',
+    height: '108%',
+    left: '-10%',
+    top: '-4%',
+    border: 'none',
+  };
+
   return (
     <div className="absolute inset-0 overflow-hidden">
-      <iframe
-        ref={isTikTok ? tiktokIframeRef : undefined}
-        src={embedSrc}
-        className="w-full h-full border-none"
-        style={{ pointerEvents: 'none' }}
-        allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
-        title="Reel video"
-      />
+      {isTikTok ? (
+        <div className="absolute inset-0 overflow-hidden" aria-hidden>
+          <iframe
+            ref={tiktokIframeRef}
+            src={embedSrc}
+            className="border-none"
+            style={tiktokCropStyle}
+            allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+            title="Reel video"
+          />
+        </div>
+      ) : (
+        <iframe
+          src={embedSrc}
+          className="h-full w-full border-none"
+          style={{ pointerEvents: 'none' }}
+          allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
+          title="Reel video"
+        />
+      )}
 
       {isTikTok && !minimalChrome && (
         <>

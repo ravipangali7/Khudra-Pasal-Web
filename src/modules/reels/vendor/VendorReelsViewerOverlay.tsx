@@ -3,6 +3,7 @@ import { X, Flame, Sparkles, Star } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useInfiniteQuery, useMutation } from '@tanstack/react-query';
 import ReelCard from '../feed/ReelCard';
+import ReelActionsSidebar from '../feed/ReelActionsSidebar';
 import ReelCommentDrawer from '../feed/ReelCommentDrawer';
 import AddedToCartToast from '../feed/AddedToCartToast';
 import ReelsFeedSkeleton from '../feed/ReelsFeedSkeleton';
@@ -373,7 +374,12 @@ const VendorReelsViewerOverlay: React.FC<Props> = ({ vendorId, initialReelId, on
     };
   }, []);
 
-  const activeReel = useMemo(() => displayReels[activeIndex], [displayReels, activeIndex]);
+  const safeActiveIndex = useMemo(() => {
+    if (displayReels.length === 0) return 0;
+    return Math.min(Math.max(0, activeIndex), displayReels.length - 1);
+  }, [displayReels.length, activeIndex]);
+
+  const activeReel = useMemo(() => displayReels[safeActiveIndex], [displayReels, safeActiveIndex]);
 
   if (isLoading) {
     return (
@@ -426,92 +432,109 @@ const VendorReelsViewerOverlay: React.FC<Props> = ({ vendorId, initialReelId, on
       <div className="h-full flex justify-center">
         <div className="hidden lg:block flex-1" style={{ background: 'var(--reels-bg)' }} />
 
-        <div className="relative w-full lg:max-w-[430px] h-full">
-          <div className="absolute top-0 left-0 right-0 z-[10] px-4 pt-4 pb-2">
-            <div className="flex items-center justify-between mb-2">
-              <span className="reels-font-display font-bold text-white text-lg">Reels</span>
-              <button
-                type="button"
-                onClick={onClose}
-                className="w-8 h-8 rounded-full flex items-center justify-center"
-                style={{ background: 'var(--reels-glass)' }}
-                aria-label="Close"
-              >
-                <X className="w-4 h-4 text-white" />
-              </button>
+        <div className="relative flex h-full min-h-0 w-full max-w-full flex-row lg:max-w-[min(494px,calc(100vw-2rem))] shrink-0">
+          <div className="relative flex h-full min-h-0 min-w-0 flex-1 flex-col lg:max-w-[430px]">
+            <div className="absolute top-0 left-0 right-0 z-[10] px-4 pt-4 pb-2">
+              <div className="flex items-center justify-between mb-2">
+                <span className="reels-font-display font-bold text-white text-lg">Reels</span>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="w-8 h-8 rounded-full flex items-center justify-center"
+                  style={{ background: 'var(--reels-glass)' }}
+                  aria-label="Close"
+                >
+                  <X className="w-4 h-4 text-white" />
+                </button>
+              </div>
+              <div className="flex flex-wrap items-center gap-1">
+                {tabs.map((tab) => {
+                  const Icon = tab.icon;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setActiveTab(tab.id)}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-full reels-font-body text-xs font-medium transition-all"
+                      style={{
+                        background: activeTab === tab.id ? 'var(--reels-accent)' : 'var(--reels-glass)',
+                        color: activeTab === tab.id ? 'white' : 'var(--reels-text-secondary)',
+                      }}
+                    >
+                      <Icon className="w-3.5 h-3.5" />
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
-            <div className="flex items-center gap-1">
-              {tabs.map((tab) => {
-                const Icon = tab.icon;
-                return (
-                  <button
-                    key={tab.id}
-                    type="button"
-                    onClick={() => setActiveTab(tab.id)}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-full reels-font-body text-xs font-medium transition-all"
-                    style={{
-                      background: activeTab === tab.id ? 'var(--reels-accent)' : 'var(--reels-glass)',
-                      color: activeTab === tab.id ? 'white' : 'var(--reels-text-secondary)',
-                    }}
-                  >
-                    <Icon className="w-3.5 h-3.5" />
-                    {tab.label}
-                  </button>
-                );
-              })}
+
+            <div
+              ref={containerRef}
+              className="reels-snap-container min-h-0 flex-1"
+              onScroll={handleScroll}
+            >
+              {displayReels.map((reel, index) => (
+                <ReelCard
+                  key={reel.id}
+                  reel={reel}
+                  isActive={index === activeIndex}
+                  isMuted={isMuted || index !== activeIndex}
+                  onToggleMute={handleToggleMute}
+                  progress={index === activeIndex ? activeProgress : 0}
+                  onProgress={(p) => {
+                    if (index !== activeIndex) return;
+                    setActiveProgress(p);
+                  }}
+                  onProgressComplete={() => {
+                    if (index !== activeIndex) return;
+                    void scrollToIndex(activeIndex + 1);
+                  }}
+                  onAddToCart={handleAddToCart}
+                  onBuyNow={handleBuyNow}
+                />
+              ))}
+              <div ref={sentinelRef} className="h-px w-full shrink-0 pointer-events-none" aria-hidden />
             </div>
+
+            {isFetchingNextPage && (
+              <div className="pointer-events-none absolute bottom-6 left-1/2 z-[12] -translate-x-1/2 text-xs text-white/60 reels-font-body">
+                Loading more…
+              </div>
+            )}
+
+            <AddedToCartToast
+              isVisible={showToast}
+              onViewCart={() =>
+                navigate('/checkout', { state: { from: `${location.pathname}${location.search}` } })
+              }
+              onDismiss={() => setShowToast(false)}
+            />
+            <ReelCommentDrawer
+              reelId={commentDrawerReelId}
+              open={commentDrawerReelId != null}
+              onClose={() => setCommentDrawerReelId(null)}
+              onCommentAdded={() => {
+                if (commentDrawerReelId == null) return;
+                patchReel(commentDrawerReelId, (r) => ({ ...r, commentsCount: (r.commentsCount ?? 0) + 1 }));
+              }}
+            />
           </div>
 
-          <div ref={containerRef} className="reels-snap-container" onScroll={handleScroll}>
-            {displayReels.map((reel, index) => (
-              <ReelCard
-                key={reel.id}
-                reel={reel}
-                isActive={index === activeIndex}
-                isMuted={isMuted || index !== activeIndex}
-                onToggleMute={handleToggleMute}
-                progress={index === activeIndex ? activeProgress : 0}
-                onProgress={(p) => {
-                  if (index !== activeIndex) return;
-                  setActiveProgress(p);
-                }}
-                onProgressComplete={() => {
-                  if (index !== activeIndex) return;
-                  void scrollToIndex(activeIndex + 1);
-                }}
-                onAddToCart={handleAddToCart}
-                onBuyNow={handleBuyNow}
-                onToggleLike={handleLike}
-                onToggleBookmark={handleBookmark}
-                onShare={handleShare}
-                onComment={handleComment}
-              />
-            ))}
-            <div ref={sentinelRef} className="h-px w-full shrink-0 pointer-events-none" aria-hidden />
-          </div>
-
-          {isFetchingNextPage && (
-            <div className="absolute bottom-6 left-1/2 z-[12] -translate-x-1/2 text-xs text-white/60 reels-font-body">
-              Loading more…
-            </div>
-          )}
-
-          <AddedToCartToast
-            isVisible={showToast}
-            onViewCart={() =>
-              navigate('/checkout', { state: { from: `${location.pathname}${location.search}` } })
-            }
-            onDismiss={() => setShowToast(false)}
-          />
-          <ReelCommentDrawer
-            reelId={commentDrawerReelId}
-            open={commentDrawerReelId != null}
-            onClose={() => setCommentDrawerReelId(null)}
-            onCommentAdded={() => {
-              if (commentDrawerReelId == null) return;
-              patchReel(commentDrawerReelId, (r) => ({ ...r, commentsCount: (r.commentsCount ?? 0) + 1 }));
-            }}
-          />
+          {activeReel ? (
+            <ReelActionsSidebar
+              disabled={displayReels.length === 0}
+              views={activeReel.views}
+              likes={activeReel.likes}
+              commentsCount={activeReel.commentsCount}
+              liked={activeReel.liked}
+              saved={activeReel.bookmarked}
+              onLike={() => handleLike(activeReel)}
+              onSave={() => handleBookmark(activeReel)}
+              onShare={() => handleShare(activeReel)}
+              onComment={() => handleComment(activeReel)}
+            />
+          ) : null}
         </div>
 
         <div className="hidden lg:flex flex-1 flex-col p-8 overflow-y-auto" style={{ background: '#050505' }}>

@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import ReelVideoPlayer from './ReelVideoPlayer';
 import ReelProductOverlay from './ReelProductOverlay';
-import ReelActionsSidebar from './ReelActionsSidebar';
 import ReelProgressBar from './ReelProgressBar';
 import ProductQuickSheet from './ProductQuickSheet';
 import SponsoredLabel from './SponsoredLabel';
@@ -15,10 +14,6 @@ interface ReelCardProps {
   isActive: boolean;
   onAddToCart: (reel: Reel) => void;
   onBuyNow?: (reel: Reel, quantity?: number) => void;
-  onToggleLike: (reel: Reel) => void;
-  onToggleBookmark: (reel: Reel) => void;
-  onShare: (reel: Reel) => void;
-  onComment: (reel: Reel) => void;
   isMuted?: boolean;
   onToggleMute?: () => void;
   progress?: number;
@@ -36,10 +31,6 @@ const ReelCard: React.FC<ReelCardProps> = ({
   isActive,
   onAddToCart,
   onBuyNow,
-  onToggleLike,
-  onToggleBookmark,
-  onShare,
-  onComment,
   isMuted: controlledIsMuted,
   onToggleMute,
   progress,
@@ -118,18 +109,6 @@ const ReelCard: React.FC<ReelCardProps> = ({
 
       {!immersive && (
         <>
-          <ReelActionsSidebar
-            views={reel.views}
-            likes={reel.likes}
-            commentsCount={reel.commentsCount}
-            liked={reel.liked}
-            saved={reel.bookmarked}
-            onLike={() => onToggleLike(reel)}
-            onSave={() => onToggleBookmark(reel)}
-            onShare={() => onShare(reel)}
-            onComment={() => onComment(reel)}
-          />
-
           <ReelProductOverlay
             reel={reel}
             onProductTap={() => setSheetOpen(true)}
