@@ -51,6 +51,22 @@
   position: relative;
 }
 
+/* Immersive /reels: one slide fits above fixed mobile bottom nav (ReelsMobileFooter is md:hidden). */
+@media (max-width: 767px) {
+  .reels-snap-container.reels-snap-container--with-mobile-nav {
+    height: calc(100dvh - 64px - env(safe-area-inset-bottom, 0px));
+  }
+  .reels-snap-container.reels-snap-container--with-mobile-nav .reels-snap-item {
+    height: calc(100dvh - 64px - env(safe-area-inset-bottom, 0px));
+    min-height: calc(100dvh - 64px - env(safe-area-inset-bottom, 0px));
+  }
+}
+
+.reels-snap-item.reels-snap-item--immersive {
+  content-visibility: auto;
+  contain-intrinsic-size: 700px 100vw;
+}
+
 /* Typography classes */
 .reels-font-display {
   font-family: 'Syne', sans-serif;

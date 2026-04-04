@@ -10,6 +10,10 @@ interface ReelVideoPlayerProps {
   onProgress?: (progress: number) => void;
   onEnded?: () => void;
   thumbnail?: string;
+  /** No tap-to-pause overlay; no full-screen click layer (MP4/TikTok immersive). */
+  minimalChrome?: boolean;
+  /** Active: auto; neighbors: metadata; far: none (performance). */
+  preload?: 'auto' | 'metadata' | 'none';
 }
 
 function isTiktokEmbedOrigin(origin: string): boolean {
@@ -60,6 +64,8 @@ const ReelVideoPlayer: React.FC<ReelVideoPlayerProps> = ({
   onProgress,
   onEnded,
   thumbnail,
+  minimalChrome = false,
+  preload = 'auto',
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const tiktokIframeRef = useRef<HTMLIFrameElement>(null);
@@ -106,6 +112,7 @@ const ReelVideoPlayer: React.FC<ReelVideoPlayerProps> = ({
 
     const onMessage = (event: MessageEvent) => {
       if (!isTiktokEmbedOrigin(event.origin)) return;
+      if (event.source !== tiktokIframeRef.current?.contentWindow) return;
       const data = event.data as Record<string, unknown> | null;
       const xt = data?.['x-tiktok-player'];
       if (!data || (xt !== true && xt !== 'true') || typeof data.type !== 'string') return;
@@ -118,7 +125,16 @@ const ReelVideoPlayer: React.FC<ReelVideoPlayerProps> = ({
           const s = (typeof data.value === 'number' ? data.value : data.data) as number;
           if (s === 1) setTiktokPlaying(true);
           if (s === 2) setTiktokPlaying(false);
-          if (s === 0) onEnded?.();
+          // Embed loop=1 may still fire ended; restart in place (TikTok-owned chrome not fully hideable).
+          if (s === 0) {
+            const win = tiktokIframeRef.current?.contentWindow;
+            if (win) {
+              postToTiktokPlayer(win, 'seekTo', 0);
+              postToTiktokPlayer(win, 'play');
+            } else {
+              onEnded?.();
+            }
+          }
           break;
         }
         case 'onCurrentTime': {
@@ -247,7 +263,7 @@ const ReelVideoPlayer: React.FC<ReelVideoPlayerProps> = ({
           )}
         </AnimatePresence>
 
-        <div className="absolute inset-0 z-[1]" onClick={handleTap} />
+        {!minimalChrome && <div className="absolute inset-0 z-[1]" onClick={handleTap} />}
 
         <video
           ref={videoRef}
@@ -255,7 +271,7 @@ const ReelVideoPlayer: React.FC<ReelVideoPlayerProps> = ({
           muted={isMuted}
           playsInline
           loop
-          preload="auto"
+          preload={preload}
           onCanPlay={() => {
             setCanPlay(true);
             setIsLoading(false);
@@ -271,30 +287,32 @@ const ReelVideoPlayer: React.FC<ReelVideoPlayerProps> = ({
           className="w-full h-full object-cover"
         />
 
-        <AnimatePresence>
-          {showPlayIcon && (
-            <motion.div
-              className="absolute inset-0 z-[3] flex items-center justify-center pointer-events-none"
-              initial={{ opacity: 0, scale: 0.7 }}
-              animate={{ opacity: 0.9, scale: 1 }}
-              exit={{ opacity: 0, scale: 1.1 }}
-              transition={{ duration: 0.3, ease: 'easeOut' }}
-            >
-              <div className="w-20 h-20 rounded-full flex items-center justify-center bg-black/40 backdrop-blur-sm">
-                {playIconState === 'play' ? (
-                  <svg width="36" height="36" viewBox="0 0 24 24" fill="white" opacity="0.9">
-                    <path d="M8 5v14l11-7z" />
-                  </svg>
-                ) : (
-                  <svg width="36" height="36" viewBox="0 0 24 24" fill="white" opacity="0.9">
-                    <rect x="6" y="4" width="4" height="16" rx="1" />
-                    <rect x="14" y="4" width="4" height="16" rx="1" />
-                  </svg>
-                )}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {!minimalChrome && (
+          <AnimatePresence>
+            {showPlayIcon && (
+              <motion.div
+                className="absolute inset-0 z-[3] flex items-center justify-center pointer-events-none"
+                initial={{ opacity: 0, scale: 0.7 }}
+                animate={{ opacity: 0.9, scale: 1 }}
+                exit={{ opacity: 0, scale: 1.1 }}
+                transition={{ duration: 0.3, ease: 'easeOut' }}
+              >
+                <div className="w-20 h-20 rounded-full flex items-center justify-center bg-black/40 backdrop-blur-sm">
+                  {playIconState === 'play' ? (
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="white" opacity="0.9">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  ) : (
+                    <svg width="36" height="36" viewBox="0 0 24 24" fill="white" opacity="0.9">
+                      <rect x="6" y="4" width="4" height="16" rx="1" />
+                      <rect x="14" y="4" width="4" height="16" rx="1" />
+                    </svg>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        )}
       </div>
     );
   }
@@ -330,7 +348,7 @@ const ReelVideoPlayer: React.FC<ReelVideoPlayerProps> = ({
         title="Reel video"
       />
 
-      {isTikTok && (
+      {isTikTok && !minimalChrome && (
         <>
           <div
             className="absolute inset-0 z-[2]"
