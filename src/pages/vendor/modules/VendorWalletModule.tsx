@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import AdminTable from '@/components/admin/AdminTable';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import PayoutAccountsManager from '@/components/wallet/PayoutAccountsManager';
 import { extractResults, vendorApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -64,23 +65,28 @@ export default function VendorWalletModule({ activeSection }: { activeSection: s
     queryFn: () => vendorApi.withdrawals({ page_size: 100 }),
     enabled: activeSection === 'withdrawals' || activeSection === 'wallet',
   });
+  const { data: vendorPayouts = [], isLoading: vendorPayoutLoading } = useQuery({
+    queryKey: ['vendor', 'payout-accounts'],
+    queryFn: async () => (await vendorApi.payoutAccounts()).results,
+    enabled: activeSection === 'withdrawals',
+  });
   const transactions = useMemo(() => extractResults<Record<string, unknown>>(txResp), [txResp]);
   const withdrawals = useMemo(() => extractResults<Record<string, unknown>>(wdResp), [wdResp]);
 
   const [amount, setAmount] = useState('');
-  const [method, setMethod] = useState('bank_transfer');
-  const [acct, setAcct] = useState('');
-  const [bankName, setBankName] = useState('');
-  const [holder, setHolder] = useState('');
+  const [payoutId, setPayoutId] = useState('');
+
+  useEffect(() => {
+    if (activeSection === 'withdrawals' && vendorPayouts.length && !payoutId) {
+      setPayoutId(vendorPayouts[0].id);
+    }
+  }, [activeSection, vendorPayouts, payoutId]);
 
   const wdMut = useMutation({
     mutationFn: () =>
       vendorApi.createWithdrawal({
         amount: Number(amount),
-        method,
-        method_account: acct,
-        bank_name: bankName,
-        account_holder: holder,
+        payout_account_id: payoutId,
       }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['vendor'] });
@@ -430,40 +436,53 @@ export default function VendorWalletModule({ activeSection }: { activeSection: s
       <div className="p-4 lg:p-6 space-y-6">
         <Card>
           <CardHeader>
+            <CardTitle>Payout accounts</CardTitle>
+            <CardDescription>Save eSewa, Khalti, or bank details. KYC must be verified to withdraw.</CardDescription>
+          </CardHeader>
+          <CardContent className="max-w-lg">
+            <PayoutAccountsManager
+              accounts={vendorPayouts}
+              loading={vendorPayoutLoading}
+              onCreate={async (fd) => {
+                await vendorApi.createPayoutAccount(fd);
+                await qc.invalidateQueries({ queryKey: ['vendor', 'payout-accounts'] });
+              }}
+              onDelete={async (id) => {
+                await vendorApi.deletePayoutAccount(id);
+                await qc.invalidateQueries({ queryKey: ['vendor', 'payout-accounts'] });
+              }}
+            />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
             <CardTitle>Request withdrawal</CardTitle>
             <CardDescription>Creates a pending request (balance unchanged until approved).</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 max-w-md">
             <div>
-              <Label>Amount (Rs.)</Label>
-              <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} />
-            </div>
-            <div>
-              <Label>Method</Label>
-              <Select value={method} onValueChange={setMethod}>
+              <Label>Payout account</Label>
+              <Select value={payoutId} onValueChange={setPayoutId} disabled={vendorPayoutLoading}>
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder="Select saved account" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="bank_transfer">Bank transfer</SelectItem>
-                  <SelectItem value="esewa">eSewa</SelectItem>
-                  <SelectItem value="khalti">Khalti</SelectItem>
+                  {vendorPayouts.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.type} · {a.phone || a.bank_account_no || '—'}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label>Account / ID</Label>
-              <Input value={acct} onChange={(e) => setAcct(e.target.value)} />
+              <Label>Amount (Rs.)</Label>
+              <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} />
             </div>
-            <div>
-              <Label>Bank name</Label>
-              <Input value={bankName} onChange={(e) => setBankName(e.target.value)} />
-            </div>
-            <div>
-              <Label>Account holder</Label>
-              <Input value={holder} onChange={(e) => setHolder(e.target.value)} />
-            </div>
-            <Button onClick={() => wdMut.mutate()} disabled={wdMut.isPending}>
+            <Button
+              onClick={() => wdMut.mutate()}
+              disabled={wdMut.isPending || !payoutId || !amount || Number(amount) < 1}
+            >
               Submit
             </Button>
           </CardContent>

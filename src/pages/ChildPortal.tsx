@@ -60,6 +60,7 @@ import {
   extractResults,
   getAuthToken,
   isPortalKycBlockedError,
+  isPortalPayoutRequiredError,
   portalApi,
   setCheckoutPlacedPortal,
   websiteApi,
@@ -75,6 +76,7 @@ import PortalFamilyChildProfileModule from '@/components/portal/PortalFamilyChil
 import PortalProductsCatalogSection from '@/components/portal/PortalProductsCatalogSection';
 import PortalNotificationsModal from '@/components/portal/PortalNotificationsModal';
 import FloatingCart from '@/components/cart/FloatingCart';
+import PayoutAccountsManager from '@/components/wallet/PayoutAccountsManager';
 import { toast } from 'sonner';
 
 function childTxnBadgeLabel(type: string) {
@@ -1050,9 +1052,18 @@ const ChildPortal = () => {
   // Withdraw Content
   function WithdrawContent() {
     const qc = useQueryClient();
-    const [withdrawMethod, setWithdrawMethod] = useState<'esewa' | 'khalti' | 'bank'>('esewa');
-    const [withdrawAccount, setWithdrawAccount] = useState('');
+    const [payoutId, setPayoutId] = useState('');
     const [withdrawAmount, setWithdrawAmount] = useState('');
+
+    const { data: childPayouts = [], isLoading: childPayoutLoading } = useQuery({
+      queryKey: ['portal', 'child', 'payout-accounts'],
+      queryFn: async () => (await portalApi.childPayoutAccounts()).results,
+    });
+
+    const { data: childWds = [] } = useQuery({
+      queryKey: ['portal', 'child', 'wallet-withdrawals'],
+      queryFn: async () => (await portalApi.childWalletWithdrawals()).results,
+    });
 
     const rulesLoading = childRulesQuery.isLoading;
     const allowWithdraw = childRulesQuery.data?.group_permissions?.allow_cash_withdrawal ?? false;
@@ -1066,21 +1077,23 @@ const ChildPortal = () => {
       goTo('kyc');
     }, [rulesLoading, meQuery.data, meQuery.isPending, meQuery.isFetching, goTo]);
 
+    useEffect(() => {
+      if (childPayouts.length && !payoutId) setPayoutId(childPayouts[0].id);
+    }, [childPayouts, payoutId]);
+
     const withdrawMutation = useMutation({
       mutationFn: () =>
         portalApi.childWalletWithdraw({
           amount: Number(withdrawAmount),
-          bank_name: withdrawMethod === 'bank' ? 'Bank' : withdrawMethod,
-          method_account: withdrawAccount.trim(),
-          account_number: withdrawAccount.trim(),
+          payout_account_id: payoutId,
         }),
       onSuccess: (data) => {
-        toast.success(`Withdrawal recorded. Balance: Rs. ${data.balance.toLocaleString()}`);
+        toast.success(`Request submitted (${data.withdrawal_number}). Pending admin approval.`);
         setWithdrawAmount('');
-        setWithdrawAccount('');
         void qc.invalidateQueries({ queryKey: ['portal', 'child', 'summary'] });
         void qc.invalidateQueries({ queryKey: ['portal', 'child', 'txns'] });
         void qc.invalidateQueries({ queryKey: ['portal', 'child', 'rules'] });
+        void qc.invalidateQueries({ queryKey: ['portal', 'child', 'wallet-withdrawals'] });
       },
       onError: (e: Error) => {
         if (isPortalKycBlockedError(e)) {
@@ -1089,13 +1102,17 @@ const ChildPortal = () => {
           goTo('kyc');
           return;
         }
+        if (isPortalPayoutRequiredError(e)) {
+          toast.error(typeof e.body.detail === 'string' ? e.body.detail : 'Add a payout account first.');
+          return;
+        }
         toast.error(e.message || 'Withdrawal failed.');
       },
     });
     const wAmt = Number(withdrawAmount);
     const canSubmit =
       allowWithdraw &&
-      withdrawAccount.trim().length > 0 &&
+      payoutId &&
       Number.isFinite(wAmt) &&
       wAmt >= 1 &&
       wAmt <= walletData.selfLoaded;
@@ -1119,7 +1136,9 @@ const ChildPortal = () => {
       <div className="p-4 lg:p-6 space-y-4">
         <div>
           <h2 className="text-lg font-bold text-foreground">Withdraw</h2>
-          <p className="text-sm text-muted-foreground">Withdraw from your child wallet only when your parent allows it.</p>
+          <p className="text-sm text-muted-foreground">
+            Submit a withdrawal request. Your balance is only reduced after an admin approves it.
+          </p>
         </div>
 
         {!allowWithdraw ? (
@@ -1131,39 +1150,39 @@ const ChildPortal = () => {
         ) : null}
 
         <Card>
+          <CardContent className="p-6">
+            <PayoutAccountsManager
+              accounts={childPayouts}
+              loading={childPayoutLoading}
+              disabled={!allowWithdraw}
+              onCreate={async (fd) => {
+                await portalApi.childCreatePayoutAccount(fd);
+                await qc.invalidateQueries({ queryKey: ['portal', 'child', 'payout-accounts'] });
+              }}
+              onDelete={async (id) => {
+                await portalApi.childDeletePayoutAccount(id);
+                await qc.invalidateQueries({ queryKey: ['portal', 'child', 'payout-accounts'] });
+              }}
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
           <CardContent className="p-6 space-y-4">
-            <div className="space-y-3">
-              <Label>Withdraw To</Label>
-              <div className="grid grid-cols-3 gap-2">
-                {(
-                  [
-                    { id: 'esewa' as const, name: 'eSewa', icon: '💚' },
-                    { id: 'khalti' as const, name: 'Khalti', icon: '💜' },
-                    { id: 'bank' as const, name: 'Bank', icon: '🏦' },
-                  ] as const
-                ).map((method) => (
-                  <Button
-                    key={method.id}
-                    type="button"
-                    variant={withdrawMethod === method.id ? 'default' : 'outline'}
-                    className="flex-col h-auto py-4"
-                    disabled={!allowWithdraw}
-                    onClick={() => setWithdrawMethod(method.id)}
-                  >
-                    <span className="text-2xl mb-1">{method.icon}</span>
-                    <span className="text-xs">{method.name}</span>
-                  </Button>
-                ))}
-              </div>
-            </div>
             <div className="space-y-2">
-              <Label>Phone Number / Account</Label>
-              <Input
-                placeholder="98XXXXXXXX"
-                value={withdrawAccount}
-                onChange={(e) => setWithdrawAccount(e.target.value)}
-                disabled={!allowWithdraw}
-              />
+              <Label>Payout account</Label>
+              <Select value={payoutId} onValueChange={setPayoutId} disabled={!allowWithdraw || childPayoutLoading}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose account" />
+                </SelectTrigger>
+                <SelectContent>
+                  {childPayouts.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.type} · {a.phone || a.bank_account_no || '—'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label>Amount (max Rs. {walletData.selfLoaded.toLocaleString()})</Label>
@@ -1182,10 +1201,27 @@ const ChildPortal = () => {
               disabled={!canSubmit || withdrawMutation.isPending}
               onClick={() => withdrawMutation.mutate()}
             >
-              {withdrawMutation.isPending ? 'Processing…' : 'Withdraw'}
+              {withdrawMutation.isPending ? 'Submitting…' : 'Submit withdrawal request'}
             </Button>
           </CardContent>
         </Card>
+
+        {childWds.length > 0 ? (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Your requests</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              {childWds.slice(0, 10).map((w) => (
+                <div key={w.id} className="flex justify-between gap-2 border-b border-border/60 pb-2">
+                  <span className="font-mono text-xs text-muted-foreground">{w.withdrawal_number}</span>
+                  <span>Rs. {w.amount.toLocaleString()}</span>
+                  <span className="capitalize text-muted-foreground">{w.status}</span>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        ) : null}
       </div>
     );
   }

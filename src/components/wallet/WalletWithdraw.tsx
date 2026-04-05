@@ -1,70 +1,71 @@
 import { useEffect, useState } from 'react';
 import { X, ArrowDownCircle, CheckCircle } from 'lucide-react';
-import { cn } from '@/lib/utils';
-
-interface WithdrawMethod {
-  id: string;
-  name: string;
-  icon: string;
-  color: string;
-}
+import type { PortalPayoutAccountRow } from '@/lib/api';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 interface WalletWithdrawProps {
   isOpen: boolean;
   onClose: () => void;
   walletBalance?: number;
-  onConfirmWithdraw?: (payload: {
-    amount: number;
-    method_account: string;
-    bank_name?: string;
-    account_holder?: string;
-  }) => Promise<void>;
+  payoutAccounts: PortalPayoutAccountRow[];
+  payoutLoading?: boolean;
+  onConfirmWithdraw?: (payload: { amount: number; payout_account_id: string }) => Promise<void>;
+}
+
+function accountLabel(a: PortalPayoutAccountRow) {
+  if (a.type === 'bank') return `${a.bank_name || 'Bank'} · …${(a.bank_account_no || '').slice(-4)}`;
+  return `${a.type} · ${a.phone || '—'}`;
 }
 
 const WalletWithdraw = ({
   isOpen,
   onClose,
-  walletBalance = 5000,
+  walletBalance = 0,
+  payoutAccounts,
+  payoutLoading = false,
   onConfirmWithdraw,
 }: WalletWithdrawProps) => {
-  const [step, setStep] = useState<'method' | 'details' | 'success'>('method');
-  const [selectedMethod, setSelectedMethod] = useState<WithdrawMethod | null>(null);
+  const [step, setStep] = useState<'form' | 'success'>('form');
+  const [payoutId, setPayoutId] = useState('');
   const [amount, setAmount] = useState('');
-  const [accountId, setAccountId] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     if (!isOpen) {
-      setStep('method');
-      setSelectedMethod(null);
+      setStep('form');
+      setPayoutId('');
       setAmount('');
-      setAccountId('');
       setPending(false);
       setError('');
     }
   }, [isOpen]);
 
-  const withdrawMethods: WithdrawMethod[] = [
-    { id: 'esewa', name: 'eSewa', icon: '💚', color: 'from-green-500 to-green-600' },
-    { id: 'khalti', name: 'Khalti', icon: '💜', color: 'from-purple-500 to-purple-600' },
-    { id: 'banking', name: 'Mobile Banking', icon: '🏦', color: 'from-blue-500 to-blue-600' },
-  ];
+  useEffect(() => {
+    if (isOpen && payoutAccounts.length && !payoutId) {
+      setPayoutId(payoutAccounts[0].id);
+    }
+  }, [isOpen, payoutAccounts, payoutId]);
 
   if (!isOpen) return null;
 
   const handleWithdraw = async () => {
     const n = Number(amount);
-    if (!accountId.trim() || !Number.isFinite(n) || n < 1 || n > walletBalance) return;
+    if (!payoutId || !Number.isFinite(n) || n < 1 || n > walletBalance) return;
     setError('');
     if (onConfirmWithdraw) {
       setPending(true);
       try {
-        await onConfirmWithdraw({
-          amount: n,
-          method_account: accountId.trim(),
-          bank_name: selectedMethod?.name,
-        });
+        await onConfirmWithdraw({ amount: n, payout_account_id: payoutId });
         setStep('success');
         setTimeout(() => onClose(), 1500);
       } catch (e) {
@@ -72,27 +73,20 @@ const WalletWithdraw = ({
       } finally {
         setPending(false);
       }
-      return;
     }
-    setStep('success');
-    setTimeout(() => {
-      onClose();
-      setStep('method');
-      setSelectedMethod(null);
-      setAmount('');
-      setAccountId('');
-    }, 2000);
   };
+
+  const selected = payoutAccounts.find((a) => a.id === payoutId);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
-      <div className="bg-card rounded-2xl max-w-md w-full animate-scale-in">
+      <div className="bg-card rounded-2xl max-w-md w-full animate-scale-in max-h-[90vh] overflow-y-auto">
         <div className="p-4 flex items-center justify-between border-b border-border">
           <div className="flex items-center gap-2">
             <ArrowDownCircle className="w-5 h-5 text-category-cafe" />
-            <h3 className="font-bold text-foreground">Withdraw Balance</h3>
+            <h3 className="font-bold text-foreground">Request withdrawal</h3>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-muted rounded-lg transition-colors">
+          <button type="button" onClick={onClose} className="p-2 hover:bg-muted rounded-lg transition-colors">
             <X className="w-5 h-5" />
           </button>
         </div>
@@ -103,89 +97,64 @@ const WalletWithdraw = ({
               {error}
             </p>
           ) : null}
-          {/* Balance Display */}
           <div className="bg-gradient-to-r from-category-cafe to-category-cafe/80 rounded-xl p-4 text-white mb-6">
             <p className="text-sm opacity-80">Available Balance</p>
             <p className="text-2xl font-bold">Rs. {walletBalance.toLocaleString()}</p>
           </div>
 
-          {step === 'method' && (
-            <div className="space-y-3">
-              <p className="text-sm text-muted-foreground mb-4">Select withdrawal method:</p>
-              
-              {withdrawMethods.map((method) => (
-                <button
-                  key={method.id}
-                  onClick={() => {
-                    setSelectedMethod(method);
-                    setStep('details');
-                  }}
-                  className={cn(
-                    "w-full flex items-center gap-4 p-4 rounded-xl transition-all",
-                    `bg-gradient-to-r ${method.color} text-white`
-                  )}
-                >
-                  <span className="text-2xl">{method.icon}</span>
-                  <span className="font-semibold">{method.name}</span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {step === 'details' && selectedMethod && (
+          {step === 'form' && (
             <div className="space-y-4">
-              <div className={cn(
-                "flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r text-white",
-                selectedMethod.color
-              )}>
-                <span className="text-xl">{selectedMethod.icon}</span>
-                <span className="font-semibold">{selectedMethod.name}</span>
-              </div>
+              <p className="text-xs text-muted-foreground">
+                Funds stay in your wallet until an admin approves the request. Add payout accounts in your wallet page if
+                needed.
+              </p>
+              {payoutLoading ? (
+                <p className="text-sm text-muted-foreground">Loading payout accounts…</p>
+              ) : payoutAccounts.length === 0 ? (
+                <p className="text-sm text-amber-700 dark:text-amber-400">
+                  Add a payout account in the section below before withdrawing.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  <Label>Payout account</Label>
+                  <Select value={payoutId} onValueChange={setPayoutId}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose account" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {payoutAccounts.map((a) => (
+                        <SelectItem key={a.id} value={a.id}>
+                          {accountLabel(a)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
-              <div>
-                <label className="text-sm font-medium text-foreground mb-2 block">
-                  {selectedMethod.id === 'banking' ? 'Account Number' : `${selectedMethod.name} ID`}
-                </label>
-                <input
-                  type="text"
-                  value={accountId}
-                  onChange={(e) => setAccountId(e.target.value)}
-                  placeholder={selectedMethod.id === 'banking' ? 'Enter account number' : 'Enter phone number'}
-                  className="w-full px-4 py-3 bg-muted rounded-xl outline-none focus:ring-2 focus:ring-primary"
-                />
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-foreground mb-2 block">Amount (Rs.)</label>
-                <input
+              <div className="space-y-2">
+                <Label>Amount (Rs.)</Label>
+                <Input
                   type="number"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   placeholder="Enter amount"
+                  min={1}
                   max={walletBalance}
-                  className="w-full px-4 py-3 bg-muted rounded-xl outline-none focus:ring-2 focus:ring-primary"
                 />
-                <p className="text-xs text-muted-foreground mt-1">Max: Rs. {walletBalance.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">Max: Rs. {walletBalance.toLocaleString()}</p>
               </div>
 
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => {
-                    setStep('method');
-                    setSelectedMethod(null);
-                  }}
-                  className="flex-1 px-4 py-3 border border-border rounded-xl font-medium hover:bg-muted transition-colors"
-                >
-                  Back
-                </button>
-                <button
-                  onClick={() => void handleWithdraw()}
-                  disabled={!accountId || !amount || Number(amount) > walletBalance || pending}
-                  className="flex-1 px-4 py-3 bg-category-cafe text-white rounded-xl font-semibold hover:opacity-90 transition-opacity disabled:opacity-50"
-                >
-                  {pending ? 'Processing…' : 'Withdraw'}
-                </button>
-              </div>
+              <Button
+                type="button"
+                className="w-full bg-category-cafe hover:bg-category-cafe/90"
+                disabled={
+                  !payoutId || !amount || Number(amount) > walletBalance || Number(amount) < 1 || pending || payoutLoading
+                }
+                onClick={() => void handleWithdraw()}
+              >
+                {pending ? 'Submitting…' : 'Submit request'}
+              </Button>
             </div>
           )}
 
@@ -194,8 +163,11 @@ const WalletWithdraw = ({
               <div className="w-16 h-16 rounded-full bg-category-fresh/10 flex items-center justify-center mx-auto mb-4">
                 <CheckCircle className="w-10 h-10 text-category-fresh" />
               </div>
-              <h4 className="text-xl font-bold text-foreground mb-2">Withdrawal Initiated!</h4>
-              <p className="text-muted-foreground">Rs. {Number(amount).toLocaleString()} will be sent to your {selectedMethod?.name}</p>
+              <h4 className="text-xl font-bold text-foreground mb-2">Request submitted</h4>
+              <p className="text-muted-foreground">
+                Rs. {Number(amount).toLocaleString()} — pending admin approval
+                {selected ? ` to ${accountLabel(selected)}` : ''}.
+              </p>
             </div>
           )}
         </div>

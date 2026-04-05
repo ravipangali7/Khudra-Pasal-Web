@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useAdminList } from '../hooks/useAdminList';
 import { useAdminMutation } from '../hooks/useAdminMutation';
 import { adminApi, type AdminCommissionSettlementRow } from '@/lib/api';
 import { formatApiError } from '../hooks/adminFormUtils';
-import { CheckCircle, Ban, Filter, X, Eye } from 'lucide-react';
+import { AdminStatCard } from '@/components/admin/AdminStats';
+import { CheckCircle, Ban, Filter, X, Eye, Clock, UserCheck, Landmark } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -83,6 +85,9 @@ type WithdrawalRow = {
   bank_name?: string;
   account_holder?: string;
   admin_note?: string;
+  reject_reason?: string;
+  wallet_type?: string;
+  payout_summary?: string;
   status: string;
   date: string;
   balance: number;
@@ -155,7 +160,7 @@ const filterOptions: Record<string, { value: string; label: string }[]> = {
   ],
   withdrawal_status: [
     { value: 'all', label: 'All Status' }, { value: 'pending', label: 'Pending' },
-    { value: 'completed', label: 'Completed' }, { value: 'rejected', label: 'Rejected' },
+    { value: 'approved', label: 'Approved' }, { value: 'rejected', label: 'Rejected' },
   ],
   ledger_source: [
     { value: 'all', label: 'All sources' },
@@ -630,25 +635,52 @@ function RefundsView() {
   );
 }
 
+type PayoutAdminRow = {
+  id: string;
+  user_name: string;
+  user_phone: string;
+  type: string;
+  phone: string;
+  bank_name: string;
+  bank_account_no: string;
+  bank_account_holder: string;
+  created_at: string;
+};
+
 function WithdrawalsView() {
+  const [tab, setTab] = useState<'withdrawals' | 'payouts'>('withdrawals');
   const [filters, setFilters] = useState({ withdrawal_status: 'all' });
   const [search, setSearch] = useState('');
+  const [payoutSearch, setPayoutSearch] = useState('');
   const [viewOpen, setViewOpen] = useState(false);
   const [selected, setSelected] = useState<WithdrawalRow | null>(null);
-  const [confirmAction, setConfirmAction] = useState<{ row: WithdrawalRow; action: 'completed' | 'rejected' } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ row: WithdrawalRow; action: 'approved' | 'rejected' } | null>(
+    null,
+  );
   const [adminNote, setAdminNote] = useState('');
+  const [rejectReason, setRejectReason] = useState('');
   const [actionErr, setActionErr] = useState('');
   const setFilter = (k: string, v: string) => setFilters((prev) => ({ ...prev, [k]: v }));
+
+  const { data: wdSummary } = useQuery({
+    queryKey: ['admin', 'withdrawals-summary'],
+    queryFn: () => adminApi.withdrawalsSummary(),
+  });
 
   const { data: withdrawals = [], isLoading, isError } = useAdminList<WithdrawalRow>(
     ['admin', 'withdrawals'],
     () => adminApi.withdrawals({ page_size: 200 }),
   );
 
+  const { data: payoutRows = [], isLoading: payoutLoading, isError: payoutError } = useAdminList<PayoutAdminRow>(
+    ['admin', 'payout-accounts-list'],
+    () => adminApi.payoutAccounts({ page_size: 200 }),
+  );
+
   const updateMut = useAdminMutation(
     ({ id, payload }: { id: string; payload: Record<string, unknown> }) => adminApi.updateWithdrawal(id, payload),
     [['admin', 'withdrawals']],
-    () => [['admin', 'ledger-transactions']],
+    () => [['admin', 'ledger-transactions'], ['admin', 'withdrawals-summary']],
   );
 
   const filtered = useMemo(() => {
@@ -656,12 +688,21 @@ function WithdrawalsView() {
     return withdrawals.filter((w) => {
       if (filters.withdrawal_status !== 'all' && w.status !== filters.withdrawal_status) return false;
       if (q) {
-        const hay = `${w.seller} ${w.withdrawal_number ?? w.id} ${w.method_account ?? ''}`.toLowerCase();
+        const hay = `${w.seller} ${w.withdrawal_number ?? w.id} ${w.method_account ?? ''} ${w.payout_summary ?? ''}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
       return true;
     });
   }, [withdrawals, filters.withdrawal_status, search]);
+
+  const payoutFiltered = useMemo(() => {
+    const q = payoutSearch.trim().toLowerCase();
+    if (!q) return payoutRows;
+    return payoutRows.filter((p) => {
+      const hay = `${p.user_name} ${p.user_phone} ${p.phone} ${p.bank_account_no}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [payoutRows, payoutSearch]);
 
   const norm = useMemo(
     () =>
@@ -674,75 +715,263 @@ function WithdrawalsView() {
     [filtered],
   );
 
-  if (isLoading) return <div className="p-4 lg:p-6 text-sm text-muted-foreground">Loading withdrawals…</div>;
-  if (isError) return <div className="p-4 lg:p-6 text-sm text-destructive">Could not load withdrawals.</div>;
+  if (tab === 'payouts') {
+    if (payoutLoading) return <div className="p-4 lg:p-6 text-sm text-muted-foreground">Loading payout accounts…</div>;
+    if (payoutError) return <div className="p-4 lg:p-6 text-sm text-destructive">Could not load payout accounts.</div>;
+  } else {
+    if (isLoading) return <div className="p-4 lg:p-6 text-sm text-muted-foreground">Loading withdrawals…</div>;
+    if (isError) return <div className="p-4 lg:p-6 text-sm text-destructive">Could not load withdrawals.</div>;
+  }
 
   return (
     <div className="p-4 lg:p-6 space-y-4">
       {actionErr ? <p className="text-sm text-destructive">{actionErr}</p> : null}
-      <div className="flex flex-wrap gap-2 items-center">
-        <Select value={filters.withdrawal_status} onValueChange={(v) => setFilter('withdrawal_status', v)}>
-          <SelectTrigger className="h-8 w-40 text-xs"><SelectValue placeholder="Status" /></SelectTrigger>
-          <SelectContent>
-            {filterOptions.withdrawal_status.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value} className="text-xs">{opt.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Input
-          className="h-8 max-w-xs text-xs"
-          placeholder="Search seller, ref, account…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <AdminStatCard
+          icon={Clock}
+          title="Pending withdrawals"
+          value={wdSummary != null ? String(wdSummary.pending_withdrawals) : '—'}
+          color="orange"
+        />
+        <AdminStatCard
+          icon={UserCheck}
+          title="Users (KYC verified)"
+          value={wdSummary != null ? String(wdSummary.users_kyc_verified) : '—'}
+          color="green"
+        />
+        <AdminStatCard
+          icon={Landmark}
+          title="Payout accounts"
+          value={wdSummary != null ? String(wdSummary.total_payout_accounts) : '—'}
+          color="blue"
         />
       </div>
-      <AdminTable title="Seller withdrawals" subtitle="Vendor and wallet payout requests — approve or reject pending items"
-        data={norm}
-        columns={[
-          { key: 'withdrawal_number', label: 'Reference', render: (w) => <span className="font-mono text-xs">{w.withdrawal_number}</span> },
-          { key: 'seller', label: 'Party', render: (w) => <span className="font-medium">{w.seller}</span> },
-          { key: 'amount', label: 'Amount', render: (w) => <span className="font-medium">Rs. {w.amount.toLocaleString()}</span> },
-          { key: 'balance', label: 'Wallet', render: (w) => <span className="text-muted-foreground text-xs">Rs. {w.balance.toLocaleString()}</span> },
-          { key: 'method', label: 'Method' },
-          { key: 'method_account', label: 'Account', render: (w) => <span className="text-xs truncate max-w-[120px] block">{w.method_account ?? '—'}</span> },
-          { key: 'status', label: 'Status', render: (w) => (
-            <Badge variant={w.status === 'completed' ? 'default' : w.status === 'rejected' ? 'destructive' : 'secondary'}
-              className={cn("text-xs", w.status === 'completed' && "bg-emerald-500")}>{w.status}</Badge>
-          )},
-          { key: 'actions', label: '', render: (w) => (
-            <div className="flex gap-1 flex-wrap">
-              <Button size="sm" variant="outline" className="h-7" type="button" onClick={() => { setSelected(w); setViewOpen(true); }}>
-                <Eye className="w-3 h-3 mr-1" /> View
-              </Button>
-              {w.status === 'pending' ? (
-                <>
-                  <Button size="sm" variant="outline" className="h-7 text-emerald-600" type="button" onClick={() => { setActionErr(''); setAdminNote(w.admin_note ?? ''); setConfirmAction({ row: w, action: 'completed' }); }}>
-                    <CheckCircle className="w-3 h-3 mr-1" /> Approve
-                  </Button>
-                  <Button size="sm" variant="outline" className="h-7 text-destructive" type="button" onClick={() => { setActionErr(''); setAdminNote(w.admin_note ?? ''); setConfirmAction({ row: w, action: 'rejected' }); }}>
-                    <Ban className="w-3 h-3 mr-1" /> Reject
-                  </Button>
-                </>
-              ) : null}
-            </div>
-          )}
-        ]}
-        onExport={() => {}} onFilter={() => {}}
-      />
 
-      <CRUDModal open={viewOpen} onClose={() => setViewOpen(false)} title="Withdrawal details" size="lg" onSave={() => setViewOpen(false)} saveLabel="Close">
+      <Tabs value={tab} onValueChange={(v) => setTab(v as 'withdrawals' | 'payouts')}>
+        <TabsList className="h-9">
+          <TabsTrigger value="withdrawals" className="text-xs">
+            Withdrawals
+          </TabsTrigger>
+          <TabsTrigger value="payouts" className="text-xs">
+            Payout accounts
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      {tab === 'withdrawals' ? (
+        <>
+          <div className="flex flex-wrap gap-2 items-center">
+            <Select value={filters.withdrawal_status} onValueChange={(v) => setFilter('withdrawal_status', v)}>
+              <SelectTrigger className="h-8 w-40 text-xs">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                {filterOptions.withdrawal_status.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value} className="text-xs">
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              className="h-8 max-w-xs text-xs"
+              placeholder="Search seller, ref, account…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
+          <AdminTable
+            title="Withdrawals"
+            subtitle="All portal payout requests — approve or reject pending items"
+            data={norm}
+            columns={[
+              {
+                key: 'withdrawal_number',
+                label: 'Reference',
+                render: (w) => <span className="font-mono text-xs">{w.withdrawal_number}</span>,
+              },
+              { key: 'seller', label: 'Party', render: (w) => <span className="font-medium">{w.seller}</span> },
+              {
+                key: 'wallet_type',
+                label: 'Wallet',
+                render: (w) => <span className="text-xs text-muted-foreground capitalize">{w.wallet_type ?? '—'}</span>,
+              },
+              {
+                key: 'amount',
+                label: 'Amount',
+                render: (w) => <span className="font-medium">Rs. {w.amount.toLocaleString()}</span>,
+              },
+              {
+                key: 'balance',
+                label: 'Bal.',
+                render: (w) => <span className="text-muted-foreground text-xs">Rs. {w.balance.toLocaleString()}</span>,
+              },
+              { key: 'method', label: 'Method' },
+              {
+                key: 'payout_summary',
+                label: 'Payout',
+                render: (w) => (
+                  <span className="text-xs truncate max-w-[100px] block">{w.payout_summary || '—'}</span>
+                ),
+              },
+              {
+                key: 'status',
+                label: 'Status',
+                render: (w) => (
+                  <Badge
+                    variant={w.status === 'approved' ? 'default' : w.status === 'rejected' ? 'destructive' : 'secondary'}
+                    className={cn('text-xs', w.status === 'approved' && 'bg-emerald-500')}
+                  >
+                    {w.status}
+                  </Badge>
+                ),
+              },
+              {
+                key: 'actions',
+                label: '',
+                render: (w) => (
+                  <div className="flex gap-1 flex-wrap">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7"
+                      type="button"
+                      onClick={() => {
+                        setSelected(w);
+                        setViewOpen(true);
+                      }}
+                    >
+                      <Eye className="w-3 h-3 mr-1" /> View
+                    </Button>
+                    {w.status === 'pending' ? (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-emerald-600"
+                          type="button"
+                          onClick={() => {
+                            setActionErr('');
+                            setAdminNote(w.admin_note ?? '');
+                            setRejectReason('');
+                            setConfirmAction({ row: w, action: 'approved' });
+                          }}
+                        >
+                          <CheckCircle className="w-3 h-3 mr-1" /> Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-7 text-destructive"
+                          type="button"
+                          onClick={() => {
+                            setActionErr('');
+                            setAdminNote(w.admin_note ?? '');
+                            setRejectReason(w.reject_reason ?? '');
+                            setConfirmAction({ row: w, action: 'rejected' });
+                          }}
+                        >
+                          <Ban className="w-3 h-3 mr-1" /> Reject
+                        </Button>
+                      </>
+                    ) : null}
+                  </div>
+                ),
+              },
+            ]}
+            onExport={() => {}}
+            onFilter={() => {}}
+          />
+        </>
+      ) : (
+        <div className="space-y-2">
+          <Input
+            className="h-8 max-w-xs text-xs"
+            placeholder="Search user or account…"
+            value={payoutSearch}
+            onChange={(e) => setPayoutSearch(e.target.value)}
+          />
+          <AdminTable
+            title="Payout accounts"
+            subtitle="Saved eSewa, Khalti, and bank destinations"
+            data={payoutFiltered}
+            columns={[
+              { key: 'user_name', label: 'User' },
+              { key: 'user_phone', label: 'Phone' },
+              { key: 'type', label: 'Type', render: (p) => <span className="capitalize">{p.type}</span> },
+              { key: 'phone', label: 'Wallet phone' },
+              { key: 'bank_name', label: 'Bank' },
+              { key: 'bank_account_no', label: 'Account' },
+            ]}
+            onExport={() => {}}
+            onFilter={() => {}}
+          />
+        </div>
+      )}
+
+      <CRUDModal
+        open={viewOpen}
+        onClose={() => setViewOpen(false)}
+        title="Withdrawal details"
+        size="lg"
+        onSave={() => setViewOpen(false)}
+        saveLabel="Close"
+      >
         {selected && (
           <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="p-3 bg-muted/50 rounded-lg col-span-2"><p className="text-xs text-muted-foreground">Reference</p><p className="font-mono font-semibold">{selected.withdrawal_number}</p></div>
-            <div className="p-3 bg-muted/50 rounded-lg"><p className="text-xs text-muted-foreground">Party</p><p className="font-semibold">{selected.seller}</p></div>
-            <div className="p-3 bg-muted/50 rounded-lg"><p className="text-xs text-muted-foreground">Amount</p><p className="font-semibold">Rs. {selected.amount.toLocaleString()}</p></div>
-            <div className="p-3 bg-muted/50 rounded-lg"><p className="text-xs text-muted-foreground">Method</p><p>{selected.method}</p></div>
-            <div className="p-3 bg-muted/50 rounded-lg"><p className="text-xs text-muted-foreground">Account</p><p>{selected.method_account ?? '—'}</p></div>
-            <div className="p-3 bg-muted/50 rounded-lg"><p className="text-xs text-muted-foreground">Bank</p><p>{selected.bank_name || '—'}</p></div>
-            <div className="p-3 bg-muted/50 rounded-lg"><p className="text-xs text-muted-foreground">Holder</p><p>{selected.account_holder || '—'}</p></div>
-            <div className="p-3 bg-muted/50 rounded-lg col-span-2"><p className="text-xs text-muted-foreground">Admin note</p><p>{selected.admin_note || '—'}</p></div>
-            <div className="p-3 bg-muted/50 rounded-lg"><p className="text-xs text-muted-foreground">Status</p><p className="capitalize">{selected.status}</p></div>
-            <div className="p-3 bg-muted/50 rounded-lg"><p className="text-xs text-muted-foreground">Wallet balance</p><p>Rs. {selected.balance.toLocaleString()}</p></div>
+            <div className="p-3 bg-muted/50 rounded-lg col-span-2">
+              <p className="text-xs text-muted-foreground">Reference</p>
+              <p className="font-mono font-semibold">{selected.withdrawal_number}</p>
+            </div>
+            <div className="p-3 bg-muted/50 rounded-lg">
+              <p className="text-xs text-muted-foreground">Party</p>
+              <p className="font-semibold">{selected.seller}</p>
+            </div>
+            <div className="p-3 bg-muted/50 rounded-lg">
+              <p className="text-xs text-muted-foreground">Amount</p>
+              <p className="font-semibold">Rs. {selected.amount.toLocaleString()}</p>
+            </div>
+            <div className="p-3 bg-muted/50 rounded-lg">
+              <p className="text-xs text-muted-foreground">Wallet type</p>
+              <p className="capitalize">{selected.wallet_type ?? '—'}</p>
+            </div>
+            <div className="p-3 bg-muted/50 rounded-lg">
+              <p className="text-xs text-muted-foreground">Payout</p>
+              <p>{selected.payout_summary || '—'}</p>
+            </div>
+            <div className="p-3 bg-muted/50 rounded-lg">
+              <p className="text-xs text-muted-foreground">Method</p>
+              <p>{selected.method}</p>
+            </div>
+            <div className="p-3 bg-muted/50 rounded-lg">
+              <p className="text-xs text-muted-foreground">Account</p>
+              <p>{selected.method_account ?? '—'}</p>
+            </div>
+            <div className="p-3 bg-muted/50 rounded-lg">
+              <p className="text-xs text-muted-foreground">Bank</p>
+              <p>{selected.bank_name || '—'}</p>
+            </div>
+            <div className="p-3 bg-muted/50 rounded-lg">
+              <p className="text-xs text-muted-foreground">Holder</p>
+              <p>{selected.account_holder || '—'}</p>
+            </div>
+            <div className="p-3 bg-muted/50 rounded-lg col-span-2">
+              <p className="text-xs text-muted-foreground">Admin note</p>
+              <p>{selected.admin_note || '—'}</p>
+            </div>
+            <div className="p-3 bg-muted/50 rounded-lg col-span-2">
+              <p className="text-xs text-muted-foreground">Reject reason (user-facing)</p>
+              <p>{selected.reject_reason || '—'}</p>
+            </div>
+            <div className="p-3 bg-muted/50 rounded-lg">
+              <p className="text-xs text-muted-foreground">Status</p>
+              <p className="capitalize">{selected.status}</p>
+            </div>
+            <div className="p-3 bg-muted/50 rounded-lg">
+              <p className="text-xs text-muted-foreground">Wallet balance</p>
+              <p>Rs. {selected.balance.toLocaleString()}</p>
+            </div>
           </div>
         )}
       </CRUDModal>
@@ -751,7 +980,7 @@ function WithdrawalsView() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {confirmAction?.action === 'completed' ? 'Approve withdrawal?' : 'Reject withdrawal?'}
+              {confirmAction?.action === 'approved' ? 'Approve withdrawal?' : 'Reject withdrawal?'}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirmAction ? `${confirmAction.row.seller} — Rs. ${confirmAction.row.amount.toLocaleString()}` : null}
@@ -760,6 +989,12 @@ function WithdrawalsView() {
           <div className="space-y-2">
             <Label>Admin note (optional)</Label>
             <Textarea rows={2} value={adminNote} onChange={(e) => setAdminNote(e.target.value)} />
+            {confirmAction?.action === 'rejected' ? (
+              <div className="space-y-2">
+                <Label>Reject reason (shown to user)</Label>
+                <Textarea rows={2} value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} />
+              </div>
+            ) : null}
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel type="button">Cancel</AlertDialogCancel>
@@ -769,9 +1004,16 @@ function WithdrawalsView() {
               onClick={async () => {
                 if (!confirmAction) return;
                 try {
+                  const payload: Record<string, unknown> = {
+                    status: confirmAction.action,
+                    admin_note: adminNote,
+                  };
+                  if (confirmAction.action === 'rejected') {
+                    payload.reject_reason = rejectReason;
+                  }
                   await updateMut.mutateAsync({
                     id: confirmAction.row.id,
-                    payload: { status: confirmAction.action, admin_note: adminNote },
+                    payload,
                   });
                   setConfirmAction(null);
                 } catch (e) {

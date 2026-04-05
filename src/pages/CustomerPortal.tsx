@@ -37,6 +37,7 @@ import {
   extractResults,
   getAuthToken,
   isPortalKycBlockedError,
+  isPortalPayoutRequiredError,
   mapWebsiteProductToUi,
   portalApi,
   setCheckoutPlacedPortal,
@@ -55,6 +56,7 @@ import {
 import PortalSidebar from '@/components/portal/PortalSidebar';
 import UnifiedAuthLoginPage from '@/components/auth/UnifiedAuthLoginPage';
 import WalletTransfer from '@/components/wallet/WalletTransfer';
+import PayoutAccountsManager from '@/components/wallet/PayoutAccountsManager';
 import WalletWithdraw from '@/components/wallet/WalletWithdraw';
 import WalletAddMoney from '@/components/wallet/WalletAddMoney';
 import AIChatbot from '@/components/chat/AIChatbot';
@@ -154,6 +156,12 @@ const CustomerPortal = () => {
     queryFn: () => portalApi.me(),
     enabled: authed,
     retry: false,
+  });
+
+  const { data: payoutAccounts = [], isLoading: payoutAccountsLoading } = useQuery({
+    queryKey: ['portal', 'payout-accounts', sessionTick],
+    queryFn: async () => (await portalApi.payoutAccounts()).results,
+    enabled: authed,
   });
 
   const { data: selfProfile } = useQuery({
@@ -397,6 +405,13 @@ const CustomerPortal = () => {
   }, [navData, userRole]);
 
   const { segment: activeSection, goTo, isSegmentKnown } = usePortalSectionPath('/portal', sidebarItems);
+
+  const { data: walletWithdrawals = [] } = useQuery({
+    queryKey: ['portal', 'wallet-withdrawals', sessionTick],
+    queryFn: async () => (await portalApi.walletWithdrawals()).results,
+    enabled: authed && activeSection === 'wallet',
+  });
+
   const stayOnSwitchPortal = searchParams.get('stay') === '1';
   const { data: switchPortalContext } = useQuery<PortalSwitchPortalContext>({
     queryKey: ['portal', 'switch-portal-context', sessionTick],
@@ -1419,6 +1434,39 @@ const CustomerPortal = () => {
                   ))}
                 </div>
               </div>
+
+              <div className="bg-card rounded-xl border border-border p-4">
+                <PayoutAccountsManager
+                  accounts={payoutAccounts}
+                  loading={payoutAccountsLoading}
+                  onCreate={async (fd) => {
+                    await portalApi.createPayoutAccount(fd);
+                    await queryClient.invalidateQueries({ queryKey: ['portal', 'payout-accounts'] });
+                  }}
+                  onDelete={async (id) => {
+                    await portalApi.deletePayoutAccount(id);
+                    await queryClient.invalidateQueries({ queryKey: ['portal', 'payout-accounts'] });
+                  }}
+                />
+              </div>
+
+              {walletWithdrawals.length > 0 ? (
+                <div className="bg-card rounded-xl border border-border p-4 space-y-2">
+                  <h3 className="font-semibold">Withdrawal requests</h3>
+                  <ul className="space-y-2 text-sm">
+                    {walletWithdrawals.slice(0, 8).map((w) => (
+                      <li
+                        key={w.id}
+                        className="flex justify-between gap-2 border-b border-border/60 pb-2 last:border-0"
+                      >
+                        <span className="font-mono text-xs text-muted-foreground">{w.withdrawal_number}</span>
+                        <span className="font-medium">{formatPrice(w.amount)}</span>
+                        <span className="capitalize text-muted-foreground">{w.status}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </div>
           )}
 
@@ -1511,10 +1559,13 @@ const CustomerPortal = () => {
         isOpen={showWithdrawModal}
         onClose={() => setShowWithdrawModal(false)}
         walletBalance={walletBalance}
+        payoutAccounts={payoutAccounts}
+        payoutLoading={payoutAccountsLoading}
         onConfirmWithdraw={async (payload) => {
           try {
             await portalApi.walletWithdraw(payload);
             invalidatePortalWallet();
+            await queryClient.invalidateQueries({ queryKey: ['portal', 'wallet-withdrawals'] });
           } catch (e) {
             if (isPortalKycBlockedError(e)) {
               const msg =
@@ -1523,6 +1574,14 @@ const CustomerPortal = () => {
                   : 'Complete KYC verification to withdraw.';
               toast.error(msg);
               goTo('kyc');
+              throw e;
+            }
+            if (isPortalPayoutRequiredError(e)) {
+              toast.error(
+                typeof e.body.detail === 'string'
+                  ? e.body.detail
+                  : 'Add a payout account before withdrawing.',
+              );
               throw e;
             }
             throw e;

@@ -537,6 +537,10 @@ export function isPortalKycBlockedError(error: unknown): error is PortalApiError
   );
 }
 
+export function isPortalPayoutRequiredError(error: unknown): error is PortalApiError {
+  return error instanceof PortalApiError && error.body?.code === "payout_required";
+}
+
 /** HTTP status from `apiFetch` / `vendorFetch` / `portalFetch` thrown `Error` messages (`Request failed: 401`). */
 export function getApiErrorHttpStatus(error: unknown): number | undefined {
   if (error instanceof PortalApiError) return error.status;
@@ -1283,8 +1287,17 @@ export const adminApi = {
   commissionSettlements: (params?: QueryParams) =>
     adminPaged<AdminCommissionSettlementRow>("commission-settlements", params),
   withdrawals: (params?: QueryParams) => adminPaged<Record<string, unknown>>("withdrawals", params),
+  withdrawalsSummary: () =>
+    apiFetch<{
+      pending_withdrawals: number;
+      approved_today: number;
+      total_payout_accounts: number;
+      users_kyc_verified: number;
+    }>("/admin/withdrawals/summary/", undefined, true),
   updateWithdrawal: (id: string, payload: Record<string, unknown>) =>
     adminWrite<Record<string, unknown>>(`withdrawals/${id}`, "PATCH", payload),
+  payoutAccounts: (params?: QueryParams) =>
+    adminPaged<Record<string, unknown>>("payout-accounts", params),
   wallets: (params?: QueryParams) => adminPaged<Record<string, unknown>>("wallets", params),
   walletTransactions: (params?: QueryParams) => adminPaged<Record<string, unknown>>("wallet-transactions", params),
   walletBonuses: (params?: QueryParams) => adminPaged<Record<string, unknown>>("wallet-bonuses", params),
@@ -1559,6 +1572,31 @@ export type VendorSummary = {
   pending_payout: number;
 };
 
+export type PortalPayoutAccountRow = {
+  id: string;
+  type: string;
+  phone: string;
+  bank_account_no: string;
+  bank_account_holder: string;
+  bank_name: string;
+  qr_image_url: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type PortalWithdrawalRow = {
+  id: string;
+  withdrawal_number: string;
+  amount: number;
+  method: string;
+  method_account: string;
+  status: string;
+  reject_reason: string;
+  created_at: string;
+  processed_at: string;
+  wallet_id: string;
+};
+
 export const vendorApi = {
   login: (phone: string, password: string) =>
     vendorFetch<{ token: string; user: { id: number; name: string; store_name: string; store_slug: string; status: string } }>(
@@ -1630,6 +1668,14 @@ export const vendorApi = {
   withdrawals: (params?: QueryParams) => vendorPaged<Record<string, unknown>>("withdrawals", params),
   createWithdrawal: (payload: Record<string, unknown>) =>
     vendorWrite<{ id: string }>("withdrawals", "POST", payload),
+  payoutAccounts: () =>
+    vendorFetch<{ results: PortalPayoutAccountRow[] }>("/vendor/payout-accounts/", undefined, true),
+  createPayoutAccount: (body: FormData) =>
+    vendorFetch<PortalPayoutAccountRow>("/vendor/payout-accounts/", { method: "POST", body }, true),
+  updatePayoutAccount: (id: string, body: FormData) =>
+    vendorFetch<PortalPayoutAccountRow>(`/vendor/payout-accounts/${encodeURIComponent(id)}/`, { method: "PATCH", body }, true),
+  deletePayoutAccount: (id: string) =>
+    vendorFetch<{ ok: boolean }>(`/vendor/payout-accounts/${encodeURIComponent(id)}/`, { method: "DELETE" }, true),
   coupons: (params?: QueryParams) => vendorPaged<Record<string, unknown>>("coupons", params),
   createCoupon: (payload: Record<string, unknown>) =>
     vendorWrite<{ id: string }>("coupons", "POST", payload),
@@ -2505,18 +2551,30 @@ export const portalApi = {
       { method: "POST", body: JSON.stringify(payload) },
       true,
     ),
-  childWalletWithdraw: (payload: {
-    amount: number;
-    bank_name?: string;
-    method_account?: string;
-    account_number?: string;
-    account_holder?: string;
-  }) =>
-    portalFetch<{ ok: boolean; balance: number }>(
-      "/portal/child/wallet/withdraw/",
+  childWalletWithdraw: (payload: { amount: number; payout_account_id: number | string }) =>
+    portalFetch<{ id: string; withdrawal_number: string; status: string }>(
+      "/child-portal/child/wallet/withdraw/",
       { method: "POST", body: JSON.stringify(payload) },
       true,
     ),
+  childPayoutAccounts: () =>
+    portalFetch<{ results: PortalPayoutAccountRow[] }>("/child-portal/payout-accounts/", undefined, true),
+  childCreatePayoutAccount: (fd: FormData) =>
+    portalFetchMultipart<PortalPayoutAccountRow>("/child-portal/payout-accounts/", { method: "POST", body: fd }, true),
+  childUpdatePayoutAccount: (id: string, fd: FormData) =>
+    portalFetchMultipart<PortalPayoutAccountRow>(
+      `/child-portal/payout-accounts/${encodeURIComponent(id)}/`,
+      { method: "PATCH", body: fd },
+      true,
+    ),
+  childDeletePayoutAccount: (id: string) =>
+    portalFetch<{ ok: boolean }>(
+      `/child-portal/payout-accounts/${encodeURIComponent(id)}/`,
+      { method: "DELETE" },
+      true,
+    ),
+  childWalletWithdrawals: () =>
+    portalFetch<{ results: PortalWithdrawalRow[] }>("/child-portal/child/wallet/withdrawals/", undefined, true),
   childRules: () => portalFetch<PortalChildRulesResponse>("/portal/child/rules/", undefined, true),
   childWalletTransactions: (params?: QueryParams) =>
     portalPaged<PortalChildWalletTxnRow>("child/wallet-transactions", params),
@@ -2551,15 +2609,59 @@ export const portalApi = {
       { method: "POST", body: JSON.stringify(payload) },
       true,
     ),
-  walletWithdraw: (payload: {
-    amount: number;
-    bank_name?: string;
-    method_account?: string;
-    account_number?: string;
-    account_holder?: string;
-  }) =>
-    portalFetch<{ ok: boolean; balance: number }>(
+  walletWithdraw: (payload: { amount: number; payout_account_id: number | string }) =>
+    portalFetch<{ id: string; withdrawal_number: string; status: string }>(
       "/portal/wallet/withdraw/",
+      { method: "POST", body: JSON.stringify(payload) },
+      true,
+    ),
+  payoutAccounts: () =>
+    portalFetch<{ results: PortalPayoutAccountRow[] }>("/portal/payout-accounts/", undefined, true),
+  createPayoutAccount: (fd: FormData) =>
+    portalFetchMultipart<PortalPayoutAccountRow>("/portal/payout-accounts/", { method: "POST", body: fd }, true),
+  updatePayoutAccount: (id: string, fd: FormData) =>
+    portalFetchMultipart<PortalPayoutAccountRow>(
+      `/portal/payout-accounts/${encodeURIComponent(id)}/`,
+      { method: "PATCH", body: fd },
+      true,
+    ),
+  deletePayoutAccount: (id: string) =>
+    portalFetch<{ ok: boolean }>(
+      `/portal/payout-accounts/${encodeURIComponent(id)}/`,
+      { method: "DELETE" },
+      true,
+    ),
+  walletWithdrawals: () =>
+    portalFetch<{ results: PortalWithdrawalRow[] }>("/portal/wallet/withdrawals/", undefined, true),
+  familyPayoutAccounts: () =>
+    portalFetch<{ results: PortalPayoutAccountRow[] }>("/family-portal/payout-accounts/", undefined, true),
+  familyCreatePayoutAccount: (fd: FormData) =>
+    portalFetchMultipart<PortalPayoutAccountRow>("/family-portal/payout-accounts/", { method: "POST", body: fd }, true),
+  familyUpdatePayoutAccount: (id: string, fd: FormData) =>
+    portalFetchMultipart<PortalPayoutAccountRow>(
+      `/family-portal/payout-accounts/${encodeURIComponent(id)}/`,
+      { method: "PATCH", body: fd },
+      true,
+    ),
+  familyDeletePayoutAccount: (id: string) =>
+    portalFetch<{ ok: boolean }>(
+      `/family-portal/payout-accounts/${encodeURIComponent(id)}/`,
+      { method: "DELETE" },
+      true,
+    ),
+  familyWalletWithdrawals: (params?: { wallet_id?: string }) =>
+    portalFetch<{ results: PortalWithdrawalRow[] }>(
+      `/family-portal/family/wallet/withdrawals/${buildQuery(params)}`,
+      undefined,
+      true,
+    ),
+  familyWalletWithdraw: (payload: {
+    wallet_id: number | string;
+    amount: number;
+    payout_account_id: number | string;
+  }) =>
+    portalFetch<{ id: string; withdrawal_number: string; status: string }>(
+      "/family-portal/family/wallet/withdrawals/",
       { method: "POST", body: JSON.stringify(payload) },
       true,
     ),
