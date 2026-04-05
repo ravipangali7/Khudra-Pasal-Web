@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import { getAuthToken, portalApi, publicFamilyJoinApi } from "@/lib/api";
+import { normalizeNepalPhoneDigits } from "@/lib/nepalPhone";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -26,20 +27,40 @@ const JoinFamilyPage = () => {
     retry: false,
   });
 
+  const prefillEnabled = Boolean(token) && authed;
+
   const meQuery = useQuery({
     queryKey: ["portal", "me", "join-family-prefill"],
     queryFn: () => portalApi.me(),
-    enabled: Boolean(token) && authed && Boolean(metaQuery.data),
+    enabled: prefillEnabled,
+    retry: false,
+  });
+
+  const selfProfileQuery = useQuery({
+    queryKey: ["portal", "self-profile", "join-family-prefill"],
+    queryFn: () => portalApi.selfProfile(),
+    enabled: prefillEnabled,
     retry: false,
   });
 
   useEffect(() => {
-    const u = meQuery.data;
-    if (!u) return;
-    if (u.name?.trim()) setName((prev) => prev || u.name.trim());
-    if (u.email?.trim()) setEmail((prev) => prev || u.email.trim());
-    if (u.phone?.trim()) setPhone((prev) => prev || u.phone.trim());
-  }, [meQuery.data]);
+    const me = meQuery.data;
+    const self = selfProfileQuery.data;
+    const pick = (a?: string | null, b?: string | null) => {
+      const t = (a?.trim() || b?.trim() || "").trim();
+      return t;
+    };
+
+    const nameFrom = pick(me?.name, self?.name);
+    const emailFrom = pick(me?.email, self?.email);
+    const phoneRaw = pick(me?.phone, self?.phone);
+    const phoneCanon = phoneRaw ? normalizeNepalPhoneDigits(phoneRaw) : null;
+    const phoneForField = phoneCanon ?? phoneRaw;
+
+    if (nameFrom) setName((prev) => prev || nameFrom);
+    if (emailFrom) setEmail((prev) => prev || emailFrom);
+    if (phoneForField) setPhone((prev) => prev || phoneForField);
+  }, [meQuery.data, selfProfileQuery.data]);
 
   const submitMutation = useMutation({
     mutationFn: () =>
@@ -205,12 +226,22 @@ const JoinFamilyPage = () => {
             <Input
               id="jf-phone"
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
               autoComplete="tel"
+              inputMode="numeric"
               placeholder="98xxxxxxxx"
               required
             />
             <p className="text-xs text-muted-foreground">Must match your signed-in account phone number.</p>
+            {prefillEnabled &&
+            !meQuery.isLoading &&
+            !selfProfileQuery.isLoading &&
+            (meQuery.isSuccess || selfProfileQuery.isSuccess) &&
+            !(meQuery.data?.phone?.trim() || selfProfileQuery.data?.phone?.trim()) ? (
+              <p className="text-xs text-amber-700 dark:text-amber-200">
+                No phone number on this account yet. Add one in your KhudraPasal profile, then refresh this page.
+              </p>
+            ) : null}
           </div>
           <div className="space-y-2">
             <Label htmlFor="jf-note">Message (optional)</Label>
