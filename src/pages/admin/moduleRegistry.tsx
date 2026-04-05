@@ -12,6 +12,7 @@ import FamiliesModule from "./modules/FamiliesModule";
 import WalletModule from "./modules/WalletModule";
 import SecurityModule from "./modules/SecurityModule";
 import ReportsModule from "./modules/ReportsModule";
+import AdminPurchaseModule from "./modules/AdminPurchaseModule";
 import ShippingModule from "./modules/ShippingModule";
 import POBillingModule from "./modules/POBillingModule";
 import SettingsModule from "./modules/SettingsModule";
@@ -60,6 +61,7 @@ const ENTRIES = [
   ["security", () => <SecurityModule />] as const,
   ["reels-admin", () => <AdminReelsModule />] as const,
   ["reports", () => <ReportsModule />] as const,
+  ["purchase-insights", () => <AdminPurchaseModule />] as const,
   ...list(["shipping", "shipping-methods", "shipping-zones", "shipping-calculator"], (ctx) => (
     <ShippingModule activeSection={ctx.activeSection} />
   )),
@@ -106,6 +108,7 @@ export function getAdminSlugForModuleId(moduleId: string) {
 }
 
 export function getAdminModuleIdFromSlug(slug: string) {
+  if (slug === "purchase") return "purchase-insights";
   return SLUG_TO_ID.get(slug) ?? slug;
 }
 

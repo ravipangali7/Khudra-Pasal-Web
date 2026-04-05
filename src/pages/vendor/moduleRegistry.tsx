@@ -10,6 +10,7 @@ import VendorReelsModule from "./modules/VendorReelsModule";
 import VendorAllReelsModule from "./modules/VendorAllReelsModule";
 import VendorCustomersModule from "./modules/VendorCustomersModule";
 import VendorReportsModule from "./modules/VendorReportsModule";
+import VendorPurchaseModule from "./modules/VendorPurchaseModule";
 import VendorSupportModule from "./modules/VendorSupportModule";
 import VendorSettingsModule from "./modules/VendorSettingsModule";
 
@@ -40,6 +41,7 @@ const ENTRIES = [
   ["all-reels", () => <VendorAllReelsModule />] as const,
   ["customers", () => <VendorCustomersModule />] as const,
   ["reports", () => <VendorReportsModule />] as const,
+  ["purchase-insights", () => <VendorPurchaseModule />] as const,
   ["tickets", (ctx: VendorRenderCtx) => <VendorSupportModule activeSection={ctx.activeSection} />] as const,
   ["faq", (ctx: VendorRenderCtx) => <VendorSupportModule activeSection={ctx.activeSection} />] as const,
   ["settings", () => <VendorSettingsModule />] as const,
@@ -56,6 +58,7 @@ const ID_SET = new Set(MODULE_IDS);
 const PARENT_REDIRECT: Record<string, string> = {
   products: "all-products",
   orders: "all-orders",
+  purchase: "purchase-insights",
   marketing: "coupons",
   reels: "my-reels",
   support: "tickets",

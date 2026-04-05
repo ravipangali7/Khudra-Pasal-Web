@@ -151,7 +151,11 @@ export default function VendorPortal() {
   const sidebarItems = useMemo(() => mapApiNavToAdminItems(navData?.items), [navData]);
   const activeSection = parseVendorPath(location.pathname);
 
-  const normalizeModuleId = (id: string) => (id === 'add-product' ? 'all-products' : id);
+  const normalizeModuleId = (id: string) => {
+    if (id === 'add-product') return 'all-products';
+    if (id === 'purchase') return 'purchase-insights';
+    return id;
+  };
   const setActiveSection = (id: string) => navigate(buildVendorModulePath(normalizeModuleId(id)));
 
   if (!hasToken) {
