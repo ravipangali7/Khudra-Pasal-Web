@@ -36,10 +36,6 @@ export default function VendorSettingsModule() {
   const [holder, setHolder] = useState('');
   const [esewa, setEsewa] = useState('');
   const [khalti, setKhalti] = useState('');
-  const [oldP, setOldP] = useState('');
-  const [newP, setNewP] = useState('');
-  const [newP2, setNewP2] = useState('');
-
   const generalDirtyRef = useRef(false);
   const bankDirtyRef = useRef(false);
   const [generalDirty, setGeneralDirty] = useState(false);
@@ -112,17 +108,6 @@ export default function VendorSettingsModule() {
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const pwdMut = useMutation({
-    mutationFn: () => vendorApi.changePassword(oldP, newP),
-    onSuccess: () => {
-      toast.success('Password updated');
-      setOldP('');
-      setNewP('');
-      setNewP2('');
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
   return (
     <div className="p-4 lg:p-6 w-full max-w-none">
       {(settingsLoading || bankLoading) && !settings && !bank ? (
@@ -138,7 +123,6 @@ export default function VendorSettingsModule() {
         <TabsList className="mb-4 flex flex-wrap h-auto gap-1">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="payment">Payment</TabsTrigger>
-          <TabsTrigger value="security">Security</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general" className="w-full focus-visible:outline-none">
@@ -258,39 +242,6 @@ export default function VendorSettingsModule() {
               </div>
               <Button onClick={() => saveBank.mutate()} disabled={saveBank.isPending || !bankDirty}>
                 {saveBank.isPending ? 'Saving…' : 'Save'}
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="security" className="w-full focus-visible:outline-none">
-          <Card className="w-full">
-            <CardHeader>
-              <CardTitle>Change password</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 max-w-md">
-              <div>
-                <Label>Current password</Label>
-                <Input type="password" value={oldP} onChange={(e) => setOldP(e.target.value)} />
-              </div>
-              <div>
-                <Label>New password</Label>
-                <Input type="password" value={newP} onChange={(e) => setNewP(e.target.value)} />
-              </div>
-              <div>
-                <Label>Confirm</Label>
-                <Input type="password" value={newP2} onChange={(e) => setNewP2(e.target.value)} />
-              </div>
-              <Button
-                onClick={() => {
-                  if (newP !== newP2) {
-                    toast.error('Passwords do not match');
-                    return;
-                  }
-                  pwdMut.mutate();
-                }}
-              >
-                Update password
               </Button>
             </CardContent>
           </Card>

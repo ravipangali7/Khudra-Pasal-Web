@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Camera, Lock, LogOut } from 'lucide-react';
+import { Camera, LogOut } from 'lucide-react';
 import { portalApi, type PortalSelfProfile } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,6 +18,7 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 type Props = {
   variant: 'family' | 'child';
@@ -39,11 +40,6 @@ export default function PortalFamilyChildProfileModule({ variant, onLogoutClick 
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
-
-  const [oldP, setOldP] = useState('');
-  const [newP, setNewP] = useState('');
-  const [newP2, setNewP2] = useState('');
-  const [showPasswordForm, setShowPasswordForm] = useState(false);
 
   useEffect(() => {
     if (!data) return;
@@ -76,17 +72,6 @@ export default function PortalFamilyChildProfileModule({ variant, onLogoutClick 
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const pwdMut = useMutation({
-    mutationFn: () => portalApi.changePassword(oldP, newP),
-    onSuccess: () => {
-      toast.success('Password updated');
-      setOldP('');
-      setNewP('');
-      setNewP2('');
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const fd = new FormData();
@@ -111,12 +96,10 @@ export default function PortalFamilyChildProfileModule({ variant, onLogoutClick 
     <div className="p-4 lg:p-6 max-w-5xl space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">{title}</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Keep your profile and security details up to date.
-        </p>
+        <p className="text-sm text-muted-foreground mt-1">Keep your profile up to date.</p>
       </div>
 
-      <div className="grid gap-6 xl:grid-cols-[2fr_1fr]">
+      <div className={cn('grid gap-6', onLogoutClick && 'xl:grid-cols-[2fr_1fr]')}>
         <Card className="border-primary/10 shadow-sm">
           <CardHeader>
             <CardTitle>Profile details</CardTitle>
@@ -206,57 +189,13 @@ export default function PortalFamilyChildProfileModule({ variant, onLogoutClick 
           </CardContent>
         </Card>
 
-        <Card className="h-fit border-primary/10 shadow-sm">
-          <CardHeader>
-            <CardTitle>Security</CardTitle>
-            <CardDescription>Manage your password and current sign-in session.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Button
-              type="button"
-              variant={showPasswordForm ? 'secondary' : 'default'}
-              className="w-full justify-start gap-2"
-              onClick={() => setShowPasswordForm((v) => !v)}
-            >
-              <Lock className="h-4 w-4" />
-              {showPasswordForm ? 'Hide Change Password' : 'Change Password'}
-            </Button>
-
-            {showPasswordForm ? (
-              <div className="space-y-3 rounded-xl border border-border p-4">
-                <div className="space-y-2">
-                  <Label>Current password</Label>
-                  <Input type="password" value={oldP} onChange={(e) => setOldP(e.target.value)} autoComplete="current-password" />
-                </div>
-                <div className="space-y-2">
-                  <Label>New password</Label>
-                  <Input type="password" value={newP} onChange={(e) => setNewP(e.target.value)} autoComplete="new-password" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Confirm</Label>
-                  <Input type="password" value={newP2} onChange={(e) => setNewP2(e.target.value)} autoComplete="new-password" />
-                </div>
-                <Button
-                  type="button"
-                  onClick={() => {
-                    if (newP.length < 6) {
-                      toast.error('New password must be at least 6 characters');
-                      return;
-                    }
-                    if (newP !== newP2) {
-                      toast.error('Passwords do not match');
-                      return;
-                    }
-                    pwdMut.mutate();
-                  }}
-                  disabled={pwdMut.isPending}
-                >
-                  {pwdMut.isPending ? 'Updating…' : 'Update password'}
-                </Button>
-              </div>
-            ) : null}
-
-            {onLogoutClick ? (
+        {onLogoutClick ? (
+          <Card className="h-fit border-primary/10 shadow-sm">
+            <CardHeader>
+              <CardTitle>Session</CardTitle>
+              <CardDescription>Sign out when you are finished on this device.</CardDescription>
+            </CardHeader>
+            <CardContent>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button type="button" variant="outline" className="w-full justify-start gap-2 text-destructive">
@@ -268,7 +207,7 @@ export default function PortalFamilyChildProfileModule({ variant, onLogoutClick 
                   <AlertDialogHeader>
                     <AlertDialogTitle>Sign out of this device?</AlertDialogTitle>
                     <AlertDialogDescription>
-                      You will be logged out from your family portal session on this browser.
+                      You will be logged out from this portal session on this browser.
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -277,9 +216,9 @@ export default function PortalFamilyChildProfileModule({ variant, onLogoutClick 
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
-            ) : null}
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        ) : null}
     </div>
     </div>
   );

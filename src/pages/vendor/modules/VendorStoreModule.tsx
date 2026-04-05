@@ -3,7 +3,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   BadgeCheck,
   Camera,
-  Lock,
   MapPin,
   Package,
   Pencil,
@@ -12,7 +11,6 @@ import {
   Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -107,9 +105,6 @@ export default function VendorStoreModule() {
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
   const [editOpen, setEditOpen] = useState(false);
-  const [oldP, setOldP] = useState('');
-  const [newP, setNewP] = useState('');
-  const [newP2, setNewP2] = useState('');
 
   useEffect(() => {
     if (!data) return;
@@ -146,17 +141,6 @@ export default function VendorStoreModule() {
       setEditOpen(false);
       if (bannerInputRef.current) bannerInputRef.current.value = '';
       if (logoInputRef.current) logoInputRef.current.value = '';
-    },
-    onError: (e: Error) => toast.error(e.message),
-  });
-
-  const pwdMut = useMutation({
-    mutationFn: () => vendorApi.changePassword(oldP, newP),
-    onSuccess: () => {
-      toast.success('Password updated');
-      setOldP('');
-      setNewP('');
-      setNewP2('');
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -415,47 +399,6 @@ export default function VendorStoreModule() {
           </div>
         )}
       </div>
-
-      <Card className="max-w-xl">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg">
-            <Lock className="h-5 w-5" />
-            Account password
-          </CardTitle>
-          <CardDescription>Change the password you use to sign in to the vendor portal.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="space-y-2">
-            <Label>Current password</Label>
-            <Input type="password" value={oldP} onChange={(e) => setOldP(e.target.value)} autoComplete="current-password" />
-          </div>
-          <div className="space-y-2">
-            <Label>New password</Label>
-            <Input type="password" value={newP} onChange={(e) => setNewP(e.target.value)} autoComplete="new-password" />
-          </div>
-          <div className="space-y-2">
-            <Label>Confirm</Label>
-            <Input type="password" value={newP2} onChange={(e) => setNewP2(e.target.value)} autoComplete="new-password" />
-          </div>
-          <Button
-            type="button"
-            onClick={() => {
-              if (newP.length < 6) {
-                toast.error('New password must be at least 6 characters');
-                return;
-              }
-              if (newP !== newP2) {
-                toast.error('Passwords do not match');
-                return;
-              }
-              pwdMut.mutate();
-            }}
-            disabled={pwdMut.isPending}
-          >
-            {pwdMut.isPending ? 'Updating…' : 'Update password'}
-          </Button>
-        </CardContent>
-      </Card>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
