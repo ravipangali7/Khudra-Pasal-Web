@@ -93,6 +93,7 @@ type WithdrawalRow = {
   balance: number;
   created_at?: string;
   processed_at?: string;
+  proof_image_url?: string;
 };
 
 interface FinanceModuleProps {
@@ -972,6 +973,18 @@ function WithdrawalsView() {
               <p className="text-xs text-muted-foreground">Wallet balance</p>
               <p>Rs. {selected.balance.toLocaleString()}</p>
             </div>
+            {selected.proof_image_url ? (
+              <div className="p-3 bg-muted/50 rounded-lg col-span-2 space-y-2">
+                <p className="text-xs text-muted-foreground">Proof image</p>
+                <div className="rounded-lg border border-border/60 bg-background p-2 flex justify-center">
+                  <img
+                    src={selected.proof_image_url}
+                    alt="Withdrawal proof"
+                    className="max-h-72 w-full object-contain rounded-md"
+                  />
+                </div>
+              </div>
+            ) : null}
           </div>
         )}
       </CRUDModal>

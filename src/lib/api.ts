@@ -1595,6 +1595,7 @@ export type PortalWithdrawalRow = {
   created_at: string;
   processed_at: string;
   wallet_id: string;
+  proof_image_url?: string;
 };
 
 export const vendorApi = {
@@ -2659,12 +2660,27 @@ export const portalApi = {
     wallet_id: number | string;
     amount: number;
     payout_account_id: number | string;
-  }) =>
-    portalFetch<{ id: string; withdrawal_number: string; status: string }>(
+    proof_image?: File | null;
+  }) => {
+    const { proof_image, ...rest } = payload;
+    if (proof_image) {
+      const fd = new FormData();
+      fd.append("wallet_id", String(rest.wallet_id));
+      fd.append("amount", String(rest.amount));
+      fd.append("payout_account_id", String(rest.payout_account_id));
+      fd.append("proof_image", proof_image);
+      return portalFetchMultipart<{ id: string; withdrawal_number: string; status: string }>(
+        "/family-portal/family/wallet/withdrawals/",
+        { method: "POST", body: fd },
+        true,
+      );
+    }
+    return portalFetch<{ id: string; withdrawal_number: string; status: string }>(
       "/family-portal/family/wallet/withdrawals/",
-      { method: "POST", body: JSON.stringify(payload) },
+      { method: "POST", body: JSON.stringify(rest) },
       true,
-    ),
+    );
+  },
   kycSchema: () => portalFetch<PortalKycSchemaResponse>("/portal/kyc/schema/", undefined, true),
   kycStatus: () => portalFetch<PortalKycStatusResponse>("/portal/kyc/status/", undefined, true),
   kycSubmit: (fd: FormData) =>
