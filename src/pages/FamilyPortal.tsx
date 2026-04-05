@@ -24,6 +24,7 @@ import FaqAccordionSection from '@/components/support/FaqAccordionSection';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
@@ -1806,25 +1807,51 @@ export function FamilyPortal() {
 
     const newCategoryNameTrim = String(categoryFieldValues.name ?? '').trim();
 
+    const masterActionBtn =
+      'bg-white/95 text-amber-950 shadow-sm hover:bg-white border-0 dark:bg-amber-950/35 dark:text-amber-50 dark:hover:bg-amber-950/55';
+
     return (
       <div className="p-4 lg:p-6 space-y-4">
-        <Card className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground">
+        <Card className="overflow-hidden border-amber-300/60 shadow-md bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 text-white dark:border-amber-800/60 dark:from-amber-600 dark:via-amber-700 dark:to-amber-950">
           <CardContent className="p-6">
-            <p className="text-sm opacity-80">Master Wallet Balance</p>
-            <p className="text-3xl font-bold mt-1">Rs. {totalBalance.toLocaleString()}</p>
+            <p className="text-sm font-medium text-white/85">Master Wallet</p>
+            <p className="text-3xl font-bold mt-1 tabular-nums tracking-tight text-white">Rs. {totalBalance.toLocaleString()}</p>
             <div className="flex gap-2 mt-4 flex-wrap">
-              <Button variant="secondary" size="sm" onClick={() => { setWalletErr(''); setShowLoadMoney(true); }}>
+              <Button
+                size="sm"
+                className={masterActionBtn}
+                onClick={() => {
+                  setWalletErr('');
+                  setShowLoadMoney(true);
+                }}
+              >
                 Load Money
               </Button>
-              <Button variant="secondary" size="sm" onClick={() => { setWalletErr(''); setShowDistribute(true); }}>
+              <Button
+                size="sm"
+                className={masterActionBtn}
+                onClick={() => {
+                  setWalletErr('');
+                  setShowDistribute(true);
+                }}
+              >
                 Distribute
               </Button>
-              <Button variant="secondary" size="sm" onClick={() => { setWalletErr(''); setShowTransfer(true); }}>
+              <Button
+                size="sm"
+                className={masterActionBtn}
+                onClick={() => {
+                  setWalletErr('');
+                  setShowTransfer(true);
+                }}
+              >
                 Transfer
               </Button>
             </div>
           </CardContent>
         </Card>
+
+        <Separator className="bg-border" />
 
         <Dialog open={showLoadMoney} onOpenChange={(o) => { setShowLoadMoney(o); if (!o) setWalletErr(''); }}>
           <DialogContent>
@@ -2180,42 +2207,86 @@ export function FamilyPortal() {
           </DialogContent>
         </Dialog>
 
-        <div>
-          <h3 className="font-bold text-foreground mb-3">Wallet Categories</h3>
-          <div className="grid gap-3">
-            {walletCategories.map((wallet) => (
-              <Card key={wallet.id}>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      {wallet.image_url ? (
-                        <img
-                          src={wallet.image_url}
-                          alt=""
-                          className="w-10 h-10 rounded-xl object-cover shrink-0 border border-border"
-                        />
-                      ) : (
-                        <div
-                          className={cn(
-                            'w-10 h-10 rounded-xl flex items-center justify-center text-xl text-white',
-                            wallet.color,
-                          )}
-                        >
-                          {wallet.icon}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 items-start">
+          <div className="space-y-3 min-w-0">
+            <h3 className="font-bold text-foreground text-base">Personal wallet</h3>
+            <div className="grid gap-3">
+              {familyMembers.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-2">No family members yet.</p>
+              ) : (
+                familyMembers.map((m) => (
+                  <Card
+                    key={m.id}
+                    className={cn(!m.wallet_id && 'border-dashed opacity-90')}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="text-2xl shrink-0" aria-hidden>
+                            {m.avatar}
+                          </span>
+                          <div className="min-w-0">
+                            <h4 className="font-semibold text-foreground truncate">{m.name}</h4>
+                            <p className="text-xs text-muted-foreground capitalize">{m.role}</p>
+                            {!m.wallet_id ? (
+                              <p className="text-xs text-muted-foreground mt-1">No wallet linked</p>
+                            ) : null}
+                          </div>
                         </div>
-                      )}
-                      <div>
-                        <h4 className="font-semibold text-foreground">{wallet.name}</h4>
-                        <p className="text-xs text-muted-foreground">{wallet.members} members</p>
+                        <div className="text-right shrink-0">
+                          <p className="font-bold text-foreground tabular-nums">
+                            Rs. {m.balance.toLocaleString()}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-foreground">Rs. {wallet.balance.toLocaleString()}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-3 min-w-0 md:border-l md:border-border md:pl-6">
+            <h3 className="font-bold text-foreground text-base">Family shared wallet</h3>
+            <div className="grid gap-3">
+              {walletCategories.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-2">No shared buckets yet. Create a category below.</p>
+              ) : (
+                walletCategories.map((wallet) => (
+                  <Card key={wallet.id}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          {wallet.image_url ? (
+                            <img
+                              src={wallet.image_url}
+                              alt=""
+                              className="w-10 h-10 rounded-xl object-cover shrink-0 border border-border"
+                            />
+                          ) : (
+                            <div
+                              className={cn(
+                                'w-10 h-10 rounded-xl flex items-center justify-center text-xl text-white',
+                                wallet.color,
+                              )}
+                            >
+                              {wallet.icon}
+                            </div>
+                          )}
+                          <div>
+                            <h4 className="font-semibold text-foreground">{wallet.name}</h4>
+                            <p className="text-xs text-muted-foreground">{wallet.members} members</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-foreground">Rs. {wallet.balance.toLocaleString()}</p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
           </div>
         </div>
 
