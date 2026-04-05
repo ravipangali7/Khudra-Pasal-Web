@@ -19,7 +19,6 @@ import {
   ShoppingCart,
   Phone,
   Shield,
-  LogOut,
   Copy,
   Banknote,
   Store,
@@ -76,7 +75,6 @@ import PortalFamilyChildProfileModule from '@/components/portal/PortalFamilyChil
 import PortalProductsCatalogSection from '@/components/portal/PortalProductsCatalogSection';
 import PortalNotificationsModal from '@/components/portal/PortalNotificationsModal';
 import FloatingCart from '@/components/cart/FloatingCart';
-import { useCart } from '@/contexts/CartContext';
 import { toast } from 'sonner';
 
 function childTxnBadgeLabel(type: string) {
@@ -170,7 +168,6 @@ const ChildPortal = () => {
   const [topUpMethod, setTopUpMethod] = useState<'esewa' | 'khalti' | 'qr'>('esewa');
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [notificationsModalOpen, setNotificationsModalOpen] = useState(false);
-  const { cartCount, setIsCartOpen } = useCart();
 
   const authed = Boolean(portalToken);
 
@@ -337,6 +334,7 @@ const ChildPortal = () => {
     <div className="flex items-center gap-2">
       <ProfileMenu
         onProfileClick={() => goTo('profile')}
+        onLogout={() => setLogoutConfirmOpen(true)}
         avatarImageUrl={
           (selfProfile?.avatar_url || selfProfile?.logo_url)?.trim()
             ? String(selfProfile.avatar_url || selfProfile.logo_url)
@@ -345,15 +343,6 @@ const ChildPortal = () => {
         avatarFallback="SA"
         align="end"
       />
-      <Button
-        variant="outline"
-        size="sm"
-        className="gap-1.5 border-destructive/30 text-destructive hover:text-destructive hover:bg-destructive/10"
-        onClick={() => setLogoutConfirmOpen(true)}
-      >
-        <LogOut className="w-4 h-4" />
-        <span className="hidden sm:inline">Sign out</span>
-      </Button>
       <Link
         to="/homepage"
         className="relative shrink-0 rounded-lg p-2 text-foreground hover:bg-muted"
@@ -361,19 +350,6 @@ const ChildPortal = () => {
       >
         <Store className="h-5 w-5" />
       </Link>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="gap-1.5"
-        onClick={() => setIsCartOpen(true)}
-      >
-        <ShoppingCart className="h-4 w-4" />
-        <span>Cart</span>
-        <Badge variant="secondary" className="px-1.5 py-0 text-[10px] min-w-5 h-5 flex items-center justify-center">
-          {cartCount > 99 ? '99+' : cartCount}
-        </Badge>
-      </Button>
       <Button
         type="button"
         variant="secondary"
@@ -1587,14 +1563,7 @@ const ChildPortal = () => {
 
   return (
     <>
-    <PortalLayout
-      sidebar={sidebar}
-      title="Child Portal"
-      subtitle="Your wallet and shopping"
-      headerActions={headerActions}
-      heroGradient="from-primary to-primary/80"
-      showHeroHeader={false}
-    >
+    <PortalLayout sidebar={sidebar} headerActions={headerActions}>
       {renderContent()}
     </PortalLayout>
     <PortalNotificationsModal

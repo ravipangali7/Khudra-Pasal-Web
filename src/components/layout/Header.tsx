@@ -1,12 +1,15 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Search, MapPin, ShoppingCart, User } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { Menu, Search, MapPin, ShoppingCart, User } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
 import { useAuthUi } from "@/contexts/AuthUiContext";
+import { usePortalHeaderChrome } from "@/contexts/PortalHeaderChromeContext";
 import LogoutConfirmDialog from "@/components/auth/LogoutConfirmDialog";
 import SearchDropdown from "@/components/search/SearchDropdown";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { clearAllAuthTokens, getAuthToken, portalApi, websiteApi } from "@/lib/api";
 import { portalDashboardHrefForRole } from "@/lib/portalNavigation";
 import logo from "@/assets/logo.png";
@@ -30,9 +33,7 @@ const NEUTRAL_SEARCH_HINT = "products and categories";
 export const STOREFRONT_HEADER_STICKY_OFFSET = "top-[112px] md:top-16";
 
 const Header = () => {
-  const location = useLocation();
-  const hideChromeCart =
-    location.pathname.startsWith("/family-portal") || location.pathname.startsWith("/child-portal");
+  const portalChrome = usePortalHeaderChrome();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
@@ -75,7 +76,7 @@ const Header = () => {
       const [me, self] = await Promise.all([portalApi.me(), portalApi.selfProfile()]);
       return { me, self };
     },
-    enabled: isLoggedIn,
+    enabled: isLoggedIn && !portalChrome,
     staleTime: 60_000,
     retry: false,
   });
@@ -102,12 +103,44 @@ const Header = () => {
     </button>
   );
 
+  const cartButton = (
+    <button
+      type="button"
+      onClick={() => setIsCartOpen(true)}
+      className="relative flex shrink-0 items-center gap-2 px-2 md:px-3 py-2 rounded-full hover:bg-primary/10 transition-colors"
+    >
+      <ShoppingCart className="w-5 h-5 text-foreground" />
+      <span className="hidden md:inline text-sm font-medium">Cart</span>
+      {cartCount > 0 && (
+        <span className="cart-badge">{cartCount > 99 ? "99+" : cartCount}</span>
+      )}
+    </button>
+  );
+
   return (
     <>
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-sm border-b border-border/60 shadow-[0_1px_0_0_rgba(0,0,0,0.04)]">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-14 md:h-16 gap-2 md:gap-4">
             <div className="flex items-center gap-2 md:gap-3 shrink-0 min-w-0">
+              {portalChrome ? (
+                <Sheet open={portalChrome.mobileMenuOpen} onOpenChange={portalChrome.setMobileMenuOpen}>
+                  <SheetTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-9 w-9 shrink-0 lg:hidden"
+                      aria-label="Open menu"
+                    >
+                      <Menu className="w-5 h-5" />
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent side="left" className="p-0 w-72">
+                    {portalChrome.sidebar}
+                  </SheetContent>
+                </Sheet>
+              ) : null}
               <Link to="/" className="flex-shrink-0">
                 <img src={logo} alt="Khudra Pasal" className="h-8 md:h-12 w-auto object-contain" />
               </Link>
@@ -127,61 +160,71 @@ const Header = () => {
               {searchTrigger}
             </div>
 
-            <div className="flex items-center justify-end gap-1 sm:gap-2 shrink-0">
+            <div className="flex max-w-[min(100%,50vw)] flex-wrap items-center justify-end gap-1 sm:gap-2 shrink-0 sm:max-w-none">
               {isLoggedIn ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setLogoutOpen(true)}
-                    className="hidden sm:inline px-2 md:px-3 py-2 rounded-full hover:bg-primary/10 transition-colors text-sm font-medium text-foreground"
-                  >
-                    Logout
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setLogoutOpen(true)}
-                    className="sm:hidden p-2 rounded-full hover:bg-primary/10 text-muted-foreground"
-                    aria-label="Logout"
-                  >
-                    <User className="w-5 h-5" />
-                  </button>
-                  {portalSessionLoading ? (
-                    <div
-                      className="flex items-center gap-2 rounded-full border border-border/50 bg-muted/40 px-1.5 py-1"
-                      aria-hidden
-                    >
-                      <div className="h-8 w-8 rounded-full bg-muted animate-pulse shrink-0" />
-                      <div className="hidden sm:block h-3.5 w-20 max-w-[8rem] rounded bg-muted animate-pulse" />
+                portalChrome ? (
+                  <>
+                    <div className="flex max-w-full min-w-0 flex-wrap items-center justify-end gap-1 sm:gap-2">
+                      {portalChrome.toolbar}
                     </div>
-                  ) : portalSessionError ? (
-                    <Link
-                      to="/portal/dashboard"
-                      className="flex items-center gap-2 rounded-full border border-border/60 bg-background/80 px-1.5 py-1 pl-1 pr-2 sm:pr-3 hover:bg-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                      aria-label="Open your account"
+                    {cartButton}
+                  </>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setLogoutOpen(true)}
+                      className="hidden sm:inline px-2 md:px-3 py-2 rounded-full hover:bg-primary/10 transition-colors text-sm font-medium text-foreground"
                     >
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/50 bg-muted/50">
-                        <User className="h-4 w-4 text-muted-foreground" />
-                      </span>
-                      <span className="hidden sm:inline text-sm font-medium text-foreground">Account</span>
-                    </Link>
-                  ) : (
-                    <Link
-                      to={portalHref}
-                      className="flex items-center gap-2 rounded-full border border-border/60 bg-background/80 px-1.5 py-1 pl-1 pr-2 sm:pr-3 max-w-[min(220px,42vw)] hover:bg-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                      aria-label={`Open your account — ${displayName}`}
+                      Logout
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLogoutOpen(true)}
+                      className="sm:hidden p-2 rounded-full hover:bg-primary/10 text-muted-foreground"
+                      aria-label="Logout"
                     >
-                      <Avatar className="h-8 w-8 border border-border/50 shrink-0">
-                        {avatarUrl ? <AvatarImage src={avatarUrl} alt="" /> : null}
-                        <AvatarFallback className="text-xs font-semibold bg-primary/10 text-primary">
-                          {initialsFromName(displayName)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="hidden sm:inline text-sm font-medium text-foreground truncate min-w-0">
-                        {displayName}
-                      </span>
-                    </Link>
-                  )}
-                </>
+                      <User className="w-5 h-5" />
+                    </button>
+                    {portalSessionLoading ? (
+                      <div
+                        className="flex items-center gap-2 rounded-full border border-border/50 bg-muted/40 px-1.5 py-1"
+                        aria-hidden
+                      >
+                        <div className="h-8 w-8 rounded-full bg-muted animate-pulse shrink-0" />
+                        <div className="hidden sm:block h-3.5 w-20 max-w-[8rem] rounded bg-muted animate-pulse" />
+                      </div>
+                    ) : portalSessionError ? (
+                      <Link
+                        to="/portal/dashboard"
+                        className="flex items-center gap-2 rounded-full border border-border/60 bg-background/80 px-1.5 py-1 pl-1 pr-2 sm:pr-3 hover:bg-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        aria-label="Open your account"
+                      >
+                        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border/50 bg-muted/50">
+                          <User className="h-4 w-4 text-muted-foreground" />
+                        </span>
+                        <span className="hidden sm:inline text-sm font-medium text-foreground">Account</span>
+                      </Link>
+                    ) : (
+                      <Link
+                        to={portalHref}
+                        className="flex items-center gap-2 rounded-full border border-border/60 bg-background/80 px-1.5 py-1 pl-1 pr-2 sm:pr-3 max-w-[min(220px,42vw)] hover:bg-primary/10 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        aria-label={`Open your account — ${displayName}`}
+                      >
+                        <Avatar className="h-8 w-8 border border-border/50 shrink-0">
+                          {avatarUrl ? <AvatarImage src={avatarUrl} alt="" /> : null}
+                          <AvatarFallback className="text-xs font-semibold bg-primary/10 text-primary">
+                            {initialsFromName(displayName)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="hidden sm:inline text-sm font-medium text-foreground truncate min-w-0">
+                          {displayName}
+                        </span>
+                      </Link>
+                    )}
+                    {cartButton}
+                  </>
+                )
               ) : (
                 <>
                   <button
@@ -206,21 +249,9 @@ const Header = () => {
                   >
                     <User className="w-5 h-5" />
                   </button>
+                  {cartButton}
                 </>
               )}
-              {!hideChromeCart ? (
-                <button
-                  type="button"
-                  onClick={() => setIsCartOpen(true)}
-                  className="relative flex items-center gap-2 px-2 md:px-3 py-2 rounded-full hover:bg-primary/10 transition-colors"
-                >
-                  <ShoppingCart className="w-5 h-5 text-foreground" />
-                  <span className="hidden md:inline text-sm font-medium">Cart</span>
-                  {cartCount > 0 && (
-                    <span className="cart-badge">{cartCount > 99 ? "99+" : cartCount}</span>
-                  )}
-                </button>
-              ) : null}
             </div>
           </div>
 
