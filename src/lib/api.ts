@@ -1207,8 +1207,6 @@ export const adminApi = {
       undefined,
       true,
     ),
-  purchaseInsights: (params?: { from?: string; to?: string }) =>
-    apiFetch<Record<string, unknown>>(`/admin/purchase-insights/${buildQuery(params)}`, undefined, true),
   users: (params?: QueryParams) =>
     apiFetch<PagedResponse<{ id: number; name: string; phone: string; email: string; role: string; kyc_status: string }>>(
       `/admin/users/${buildQuery(params)}`,
@@ -1651,8 +1649,6 @@ export const vendorApi = {
   customers: (params?: QueryParams) => vendorPaged<Record<string, unknown>>("customers", params),
   reportsSummary: (params?: { from?: string; to?: string }) =>
     vendorFetch<Record<string, unknown>>(`/vendor/reports/summary/${buildQuery(params)}`, undefined, true),
-  purchaseInsights: (params?: { from?: string; to?: string }) =>
-    vendorFetch<Record<string, unknown>>(`/vendor/purchase-insights/${buildQuery(params)}`, undefined, true),
   reportsExportCsv: (params?: { from?: string; to?: string }) =>
     vendorFetchBlob(`/vendor/reports/export.csv${buildQuery(params)}`),
   supportTickets: (params?: QueryParams) => vendorPaged<Record<string, unknown>>("support/tickets", params),
