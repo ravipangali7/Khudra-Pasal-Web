@@ -491,6 +491,44 @@ export class PortalApiError extends Error {
   }
 }
 
+/** Best-effort message from portal error JSON (DRF `detail`, field errors, etc.). */
+export function formatPortalValidationMessage(body: PortalErrorBody, httpStatus: number): string {
+  const d = body.detail;
+  if (typeof d === "string" && d.trim()) return d.trim();
+  if (Array.isArray(d)) {
+    const parts = d
+      .map((item) => {
+        if (typeof item === "string") return item;
+        if (item && typeof item === "object") {
+          const o = item as Record<string, unknown>;
+          if (typeof o.string === "string") return o.string;
+        }
+        return "";
+      })
+      .filter(Boolean);
+    if (parts.length) return parts.join(", ");
+  }
+  const fieldParts: string[] = [];
+  for (const [key, val] of Object.entries(body)) {
+    if (key === "detail" || key === "code") continue;
+    if (key === "rejection_reason" && typeof val === "string" && val.trim()) {
+      fieldParts.push(val.trim());
+      continue;
+    }
+    if (Array.isArray(val) && val.every((x): x is string => typeof x === "string")) {
+      const label = key.replace(/_/g, " ");
+      fieldParts.push(`${label}: ${val.join(" ")}`);
+    } else if (typeof val === "string" && val.trim()) {
+      fieldParts.push(`${key.replace(/_/g, " ")}: ${val.trim()}`);
+    }
+  }
+  if (fieldParts.length) return fieldParts.join("; ");
+  if (typeof body.rejection_reason === "string" && body.rejection_reason.trim()) {
+    return body.rejection_reason.trim();
+  }
+  return `Request failed: ${httpStatus}`;
+}
+
 export function isPortalKycBlockedError(error: unknown): error is PortalApiError {
   return (
     error instanceof PortalApiError &&
@@ -581,13 +619,7 @@ async function portalFetch<T>(path: string, init?: RequestInit, authenticated = 
   const response = await fetch(`${API_BASE}${path}`, { ...init, headers });
   if (!response.ok) {
     const payload = (await response.json().catch(() => ({}))) as PortalErrorBody;
-    const detail = payload.detail;
-    const msg =
-      typeof detail === "string"
-        ? detail
-        : Array.isArray(detail)
-          ? detail.map(String).join(", ")
-          : `Request failed: ${response.status}`;
+    const msg = formatPortalValidationMessage(payload, response.status);
     throw new PortalApiError(msg, response.status, payload);
   }
   return response.json() as Promise<T>;
@@ -603,13 +635,7 @@ async function portalFetchMultipart<T>(path: string, init: RequestInit, authenti
   const response = await fetch(`${API_BASE}${path}`, { ...init, headers });
   if (!response.ok) {
     const payload = (await response.json().catch(() => ({}))) as PortalErrorBody;
-    const detail = payload.detail;
-    const msg =
-      typeof detail === "string"
-        ? detail
-        : Array.isArray(detail)
-          ? detail.map(String).join(", ")
-          : `Request failed: ${response.status}`;
+    const msg = formatPortalValidationMessage(payload, response.status);
     throw new PortalApiError(msg, response.status, payload);
   }
   return response.json() as Promise<T>;

@@ -77,10 +77,12 @@ import {
   clearAllAuthTokens,
   extractResults,
   getAuthToken,
+  PortalApiError,
   portalApi,
   setCheckoutPlacedPortal,
   websiteApi,
   type PortalFamilyAutoApprovalRuleRow,
+  type PortalFamilyOverview,
   type PortalFamilyMemberRow,
   type PortalFamilyProductRestrictionRow,
   type PortalFamilyWalletTxnRow,
@@ -132,6 +134,22 @@ function flattenWebsiteCategories(nodes: WebsiteCategory[]): WebsiteCategory[] {
   };
   walk(nodes);
   return acc;
+}
+
+function parseFamilyLimitInput(s: string): { ok: true; value: number } | { ok: false; error: string } {
+  const t = String(s).replace(/,/g, '').trim();
+  if (t === '') return { ok: true, value: 0 };
+  const n = Number(t);
+  if (!Number.isFinite(n)) return { ok: false, error: 'Each limit must be a valid number.' };
+  return { ok: true, value: n };
+}
+
+function validateFamilySpendingLimits(d: number, w: number, m: number): string | null {
+  if (d < 0 || w < 0 || m < 0) return 'Limits cannot be negative.';
+  if (d > 0 && w > 0 && d > w) return 'Daily limit cannot exceed weekly limit.';
+  if (d > 0 && m > 0 && d > m) return 'Daily limit cannot exceed monthly limit.';
+  if (w > 0 && m > 0 && w > m) return 'Weekly limit cannot exceed monthly limit.';
+  return null;
 }
 
 const FAMILY_PRODUCT_RESTRICTIONS_QUERY_KEY = ['portal', 'family', 'product-restrictions'] as const;
@@ -2365,18 +2383,15 @@ export function FamilyPortal() {
     const [limDaily, setLimDaily] = useState('');
     const [limWeekly, setLimWeekly] = useState('');
     const [limMonthly, setLimMonthly] = useState('');
+    const [limitsFormError, setLimitsFormError] = useState('');
 
     useEffect(() => {
       if (!editingMember) return;
       setLimDaily(String(editingMember.spending_limit_daily ?? 0));
       setLimWeekly(String(editingMember.spending_limit_weekly ?? 0));
       setLimMonthly(String(editingMember.spending_limit_monthly ?? editingMember.limit ?? 0));
+      setLimitsFormError('');
     }, [editingMember]);
-
-    const parseLim = (s: string) => {
-      const n = Number(String(s).replace(/,/g, ''));
-      return Number.isFinite(n) ? n : 0;
-    };
 
     const patchLimitsMutation = useMutation({
       mutationFn: (args: {
@@ -2390,14 +2405,31 @@ export function FamilyPortal() {
           spending_limit_weekly: args.spending_limit_weekly,
           spending_limit_monthly: args.spending_limit_monthly,
         }),
-      onSuccess: () => {
+      onSuccess: (data) => {
+        qc.setQueryData<PortalFamilyOverview>(['portal', 'family', 'overview', sessionTick], (old) => {
+          if (!old?.members?.length) return old;
+          return {
+            ...old,
+            members: old.members.map((m) => (m.id === data.id ? { ...m, ...data } : m)),
+          };
+        });
         void qc.invalidateQueries({ queryKey: ['portal', 'family', 'overview'] });
         void qc.invalidateQueries({ queryKey: ['portal', 'family', 'txns'] });
-        toast.success('Spending limits updated');
+        toast.success('Spending limits saved');
+        setLimitsFormError('');
         setEditingMember(null);
       },
-      onError: (e: Error) => toast.error(e.message || 'Could not update limits'),
+      onError: (e: Error) => {
+        const msg = e instanceof PortalApiError ? e.message : e.message || 'Could not update limits';
+        setLimitsFormError(msg);
+        toast.error(msg);
+      },
     });
+
+    const clearDialog = () => {
+      setEditingMember(null);
+      setLimitsFormError('');
+    };
 
     return (
       <div className="p-4 lg:p-6 space-y-4">
@@ -2444,7 +2476,12 @@ export function FamilyPortal() {
             </Card>
           ))}
         </div>
-        <Dialog open={!!editingMember} onOpenChange={(o) => !o && setEditingMember(null)}>
+        <Dialog
+          open={!!editingMember}
+          onOpenChange={(o) => {
+            if (!o) clearDialog();
+          }}
+        >
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Edit spending limits</DialogTitle>
@@ -2453,28 +2490,54 @@ export function FamilyPortal() {
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-3 py-2">
+              {limitsFormError ? (
+                <p className="text-sm text-destructive" role="alert">
+                  {limitsFormError}
+                </p>
+              ) : null}
               <div className="space-y-1">
                 <Label className="text-xs">Daily</Label>
                 <Input
                   className="h-9"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  inputMode="decimal"
                   value={limDaily}
-                  onChange={(e) => setLimDaily(e.target.value)}
+                  onChange={(e) => {
+                    setLimDaily(e.target.value);
+                    setLimitsFormError('');
+                  }}
                 />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Weekly</Label>
                 <Input
                   className="h-9"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  inputMode="decimal"
                   value={limWeekly}
-                  onChange={(e) => setLimWeekly(e.target.value)}
+                  onChange={(e) => {
+                    setLimWeekly(e.target.value);
+                    setLimitsFormError('');
+                  }}
                 />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Monthly</Label>
                 <Input
                   className="h-9"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  inputMode="decimal"
                   value={limMonthly}
-                  onChange={(e) => setLimMonthly(e.target.value)}
+                  onChange={(e) => {
+                    setLimMonthly(e.target.value);
+                    setLimitsFormError('');
+                  }}
                 />
               </div>
             </div>
@@ -2482,7 +2545,7 @@ export function FamilyPortal() {
               <Button
                 type="button"
                 variant="secondary"
-                onClick={() => setEditingMember(null)}
+                onClick={clearDialog}
                 disabled={patchLimitsMutation.isPending}
               >
                 Cancel
@@ -2492,11 +2555,32 @@ export function FamilyPortal() {
                 disabled={!editingMember || patchLimitsMutation.isPending}
                 onClick={() => {
                   if (!editingMember) return;
+                  setLimitsFormError('');
+                  const pd = parseFamilyLimitInput(limDaily);
+                  const pw = parseFamilyLimitInput(limWeekly);
+                  const pm = parseFamilyLimitInput(limMonthly);
+                  if (!pd.ok) {
+                    setLimitsFormError(pd.error);
+                    return;
+                  }
+                  if (!pw.ok) {
+                    setLimitsFormError(pw.error);
+                    return;
+                  }
+                  if (!pm.ok) {
+                    setLimitsFormError(pm.error);
+                    return;
+                  }
+                  const orderErr = validateFamilySpendingLimits(pd.value, pw.value, pm.value);
+                  if (orderErr) {
+                    setLimitsFormError(orderErr);
+                    return;
+                  }
                   patchLimitsMutation.mutate({
                     id: editingMember.id,
-                    spending_limit_daily: parseLim(limDaily),
-                    spending_limit_weekly: parseLim(limWeekly),
-                    spending_limit_monthly: parseLim(limMonthly),
+                    spending_limit_daily: pd.value,
+                    spending_limit_weekly: pw.value,
+                    spending_limit_monthly: pm.value,
                   });
                 }}
               >
