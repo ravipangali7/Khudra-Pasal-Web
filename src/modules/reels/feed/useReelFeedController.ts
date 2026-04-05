@@ -33,7 +33,13 @@ export function useReelFeedController(
   const location = useLocation();
   const queryClient = useQueryClient();
   const { addToCart } = useCart();
-  const { isChildShopper, rules, isLoadingRules } = useChildShoppingRules();
+  const {
+    isChildShopper,
+    rules,
+    isLoadingProfile,
+    isLoadingRules,
+    rulesFetchError,
+  } = useChildShoppingRules();
   const [showToast, setShowToast] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [commentDrawerReelId, setCommentDrawerReelId] = useState<number | null>(null);
@@ -134,7 +140,15 @@ export function useReelFeedController(
         redirectToLoginForReel(reel, quantity);
         return;
       }
-      if (isChildShopper && rules && !isLoadingRules) {
+      if (isChildShopper) {
+        if (isLoadingProfile || isLoadingRules) {
+          toast.message('Checking your family shopping rules…');
+          return;
+        }
+        if (rulesFetchError || !rules) {
+          toast.error('Could not load family shopping rules. Try again.');
+          return;
+        }
         const ev = evaluateChildProductCommerce(
           {
             category: reel.product.categorySlug || 'all',
@@ -169,7 +183,9 @@ export function useReelFeedController(
       redirectToLoginForReel,
       isChildShopper,
       rules,
+      isLoadingProfile,
       isLoadingRules,
+      rulesFetchError,
     ],
   );
 

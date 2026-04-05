@@ -377,7 +377,12 @@ const ChildPortal = () => {
         return <WalletContent />;
       case 'products':
         return (
-          <PortalProductsCatalogSection variant="child" childRules={childRulesQuery.data ?? null} />
+          <PortalProductsCatalogSection
+            variant="child"
+            childRules={childRulesQuery.data ?? null}
+            childRulesLoading={childRulesQuery.isLoading}
+            childRulesError={childRulesQuery.isError}
+          />
         );
       case 'my-orders':
         return (

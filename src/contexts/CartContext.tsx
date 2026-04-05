@@ -71,8 +71,17 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
+const CHILD_RULES_LOADING_MSG = 'Checking your family shopping rules…';
+const CHILD_RULES_ERROR_MSG = 'Could not load family shopping rules. Try again.';
+
 export const CartProvider = ({ children }: { children: ReactNode }) => {
-  const { isChildShopper, rules, isLoadingRules } = useChildShoppingRules();
+  const {
+    isChildShopper,
+    rules,
+    isLoadingProfile,
+    isLoadingRules,
+    rulesFetchError,
+  } = useChildShoppingRules();
   const navigate = useNavigate();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -152,7 +161,15 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         navigate(`/login?next=${encodeURIComponent(nextPath)}&shop=1`);
         return;
       }
-      if (isChildShopper && rules && !isLoadingRules) {
+      if (isChildShopper) {
+        if (isLoadingProfile || isLoadingRules) {
+          toast.message(CHILD_RULES_LOADING_MSG);
+          return;
+        }
+        if (rulesFetchError || !rules) {
+          toast.error(CHILD_RULES_ERROR_MSG);
+          return;
+        }
         const ev = evaluateChildProductCommerce(product, rules);
         if (ev.commerceDisabled) {
           toast.error(ev.message);
@@ -204,7 +221,15 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         }
       })();
     },
-    [applyServerCart, navigate, isChildShopper, rules, isLoadingRules],
+    [
+      applyServerCart,
+      navigate,
+      isChildShopper,
+      rules,
+      isLoadingProfile,
+      isLoadingRules,
+      rulesFetchError,
+    ],
   );
 
   const removeFromCart = useCallback(
@@ -242,13 +267,15 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
       }
 
       const prevItem = cartItemsRef.current.find((i) => i.product.id === productId);
-      if (
-        prevItem &&
-        quantity > prevItem.quantity &&
-        isChildShopper &&
-        rules &&
-        !isLoadingRules
-      ) {
+      if (prevItem && quantity > prevItem.quantity && isChildShopper) {
+        if (isLoadingProfile || isLoadingRules) {
+          toast.message(CHILD_RULES_LOADING_MSG);
+          return;
+        }
+        if (rulesFetchError || !rules) {
+          toast.error(CHILD_RULES_ERROR_MSG);
+          return;
+        }
         const ev = evaluateChildProductCommerce(prevItem.product, rules);
         if (ev.commerceDisabled) {
           toast.error(ev.message);
@@ -278,7 +305,15 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         }
       })();
     },
-    [removeFromCart, refreshServerCart, isChildShopper, rules, isLoadingRules],
+    [
+      removeFromCart,
+      refreshServerCart,
+      isChildShopper,
+      rules,
+      isLoadingProfile,
+      isLoadingRules,
+      rulesFetchError,
+    ],
   );
 
   const getItemQuantity = useCallback((productId: string) => {

@@ -124,7 +124,13 @@ const ProductDetail = () => {
     staleTime: 60_000,
   });
   const { addToCart, getItemQuantity, updateQuantity, cartCount } = useCart();
-  const { isChildShopper, rules, isLoadingRules } = useChildShoppingRules();
+  const {
+    isChildShopper,
+    rules,
+    isLoadingProfile,
+    isLoadingRules,
+    rulesFetchError,
+  } = useChildShoppingRules();
   const [selectedImage, setSelectedImage] = useState(0);
   const [activeTab, setActiveTab] = useState('home');
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
@@ -142,20 +148,51 @@ const ProductDetail = () => {
   const isInCart = quantity > 0;
 
   const childCommerce = useMemo(() => {
-    if (product.id === '0' || !isChildShopper || !rules || isLoadingRules) return null;
+    if (product.id === '0' || !isChildShopper) return null;
+    if (isLoadingProfile || isLoadingRules || rulesFetchError || !rules) return null;
     return evaluateChildProductCommerce(product, rules);
-  }, [product, isChildShopper, rules, isLoadingRules]);
-  const childCommerceDisabled = Boolean(childCommerce?.commerceDisabled);
+  }, [
+    product,
+    isChildShopper,
+    isLoadingProfile,
+    isLoadingRules,
+    rulesFetchError,
+    rules,
+  ]);
+
+  const childCommerceDisabled =
+    (isChildShopper &&
+      (isLoadingProfile || isLoadingRules || rulesFetchError || !rules)) ||
+    Boolean(childCommerce?.commerceDisabled);
 
   const guardChildCartAction = useCallback(
     (fn: () => void) => {
-      if (childCommerceDisabled && childCommerce) {
+      if (!isChildShopper) {
+        fn();
+        return;
+      }
+      if (isLoadingProfile || isLoadingRules) {
+        toast.message('Checking your family shopping rules…');
+        return;
+      }
+      if (rulesFetchError || !rules) {
+        toast.error('Could not load family shopping rules. Try again.');
+        return;
+      }
+      if (childCommerce?.commerceDisabled && childCommerce) {
         toast.message(childCommerce.message);
         return;
       }
       fn();
     },
-    [childCommerceDisabled, childCommerce],
+    [
+      isChildShopper,
+      isLoadingProfile,
+      isLoadingRules,
+      rulesFetchError,
+      rules,
+      childCommerce,
+    ],
   );
   const { data: wishlistRows = [], isLoading: isWishlistLoading } = useQuery({
     queryKey: ['product-wishlist'],
@@ -538,11 +575,20 @@ const ProductDetail = () => {
                 <Heart className={cn("w-5 h-5", isWishlisted ? "fill-amber-500 text-amber-500" : "text-muted-foreground")} />
               </button>
               <button
+                type="button"
                 onClick={() => {
                   if (!requireAuth()) return;
-                  navigate('/checkout', { state: { from: `${location.pathname}${location.search}` } });
+                  guardChildCartAction(() =>
+                    navigate('/checkout', { state: { from: `${location.pathname}${location.search}` } }),
+                  );
                 }}
-                className="p-3 border border-border rounded-xl hover:bg-muted transition-colors"
+                disabled={childCommerceDisabled}
+                className={cn(
+                  'p-3 border border-border rounded-xl transition-colors',
+                  childCommerceDisabled
+                    ? 'opacity-50 cursor-not-allowed'
+                    : 'hover:bg-muted',
+                )}
               >
                 <ShoppingCart className="w-5 h-5 text-muted-foreground" />
               </button>

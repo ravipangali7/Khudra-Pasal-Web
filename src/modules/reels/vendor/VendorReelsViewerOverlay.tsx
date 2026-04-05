@@ -50,7 +50,13 @@ const VendorReelsViewerOverlay: React.FC<Props> = ({ vendorId, initialReelId, on
   const viewTimerRef = useRef<number | null>(null);
   const toastTimerRef = useRef<number | null>(null);
   const { addToCart } = useCart();
-  const { isChildShopper, rules, isLoadingRules } = useChildShoppingRules();
+  const {
+    isChildShopper,
+    rules,
+    isLoadingProfile,
+    isLoadingRules,
+    rulesFetchError,
+  } = useChildShoppingRules();
   const toCartProduct = useCallback(
     (reel: Reel) => ({
       id: String(reel.product.id),
@@ -306,7 +312,15 @@ const VendorReelsViewerOverlay: React.FC<Props> = ({ vendorId, initialReelId, on
         redirectToLogin(reel, quantity);
         return;
       }
-      if (isChildShopper && rules && !isLoadingRules) {
+      if (isChildShopper) {
+        if (isLoadingProfile || isLoadingRules) {
+          toast.message('Checking your family shopping rules…');
+          return;
+        }
+        if (rulesFetchError || !rules) {
+          toast.error('Could not load family shopping rules. Try again.');
+          return;
+        }
         const ev = evaluateChildProductCommerce(
           {
             category: reel.product.categorySlug || 'all',
@@ -341,7 +355,9 @@ const VendorReelsViewerOverlay: React.FC<Props> = ({ vendorId, initialReelId, on
       redirectToLogin,
       isChildShopper,
       rules,
+      isLoadingProfile,
       isLoadingRules,
+      rulesFetchError,
     ],
   );
 

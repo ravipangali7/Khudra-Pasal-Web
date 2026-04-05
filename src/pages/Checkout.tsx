@@ -91,7 +91,13 @@ const Checkout = () => {
   const hasStorefrontSession = isStorefrontCustomerSession();
   const queryClient = useQueryClient();
   const { cartItems, cartTotal, cartCount, updateQuantity, removeFromCart, clearCart } = useCart();
-  const { isChildShopper, rules, isLoadingRules } = useChildShoppingRules();
+  const {
+    isChildShopper,
+    rules,
+    isLoadingProfile,
+    isLoadingRules,
+    rulesFetchError,
+  } = useChildShoppingRules();
   const checkoutState = (location.state as CheckoutLocationState | null) ?? null;
   const buyNow = checkoutState?.buyNow;
   const postCheckoutPath = useMemo(() => {
@@ -419,7 +425,15 @@ const Checkout = () => {
       return;
     }
 
-    if (isChildShopper && rules && !isLoadingRules) {
+    if (isChildShopper) {
+      if (isLoadingProfile || isLoadingRules) {
+        toast.message('Checking your family shopping rules…');
+        return;
+      }
+      if (rulesFetchError || !rules) {
+        toast.error('Could not load family shopping rules. Try again.');
+        return;
+      }
       if (buyNow) {
         const ev = evaluateChildProductCommerce(
           { category: buyNow.categorySlug || 'all', price: buyNow.price },

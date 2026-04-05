@@ -38,6 +38,9 @@ export type PortalProductsCatalogSectionProps = {
   variant: PortalProductsCatalogVariant;
   /** When `variant` is `child`, pass rules from `portalApi.childRules()` for filtering and banners. */
   childRules?: PortalChildRulesResponse | null;
+  /** Child portal: fail closed on commerce until rules resolve. */
+  childRulesLoading?: boolean;
+  childRulesError?: boolean;
 };
 
 function formatPrice(price: string | undefined): string {
@@ -258,9 +261,14 @@ function PortalCatalogProductCard({
   );
 }
 
+const CHILD_RULES_LOADING_CATALOG_MSG = "Loading your family rules…";
+const CHILD_RULES_ERROR_CATALOG_MSG = "Could not load family rules.";
+
 export default function PortalProductsCatalogSection({
   variant,
   childRules,
+  childRulesLoading = false,
+  childRulesError = false,
 }: PortalProductsCatalogSectionProps) {
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["portal", "products", "all-vendors", variant],
@@ -304,7 +312,9 @@ export default function PortalProductsCatalogSection({
   }, [filteredProducts]);
 
   const purchasesOff =
-    variant === "child" && childRules?.group_permissions && !childRules.group_permissions.allow_online_purchases;
+    variant === "child" &&
+    childRules?.group_permissions &&
+    !childRules.group_permissions.allow_online_purchases;
 
   if (isLoading) {
     return (
@@ -379,20 +389,31 @@ export default function PortalProductsCatalogSection({
 
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
               {group.products.map((product) => {
-                const ev =
-                  variant === "child" && childRules
-                    ? evaluateChildProductCommerce(
-                        {
-                          category: product.category_slug || "all",
-                          price: Number(product.price || 0),
-                        },
-                        childRules,
-                      )
-                    : null;
-                const commerceDisabled = Boolean(ev?.commerceDisabled);
-                const commerceDisabledMessage =
-                  ev?.message ||
-                  (purchasesOff ? "Online purchases are turned off for your account." : "");
+                let ev: ReturnType<typeof evaluateChildProductCommerce> | null = null;
+                let commerceDisabled = false;
+                let commerceDisabledMessage = "";
+
+                if (variant === "child") {
+                  if (childRulesLoading) {
+                    commerceDisabled = true;
+                    commerceDisabledMessage = CHILD_RULES_LOADING_CATALOG_MSG;
+                  } else if (childRulesError || !childRules) {
+                    commerceDisabled = true;
+                    commerceDisabledMessage = CHILD_RULES_ERROR_CATALOG_MSG;
+                  } else {
+                    ev = evaluateChildProductCommerce(
+                      {
+                        category: product.category_slug || "all",
+                        price: Number(product.price || 0),
+                      },
+                      childRules,
+                    );
+                    commerceDisabled = Boolean(ev.commerceDisabled);
+                    commerceDisabledMessage =
+                      ev.message ||
+                      (purchasesOff ? "Online purchases are turned off for your account." : "");
+                  }
+                }
 
                 return (
                   <PortalCatalogProductCard

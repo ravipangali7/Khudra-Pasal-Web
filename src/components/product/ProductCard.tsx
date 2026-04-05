@@ -40,14 +40,31 @@ const ProductCard = ({
   const theme = resolveThemeClass(categoryTheme || product.category);
   const navigate = useNavigate();
   const { addToCart, getItemQuantity, updateQuantity, isListingCartActive } = useCart();
-  const { isChildShopper, rules, isLoadingRules } = useChildShoppingRules();
+  const {
+    isChildShopper,
+    rules,
+    isLoadingProfile,
+    isLoadingRules,
+    rulesFetchError,
+  } = useChildShoppingRules();
   const [showNotifyModal, setShowNotifyModal] = useState(false);
 
   const childCommerce = useMemo(() => {
-    if (!isChildShopper || !rules || isLoadingRules) return null;
+    if (!isChildShopper) return null;
+    if (isLoadingProfile || isLoadingRules || rulesFetchError || !rules) return null;
     return evaluateChildProductCommerce(product, rules);
-  }, [isChildShopper, rules, isLoadingRules, product]);
-  const childCommerceDisabled = Boolean(childCommerce?.commerceDisabled);
+  }, [
+    isChildShopper,
+    isLoadingProfile,
+    isLoadingRules,
+    rulesFetchError,
+    rules,
+    product,
+  ]);
+  const childCommerceDisabled =
+    (isChildShopper &&
+      (isLoadingProfile || isLoadingRules || rulesFetchError || !rules)) ||
+    Boolean(childCommerce?.commerceDisabled);
 
   const quantity = getItemQuantity(product.id);
   const showCartControls = listingScope

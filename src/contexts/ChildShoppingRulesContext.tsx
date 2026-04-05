@@ -10,6 +10,8 @@ type ChildShoppingRulesContextValue = {
   profile: PortalSelfProfile | undefined;
   isLoadingProfile: boolean;
   isLoadingRules: boolean;
+  /** Child rules request failed (retry disabled); fail closed for cart/catalog until refetch succeeds. */
+  rulesFetchError: boolean;
 };
 
 const ChildShoppingRulesContext = createContext<ChildShoppingRulesContextValue | undefined>(undefined);
@@ -42,22 +44,28 @@ export function ChildShoppingRulesProvider({ children }: { children: ReactNode }
         profile: undefined,
         isLoadingProfile: false,
         isLoadingRules: false,
+        rulesFetchError: false,
       };
     }
     const rules: PortalChildRulesResponse | null =
       isChildShopper && rulesQuery.data ? rulesQuery.data : null;
+    const isLoadingRules = isChildShopper && rulesQuery.isLoading;
+    const rulesFetchError =
+      isChildShopper && !rulesQuery.isLoading && rulesQuery.isError;
     return {
       isChildShopper,
       rules,
       profile: profileQuery.data,
       isLoadingProfile: profileQuery.isLoading,
-      isLoadingRules: isChildShopper && rulesQuery.isLoading,
+      isLoadingRules,
+      rulesFetchError,
     };
   }, [
     hasSession,
     isChildShopper,
     rulesQuery.data,
     rulesQuery.isLoading,
+    rulesQuery.isError,
     profileQuery.data,
     profileQuery.isLoading,
   ]);
