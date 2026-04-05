@@ -553,6 +553,12 @@ export function FamilyPortal() {
                         Rs. {member.spending} / {member.limit}
                       </span>
                     </div>
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <span className="text-[11px] text-muted-foreground shrink-0">Personal wallet</span>
+                      <span className="text-xs font-semibold tabular-nums text-foreground">
+                        Rs. {member.balance.toLocaleString()}
+                      </span>
+                    </div>
                     <Progress
                       value={Math.min(100, (member.spending / Math.max(member.limit, 1)) * 100)}
                       className="h-1.5"
@@ -794,6 +800,9 @@ export function FamilyPortal() {
                       <div className="min-w-0">
                         <h4 className="font-semibold text-foreground">{member.name}</h4>
                         <p className="text-xs text-muted-foreground truncate">{member.phone}</p>
+                        <p className="text-xs font-medium text-foreground mt-0.5 tabular-nums">
+                          Personal wallet · Rs. {member.balance.toLocaleString()}
+                        </p>
                         <p className="text-[10px] text-muted-foreground mt-0.5">
                           Group: {member.group?.name ?? groupName}
                           {isLeaderRow ? ' · Group leader' : ''}
@@ -876,8 +885,10 @@ export function FamilyPortal() {
 
                   <div className="mt-4 grid grid-cols-3 gap-4">
                     <div>
-                      <p className="text-xs text-muted-foreground">Balance</p>
-                      <p className="font-semibold text-foreground">Rs. {member.balance.toLocaleString()}</p>
+                      <p className="text-xs text-muted-foreground">Personal wallet</p>
+                      <p className="font-semibold text-foreground tabular-nums">
+                        Rs. {member.balance.toLocaleString()}
+                      </p>
                     </div>
                     <div>
                       <p className="text-xs text-muted-foreground">Spent</p>
@@ -927,7 +938,7 @@ export function FamilyPortal() {
                   {(detailMember.spending_limit_monthly ?? detailMember.limit).toLocaleString()}
                 </p>
                 <p>
-                  <span className="text-muted-foreground">Balance:</span> Rs.{' '}
+                  <span className="text-muted-foreground">Personal wallet:</span> Rs.{' '}
                   {detailMember.balance.toLocaleString()}
                 </p>
                 <Button
@@ -3136,8 +3147,8 @@ export function FamilyPortal() {
                       <p className="font-bold">Rs. {member.limit.toLocaleString()}</p>
                     </div>
                     <div className="bg-muted/50 rounded-lg p-2 text-center">
-                      <p className="text-[10px] text-muted-foreground">Balance</p>
-                      <p className="font-bold">Rs. {member.balance.toLocaleString()}</p>
+                      <p className="text-[10px] text-muted-foreground">Personal wallet</p>
+                      <p className="font-bold tabular-nums">Rs. {member.balance.toLocaleString()}</p>
                     </div>
                   </div>
                 </div>
