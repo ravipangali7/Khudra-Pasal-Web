@@ -24,6 +24,7 @@ import { useCart } from '@/contexts/CartContext';
 import logo from '@/assets/logo.png';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Command,
   CommandEmpty,
@@ -62,6 +63,27 @@ type CheckoutLocationState = {
   buyNow?: BuyNowState;
   from?: string;
 };
+
+/** Prefer first wallet that can cover total (API order), else highest balance; null means use server default id. */
+function pickCheckoutPayWalletId(
+  ctx: PortalCheckoutWalletContext,
+  totalAmount: number,
+  currentPayWalletId: number | null,
+): number | null {
+  const wallets = ctx.payable_wallets;
+  if (!wallets.length || !ctx.default) return currentPayWalletId;
+  const defaultId = ctx.default.id;
+  const resolvedId = currentPayWalletId ?? defaultId;
+  const current = wallets.find((w) => w.id === resolvedId);
+  if (current && totalAmount <= current.balance) {
+    return currentPayWalletId;
+  }
+  const sufficient = wallets.find((w) => w.balance >= totalAmount);
+  const pick =
+    sufficient ??
+    wallets.reduce((best, w) => (w.balance > best.balance ? w : best));
+  return pick.id === defaultId ? null : pick.id;
+}
 
 const Checkout = () => {
   const navigate = useNavigate();
@@ -165,7 +187,6 @@ const Checkout = () => {
         const ctx = await portalApi.checkoutWalletContext();
         if (cancelled) return;
         setWalletCheckoutCtx(ctx);
-        setPayWalletId(null);
       } catch {
         if (!cancelled) setWalletCheckoutCtx(null);
       } finally {
@@ -241,6 +262,19 @@ const Checkout = () => {
       !deliveryQuoteFailed &&
       deliveryQuote !== null);
   const totalAmount = baseSubtotal + deliveryFee;
+
+  const checkoutWalletsTotalBalance = useMemo(() => {
+    const list = walletCheckoutCtx?.payable_wallets;
+    if (!list?.length) return 0;
+    return list.reduce((sum, w) => sum + w.balance, 0);
+  }, [walletCheckoutCtx]);
+
+  useEffect(() => {
+    if (step !== 'payment' || walletCtxLoading || !walletCheckoutCtx) return;
+    setPayWalletId((prev) =>
+      pickCheckoutPayWalletId(walletCheckoutCtx, totalAmount, prev),
+    );
+  }, [step, walletCtxLoading, walletCheckoutCtx, totalAmount]);
 
   const effectivePayWallet = useMemo(() => {
     if (!walletCheckoutCtx?.default) return null;
@@ -917,45 +951,62 @@ const Checkout = () => {
                           </p>
                         ) : (
                           <>
-                            {walletCheckoutCtx.payable_wallets.length <= 1 ? (
-                              <p className="text-sm text-muted-foreground">
-                                <span className="font-medium text-foreground">
-                                  {effectivePayWallet?.fund_source ?? walletCheckoutCtx.default.fund_source}
-                                </span>
-                                <span className="mx-2 text-border">·</span>
-                                Available {formatPrice(effectivePayWallet?.balance ?? walletCheckoutCtx.default.balance)}
-                              </p>
-                            ) : (
-                              <div className="space-y-2">
-                                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                  Pay from
+                            <Card className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground border-0 shadow-md">
+                              <CardContent className="p-4 md:p-5">
+                                <p className="text-sm opacity-90">Total across your wallets</p>
+                                <p className="text-2xl md:text-3xl font-bold mt-1">
+                                  {formatPrice(checkoutWalletsTotalBalance)}
                                 </p>
-                                {walletCheckoutCtx.payable_wallets.map((w) => (
+                                <p className="text-xs opacity-80 mt-2 max-w-md">
+                                  Combined balance of every wallet you can pay from at checkout. Select one wallet
+                                  below — only that balance is charged for this order.
+                                </p>
+                              </CardContent>
+                            </Card>
+
+                            <div className="space-y-3">
+                              <div>
+                                <h3 className="text-sm font-bold text-foreground">Wallet categories</h3>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                  Choose which wallet to pay from (same names as in your portal).
+                                </p>
+                              </div>
+                              {walletCheckoutCtx.payable_wallets.map((w) => {
+                                const selectedId = payWalletId ?? walletCheckoutCtx.default.id;
+                                const isSelected = selectedId === w.id;
+                                return (
                                   <label
                                     key={w.id}
-                                    className="flex items-start gap-3 p-3 rounded-lg border border-border cursor-pointer hover:bg-muted/40"
+                                    className={cn(
+                                      'flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-colors bg-card',
+                                      isSelected
+                                        ? 'border-category-fresh shadow-sm ring-1 ring-category-fresh/20'
+                                        : 'border-border hover:bg-muted/40',
+                                    )}
                                   >
                                     <input
                                       type="radio"
                                       name="pay_wallet"
-                                      className="mt-1 w-4 h-4 accent-category-fresh"
-                                      checked={(payWalletId ?? walletCheckoutCtx.default.id) === w.id}
+                                      className="w-4 h-4 shrink-0 accent-category-fresh"
+                                      checked={isSelected}
                                       onChange={() =>
                                         setPayWalletId(
                                           w.id === walletCheckoutCtx.default.id ? null : w.id,
                                         )
                                       }
                                     />
-                                    <span>
-                                      <span className="font-medium block">{w.fund_source}</span>
-                                      <span className="text-muted-foreground text-xs">
+                                    <div className="flex-1 min-w-0 flex items-center justify-between gap-3">
+                                      <span className="font-semibold text-foreground text-sm md:text-base leading-snug">
+                                        {w.fund_source}
+                                      </span>
+                                      <span className="font-bold text-foreground tabular-nums shrink-0">
                                         {formatPrice(w.balance)}
                                       </span>
-                                    </span>
+                                    </div>
                                   </label>
-                                ))}
-                              </div>
-                            )}
+                                );
+                              })}
+                            </div>
                             {effectivePayWallet != null && totalAmount <= effectivePayWallet.balance ? (
                               <p className="text-xs text-muted-foreground">
                                 Balance after this order (estimate){' '}
