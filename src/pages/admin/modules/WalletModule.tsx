@@ -676,7 +676,11 @@ function WalletBonusView() {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div><Label>Amount (Rs. or %)</Label><Input type="number" placeholder="100" value={addAmount} onChange={(e) => setAddAmount(e.target.value)} /></div>
-            <div><Label>Min Top-up (Rs.)</Label><Input type="number" placeholder="0" value={addMinTopup} onChange={(e) => setAddMinTopup(e.target.value)} /></div>
+            <div>
+              <Label>Min Top-up (Rs.)</Label>
+              <Input type="number" placeholder="0" value={addMinTopup} onChange={(e) => setAddMinTopup(e.target.value)} />
+              <p className="text-xs text-muted-foreground mt-1">Top-up: minimum principal to qualify. For % signup or referral bonuses, this is the monetary base the percentage applies to (required when using %).</p>
+            </div>
           </div>
           <div className="flex items-center justify-between p-3 border rounded-lg">
             <span className="text-sm font-medium">Amount is percentage</span>
@@ -691,7 +695,11 @@ function WalletBonusView() {
           <div className="space-y-4">
             <div><Label>Bonus Title</Label><Input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} /></div>
             <div><Label>Amount</Label><Input type="number" value={editAmount} onChange={(e) => setEditAmount(e.target.value)} /></div>
-            <div><Label>Min Top-up</Label><Input type="number" value={editMinTopup} onChange={(e) => setEditMinTopup(e.target.value)} /></div>
+            <div>
+              <Label>Min Top-up</Label>
+              <Input type="number" value={editMinTopup} onChange={(e) => setEditMinTopup(e.target.value)} />
+              <p className="text-xs text-muted-foreground mt-1">Top-up: minimum principal. % signup/referral: base amount for the percentage.</p>
+            </div>
             <div><Label>Expiry Date</Label><Input type="date" value={editExpires} onChange={(e) => setEditExpires(e.target.value)} /></div>
             <div className="flex items-center justify-between p-3 border rounded-lg">
               <span className="text-sm font-medium">Amount is percentage</span>
