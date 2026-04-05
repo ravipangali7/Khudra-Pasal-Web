@@ -1585,7 +1585,6 @@ const ChildPortal = () => {
     <PortalLayout
       sidebar={sidebar}
       title="Child Portal"
-      subtitle={showBalance ? `Total: Rs. ${walletData.totalBalance.toLocaleString()}` : 'Balance Hidden'}
       headerActions={headerActions}
       showHeroHeader={false}
     >
