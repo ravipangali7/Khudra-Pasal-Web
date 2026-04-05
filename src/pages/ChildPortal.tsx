@@ -329,7 +329,7 @@ const ChildPortal = () => {
       items={sidebarItems}
       activeItem={activeSection}
       onItemClick={goTo}
-      title="My Portal"
+      title="Child Portal"
     />
   );
 
@@ -345,7 +345,12 @@ const ChildPortal = () => {
         avatarFallback="SA"
         align="end"
       />
-      <Button variant="outline" size="sm" className="gap-1.5" onClick={() => setLogoutConfirmOpen(true)}>
+      <Button
+        variant="outline"
+        size="sm"
+        className="gap-1.5 border-destructive/30 text-destructive hover:text-destructive hover:bg-destructive/10"
+        onClick={() => setLogoutConfirmOpen(true)}
+      >
         <LogOut className="w-4 h-4" />
         <span className="hidden sm:inline">Sign out</span>
       </Button>
@@ -365,7 +370,7 @@ const ChildPortal = () => {
       >
         <ShoppingCart className="h-4 w-4" />
         <span>Cart</span>
-        <Badge variant="secondary" className="flex h-5 min-w-5 items-center justify-center px-1.5 py-0 text-[10px]">
+        <Badge variant="secondary" className="px-1.5 py-0 text-[10px] min-w-5 h-5 flex items-center justify-center">
           {cartCount > 99 ? '99+' : cartCount}
         </Badge>
       </Button>
@@ -1585,7 +1590,9 @@ const ChildPortal = () => {
     <PortalLayout
       sidebar={sidebar}
       title="Child Portal"
+      subtitle="Your wallet and shopping"
       headerActions={headerActions}
+      heroGradient="from-primary to-primary/80"
       showHeroHeader={false}
     >
       {renderContent()}
