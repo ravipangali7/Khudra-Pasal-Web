@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Search, MapPin, ShoppingCart, User } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
 import { useAuthUi } from "@/contexts/AuthUiContext";
 import LogoutConfirmDialog from "@/components/auth/LogoutConfirmDialog";
@@ -21,10 +21,6 @@ function initialsFromName(name: string | undefined): string {
   return n.slice(0, 2).toUpperCase();
 }
 
-interface HeaderProps {
-  cartCount?: number;
-}
-
 /** Shown only when the API returns no admin-configured placeholders. */
 const NEUTRAL_SEARCH_HINT = "products and categories";
 
@@ -33,13 +29,16 @@ const NEUTRAL_SEARCH_HINT = "products and categories";
  */
 export const STOREFRONT_HEADER_STICKY_OFFSET = "top-[112px] md:top-16";
 
-const Header = ({ cartCount = 0 }: HeaderProps) => {
+const Header = () => {
+  const location = useLocation();
+  const hideChromeCart =
+    location.pathname.startsWith("/family-portal") || location.pathname.startsWith("/child-portal");
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(() => Boolean(getAuthToken()));
-  const { setIsCartOpen } = useCart();
+  const { cartCount, setIsCartOpen } = useCart();
   const { openLoginSheet, openSignupSheet } = useAuthUi();
 
   const { data: searchPlaceholders = [] } = useQuery({
@@ -209,15 +208,19 @@ const Header = ({ cartCount = 0 }: HeaderProps) => {
                   </button>
                 </>
               )}
-              <button
-                type="button"
-                onClick={() => setIsCartOpen(true)}
-                className="relative flex items-center gap-2 px-2 md:px-3 py-2 rounded-full hover:bg-primary/10 transition-colors"
-              >
-                <ShoppingCart className="w-5 h-5 text-foreground" />
-                <span className="hidden md:inline text-sm font-medium">Cart</span>
-                {cartCount > 0 && <span className="cart-badge">{cartCount}</span>}
-              </button>
+              {!hideChromeCart ? (
+                <button
+                  type="button"
+                  onClick={() => setIsCartOpen(true)}
+                  className="relative flex items-center gap-2 px-2 md:px-3 py-2 rounded-full hover:bg-primary/10 transition-colors"
+                >
+                  <ShoppingCart className="w-5 h-5 text-foreground" />
+                  <span className="hidden md:inline text-sm font-medium">Cart</span>
+                  {cartCount > 0 && (
+                    <span className="cart-badge">{cartCount > 99 ? "99+" : cartCount}</span>
+                  )}
+                </button>
+              ) : null}
             </div>
           </div>
 

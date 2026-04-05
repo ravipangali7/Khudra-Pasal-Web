@@ -22,6 +22,7 @@ import {
   LogOut,
   Copy,
   Banknote,
+  Store,
 } from 'lucide-react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { PORTAL_LOGIN_PATH, navigateToPortalLogin, setPostLogoutLoginPath } from '@/lib/portalLoginPaths';
@@ -74,6 +75,8 @@ import PortalKycSection from '@/components/portal/PortalKycSection';
 import PortalFamilyChildProfileModule from '@/components/portal/PortalFamilyChildProfileModule';
 import PortalProductsCatalogSection from '@/components/portal/PortalProductsCatalogSection';
 import PortalNotificationsModal from '@/components/portal/PortalNotificationsModal';
+import FloatingCart from '@/components/cart/FloatingCart';
+import { useCart } from '@/contexts/CartContext';
 import { toast } from 'sonner';
 
 function childTxnBadgeLabel(type: string) {
@@ -167,6 +170,7 @@ const ChildPortal = () => {
   const [topUpMethod, setTopUpMethod] = useState<'esewa' | 'khalti' | 'qr'>('esewa');
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [notificationsModalOpen, setNotificationsModalOpen] = useState(false);
+  const { cartCount, setIsCartOpen } = useCart();
 
   const authed = Boolean(portalToken);
 
@@ -345,6 +349,26 @@ const ChildPortal = () => {
         <LogOut className="w-4 h-4" />
         <span className="hidden sm:inline">Sign out</span>
       </Button>
+      <Link
+        to="/homepage"
+        className="relative shrink-0 rounded-lg p-2 text-foreground hover:bg-muted"
+        aria-label="Go to shop"
+      >
+        <Store className="h-5 w-5" />
+      </Link>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        className="gap-1.5"
+        onClick={() => setIsCartOpen(true)}
+      >
+        <ShoppingCart className="h-4 w-4" />
+        <span>Cart</span>
+        <Badge variant="secondary" className="flex h-5 min-w-5 items-center justify-center px-1.5 py-0 text-[10px]">
+          {cartCount > 99 ? '99+' : cartCount}
+        </Badge>
+      </Button>
       <Button
         type="button"
         variant="secondary"
@@ -360,9 +384,11 @@ const ChildPortal = () => {
           </span>
         )}
       </Button>
-      <button 
+      <button
+        type="button"
         onClick={() => setShowBalance(!showBalance)}
-        className="p-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors"
+        className="rounded-lg p-2 text-foreground transition-colors hover:bg-muted"
+        aria-label={showBalance ? 'Hide balance' : 'Show balance'}
       >
         {showBalance ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
       </button>
@@ -1570,6 +1596,7 @@ const ChildPortal = () => {
       onOpenChange={setNotificationsModalOpen}
       ordersDeepLink={null}
     />
+    <FloatingCart />
     <LogoutConfirmDialog
       open={logoutConfirmOpen}
       onOpenChange={setLogoutConfirmOpen}

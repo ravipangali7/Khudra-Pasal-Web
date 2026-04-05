@@ -1,9 +1,9 @@
 import { ReactNode, useState } from 'react';
-import { Menu, X } from 'lucide-react';
+import { Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import Header from '@/components/layout/Header';
+import Header, { STOREFRONT_HEADER_STICKY_OFFSET } from '@/components/layout/Header';
 import MobileFooterNav from '@/components/layout/MobileFooterNav';
 import AIChatbot from '@/components/chat/AIChatbot';
 
@@ -59,17 +59,35 @@ const PortalLayout = ({
           </div>
         </div>
       ) : (
-        <div className="container px-4 py-3 lg:hidden">
-          <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-            <SheetTrigger asChild>
-              <Button variant="outline" size="icon" className="h-9 w-9">
-                <Menu className="w-5 h-5" />
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="p-0 w-72">
-              {sidebar}
-            </SheetContent>
-          </Sheet>
+        <div
+          className={cn(
+            'sticky z-30 border-b border-border bg-card px-4 py-3',
+            STOREFRONT_HEADER_STICKY_OFFSET,
+          )}
+        >
+          <div className="container mx-auto flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            <div className="flex min-w-0 items-center gap-3">
+              <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="outline" size="icon" className="h-9 w-9 shrink-0 lg:hidden">
+                    <Menu className="w-5 h-5" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="left" className="p-0 w-72">
+                  {sidebar}
+                </SheetContent>
+              </Sheet>
+              <div className="min-w-0">
+                <h1 className="truncate text-lg font-bold sm:text-xl">{title}</h1>
+                {subtitle ? <p className="truncate text-sm text-muted-foreground">{subtitle}</p> : null}
+              </div>
+            </div>
+            {headerActions ? (
+              <div className="flex min-w-0 flex-wrap items-center justify-start gap-2 sm:justify-end">
+                {headerActions}
+              </div>
+            ) : null}
+          </div>
         </div>
       )}
 

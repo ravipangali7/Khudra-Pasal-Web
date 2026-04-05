@@ -5,7 +5,6 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import MobileFooterNav from '@/components/layout/MobileFooterNav';
 import ScrollToTop from '@/components/ui/ScrollToTop';
-import { useCart } from '@/contexts/CartContext';
 import { useQuery } from '@tanstack/react-query';
 import { websiteApi } from '@/lib/api';
 
@@ -23,7 +22,6 @@ function formatPostDate(iso: string | null) {
 }
 
 const Blog = () => {
-  const { cartCount } = useCart();
   const [searchQuery, setSearchQuery] = useState('');
 
   const { data: posts = [], isLoading, isError } = useQuery({
@@ -37,7 +35,7 @@ const Blog = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
-      <Header cartCount={cartCount} />
+      <Header />
 
       <main className="container mx-auto px-4 py-6">
         <div className="text-center mb-8">

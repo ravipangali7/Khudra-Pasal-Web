@@ -27,7 +27,6 @@ import {
 } from '@/lib/api';
 import { findCategoryDisplayName } from '@/lib/categoryDisplayName';
 import { resolveThemeClass } from '@/lib/categoryTheme';
-import { useCart } from '@/contexts/CartContext';
 import { useLocation } from 'react-router-dom';
 import { storefrontRoutes } from '@/lib/routes';
 
@@ -47,7 +46,6 @@ const categoryHeaderStyles: Record<string, string> = {
 const Index = () => {
   const [activeCategory, setActiveCategory] = useState<StorefrontCategorySlug>('all');
   const [categorySearch, setCategorySearch] = useState('');
-  const { cartCount } = useCart();
   const location = useLocation();
 
   const { data: categories } = useQuery({
@@ -189,7 +187,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background pb-0 md:pb-0">
-      <Header cartCount={cartCount} />
+      <Header />
       <div className={headerClass}>
         <CategoryNav activeCategory={activeCategory} onCategoryChange={handleCategoryChange} />
       </div>

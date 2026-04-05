@@ -14,7 +14,6 @@ import {
 } from '@/lib/api';
 import DiscountDealsBanner from '@/components/banners/DiscountDealsBanner';
 import { findCategoryDisplayName } from '@/lib/categoryDisplayName';
-import { useCart } from '@/contexts/CartContext';
 import { Button } from '@/components/ui/button';
 import type { Product } from '@/types';
 
@@ -34,7 +33,6 @@ const ProductListing = () => {
   const { categoryId: categorySlug } = useParams<{ categoryId?: string }>();
   const location = useLocation();
   const navigate = useNavigate();
-  const { cartCount } = useCart();
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('newest');
 
@@ -267,7 +265,7 @@ const ProductListing = () => {
 
   return (
     <div className="min-h-screen bg-background pb-32 lg:pb-8">
-      <Header cartCount={cartCount} />
+      <Header />
 
       <div className="border-b border-border/60 bg-white/95">
         <div className="container px-4 py-2">

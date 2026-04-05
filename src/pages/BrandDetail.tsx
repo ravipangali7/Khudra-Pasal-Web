@@ -10,11 +10,9 @@ import AIChatbot from "@/components/chat/AIChatbot";
 import ProductCard from "@/components/product/ProductCard";
 import { getApiErrorHttpStatus, mapWebsiteProductToUi, websiteApi } from "@/lib/api";
 import { storefrontRoutes } from "@/lib/routes";
-import { useCart } from "@/contexts/CartContext";
 
 const BrandDetail = () => {
   const { brandId } = useParams<{ brandId: string }>();
-  const { cartCount } = useCart();
 
   const numericId = useMemo(() => {
     const n = Number(brandId);
@@ -53,7 +51,7 @@ const BrandDetail = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
-      <Header cartCount={cartCount} />
+      <Header />
 
       <main className="container mx-auto space-y-6 px-4 py-4">
         <div className="flex flex-wrap items-center gap-3">

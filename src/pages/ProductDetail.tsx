@@ -123,7 +123,7 @@ const ProductDetail = () => {
     queryFn: () => websiteApi.storeInfo(),
     staleTime: 60_000,
   });
-  const { addToCart, getItemQuantity, updateQuantity, cartCount } = useCart();
+  const { addToCart, getItemQuantity, updateQuantity } = useCart();
   const {
     isChildShopper,
     rules,
@@ -316,7 +316,7 @@ const ProductDetail = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
-      <Header cartCount={cartCount} />
+      <Header />
 
       {/* Floating Category Sidebar */}
       <CategoryFloatingSidebar

@@ -10,7 +10,7 @@ import {
   MoreVertical, Lock, Unlock, Eye, Edit, Trash2, 
   UserPlus, CheckCircle, XCircle, Clock, AlertTriangle,
   TrendingUp, CreditCard, History, Filter, Download,
-  Home, Banknote, ShieldCheck, Cog, FileText, LogOut, ShoppingCart,
+  Home, Banknote, ShieldCheck, Cog, FileText, LogOut, ShoppingCart, Store,
   AlertOctagon, Send, UserCog, Folder, Loader2, Link2, Copy
 } from 'lucide-react';
 import PortalLayout from '@/components/portal/PortalLayout';
@@ -292,6 +292,13 @@ export function FamilyPortal() {
         <LogOut className="w-4 h-4" />
         <span className="hidden sm:inline">Sign out</span>
       </Button>
+      <Link
+        to="/homepage"
+        className="relative shrink-0 rounded-lg p-2 text-foreground hover:bg-muted"
+        aria-label="Go to shop"
+      >
+        <Store className="h-5 w-5" />
+      </Link>
       <Button
         type="button"
         variant="outline"

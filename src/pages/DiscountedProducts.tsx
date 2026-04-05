@@ -7,13 +7,11 @@ import Footer from '@/components/layout/Footer';
 import ScrollToTop from '@/components/ui/ScrollToTop';
 import ProductCard from '@/components/product/ProductCard';
 import { mapWebsiteProductToUi, websiteApi } from '@/lib/api';
-import { useCart } from '@/contexts/CartContext';
 import { SlidersHorizontal } from 'lucide-react';
 import DiscountDealsBanner from '@/components/banners/DiscountDealsBanner';
 
 const DiscountedProducts = () => {
   const [activeCategory, setActiveCategory] = useState<string>('all');
-  const { cartCount } = useCart();
   const [sortBy, setSortBy] = useState('discount');
   const { data } = useQuery({
     queryKey: ['discount-products', activeCategory],
@@ -30,7 +28,7 @@ const DiscountedProducts = () => {
 
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
-      <Header cartCount={cartCount} />
+      <Header />
       <CategoryNav activeCategory={activeCategory} onCategoryChange={setActiveCategory} />
 
       <main className="container mx-auto px-4 py-6 space-y-6">

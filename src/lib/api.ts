@@ -165,7 +165,7 @@ export type WebsiteCatalogCategory = WebsiteCategory & {
   products: WebsiteProduct[];
 };
 
-/** Matches VendorMiniSerializer from GET /api/website/products/ and /api/products/all-vendors/ */
+/** Matches VendorMiniSerializer from GET /api/website/products/ and /api/website/products/all-vendors/ */
 export type WebsiteVendorMini = {
   id: number;
   store_name: string;
@@ -726,7 +726,9 @@ export const websiteApi = {
     apiFetch<PagedResponse<WebsiteProduct>>(`/website/products/${buildQuery(params)}`),
   /** Active products from approved vendors only; ordering favors featured then newest. */
   productsAllVendors: (params?: QueryParams) =>
-    apiFetch<PagedResponse<WebsiteProduct>>(`/products/all-vendors/${buildQuery(params)}`),
+    apiFetch<PagedResponse<WebsiteProduct>>(
+      `/website/products/all-vendors/${buildQuery(params)}`,
+    ),
   productDetail: (identifier: string) =>
     apiFetch<WebsiteProduct>(`/website/products/${encodeURIComponent(identifier)}/`, undefined, true),
   productReviews: (identifier: string) =>
