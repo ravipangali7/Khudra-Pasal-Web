@@ -783,8 +783,8 @@ function WithdrawalsView() {
             />
           </div>
           <AdminTable
-            title="Withdrawals"
-            subtitle="All portal payout requests — approve or reject pending items"
+            title="Withdrawal requests"
+            subtitle="All portal payout requests (customers, family, sellers) — approve or reject pending items"
             data={norm}
             columns={[
               {
