@@ -61,41 +61,7 @@ const ReelProductOverlay: React.FC<ReelProductOverlayProps> = ({
         </div>
       </div>
 
-      {/* Caption */}
-      <div className="mb-2">
-        <p
-          className={`reels-font-body text-xs leading-relaxed ${expanded ? '' : 'line-clamp-2'}`}
-          style={{ color: 'var(--reels-text-secondary)' }}
-        >
-          {caption}
-        </p>
-        {caption.length > 80 && (
-          <button onClick={onToggleCaption} className="reels-font-body text-xs font-semibold mt-0.5" style={{ color: 'var(--reels-text-primary)' }}>
-            {expanded ? 'less' : 'more'}
-          </button>
-        )}
-      </div>
-
-      {/* Vendor */}
-      <div className="mb-3">
-        {storeSlug ? (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              navigate(`/store/${encodeURIComponent(storeSlug)}`);
-            }}
-            className="flex w-full text-left rounded-lg p-1 -m-1 hover:bg-white/5 transition-colors"
-          >
-            <ReelsAvatar name={vendor.name} verified={vendor.verified} avatar={vendor.avatar} />
-          </button>
-        ) : (
-          <ReelsAvatar name={vendor.name} verified={vendor.verified} avatar={vendor.avatar} />
-        )}
-      </div>
-
-      {/* Action buttons */}
-      <div className="flex gap-2">
+      <div className="flex gap-2 mb-3">
         <ReelsButton
           variant="cart"
           onClick={onAddToCart}
@@ -112,6 +78,39 @@ const ReelProductOverlay: React.FC<ReelProductOverlayProps> = ({
         >
           ⚡ Buy Now
         </ReelsButton>
+      </div>
+
+      {/* Vendor */}
+      <div className="mb-2">
+        {storeSlug ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/store/${encodeURIComponent(storeSlug)}`);
+            }}
+            className="flex w-full text-left rounded-lg p-1 -m-1 hover:bg-white/5 transition-colors"
+          >
+            <ReelsAvatar name={vendor.name} verified={vendor.verified} avatar={vendor.avatar} />
+          </button>
+        ) : (
+          <ReelsAvatar name={vendor.name} verified={vendor.verified} avatar={vendor.avatar} />
+        )}
+      </div>
+
+      {/* Caption */}
+      <div>
+        <p
+          className={`reels-font-body text-xs leading-relaxed ${expanded ? '' : 'line-clamp-2'}`}
+          style={{ color: 'var(--reels-text-secondary)' }}
+        >
+          {caption}
+        </p>
+        {caption.length > 80 && (
+          <button onClick={onToggleCaption} className="reels-font-body text-xs font-semibold mt-0.5" style={{ color: 'var(--reels-text-primary)' }}>
+            {expanded ? 'less' : 'more'}
+          </button>
+        )}
       </div>
     </motion.div>
   );
