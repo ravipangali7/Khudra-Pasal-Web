@@ -2363,21 +2363,6 @@ export const portalApi = {
       { method: "POST", body: JSON.stringify(payload) },
       true,
     ),
-  familyAddMembersBatch: (payload: {
-    members: Array<{
-      name: string;
-      email?: string;
-      phone: string;
-      role: string;
-      age?: number | null;
-    }>;
-    invite_method?: "link" | "phone";
-    spending_limit?: string | number;
-    initial_balance?: string | number;
-  }) =>
-    portalFetch<{
-      results: Array<{ ok: true; member: PortalFamilyMemberRow }>;
-    }>("/portal/family/members/batch/", { method: "POST", body: JSON.stringify(payload) }, true),
   familyMemberUpdateRole: (memberPk: string | number, role: string) =>
     portalFetch<PortalFamilyMemberRow>(`/portal/family/members/${memberPk}/`, {
       method: "PATCH",
