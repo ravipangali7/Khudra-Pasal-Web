@@ -12,7 +12,6 @@ import {
   EyeOff,
   Info,
   CreditCard,
-  QrCode,
   Clock,
   CheckCircle,
   Lock,
@@ -167,7 +166,7 @@ const ChildPortal = () => {
   const [sessionTick, setSessionTick] = useState(0);
   const portalToken = Boolean(getAuthToken());
   const [showBalance, setShowBalance] = useState(true);
-  const [topUpMethod, setTopUpMethod] = useState<'esewa' | 'khalti' | 'qr'>('esewa');
+  const [topUpMethod, setTopUpMethod] = useState<'esewa' | 'khalti'>('esewa');
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [notificationsModalOpen, setNotificationsModalOpen] = useState(false);
 
@@ -877,11 +876,10 @@ const ChildPortal = () => {
           <CardContent className="p-6 space-y-6">
             <div className="space-y-3">
               <Label>Select Payment Method</Label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 {[
                   { id: 'esewa' as const, name: 'eSewa', icon: '💚' },
                   { id: 'khalti' as const, name: 'Khalti', icon: '💜' },
-                  { id: 'qr' as const, name: 'QR Upload', icon: '📱' },
                 ].map((method) => (
                   <Button
                     key={method.id}
@@ -922,13 +920,6 @@ const ChildPortal = () => {
                 ))}
               </div>
             </div>
-
-            {topUpMethod === 'qr' && (
-              <div className="border-2 border-dashed border-border rounded-xl p-6 text-center">
-                <QrCode className="w-8 h-8 mx-auto text-muted-foreground mb-2" />
-                <p className="text-sm text-muted-foreground">Proof upload can be added when payments are live.</p>
-              </div>
-            )}
 
             <Button
               className="w-full"
