@@ -16,6 +16,7 @@ export function useChildPurchaseApprovalRequest() {
       void queryClient.invalidateQueries({ queryKey: ["portal", "child-rules"] });
       void queryClient.invalidateQueries({ queryKey: ["portal", "child", "rules"] });
       void queryClient.invalidateQueries({ queryKey: ["portal", "child", "purchase-approvals"] });
+      void queryClient.invalidateQueries({ queryKey: ["portal", "navigation", "child"] });
     },
     onError: (e: Error) => toast.error(e.message || "Could not submit request."),
   });
