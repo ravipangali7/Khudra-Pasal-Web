@@ -3544,6 +3544,14 @@ export function FamilyPortal() {
     );
   }
 
+  if (
+    activeSection === 'wallets-transfer' ||
+    activeSection === 'wallets-load' ||
+    activeSection === 'wallets'
+  ) {
+    return <Navigate to="/family-portal/wallets-overview" replace />;
+  }
+
   if (!isSegmentKnown) {
     return <Navigate to="/family-portal/dashboard" replace />;
   }
