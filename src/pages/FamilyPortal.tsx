@@ -282,6 +282,16 @@ export function FamilyPortal() {
     onError: (e: Error) => toast.error(e.message || 'Could not update request.'),
   });
 
+  const purchaseApprovalMutation = useMutation({
+    mutationFn: async (args: { id: number; status: 'approved' | 'rejected' }) =>
+      portalApi.familyPurchaseApprovalRequestPatch(args.id, { status: args.status }),
+    onSuccess: (_, vars) => {
+      invalidateFamilyPortalData();
+      toast.success(vars.status === 'approved' ? 'Purchase approved.' : 'Purchase request declined.');
+    },
+    onError: (e: Error) => toast.error(e.message || 'Could not update request.'),
+  });
+
   const sidebar = (
     <PortalSidebar
       items={sidebarItems}
@@ -464,45 +474,82 @@ export function FamilyPortal() {
                     </p>
                   </div>
                   <div className="flex items-center gap-1">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-8 w-8 text-emerald-600 hover:bg-emerald-100"
-                      disabled={
-                        !request.join_request_id || joinRequestActionMutation.isPending
-                      }
-                      title={
-                        request.join_request_id
-                          ? 'Approve join request'
-                          : 'No join request linked (legacy invite only)'
-                      }
-                      onClick={() => {
-                        if (!request.join_request_id) return;
-                        joinRequestActionMutation.mutate({
-                          id: Number(request.join_request_id),
-                          action: 'approve',
-                        });
-                      }}
-                    >
-                      <CheckCircle className="w-5 h-5" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-8 w-8 text-destructive hover:bg-destructive/10"
-                      disabled={
-                        !request.join_request_id || joinRequestActionMutation.isPending
-                      }
-                      onClick={() => {
-                        if (!request.join_request_id) return;
-                        joinRequestActionMutation.mutate({
-                          id: Number(request.join_request_id),
-                          action: 'reject',
-                        });
-                      }}
-                    >
-                      <XCircle className="w-5 h-5" />
-                    </Button>
+                    {request.type === 'purchase_approval' ? (
+                      <>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-emerald-600 hover:bg-emerald-100"
+                          disabled={purchaseApprovalMutation.isPending}
+                          title="Approve purchase"
+                          onClick={() =>
+                            purchaseApprovalMutation.mutate({
+                              id: Number(request.id),
+                              status: 'approved',
+                            })
+                          }
+                        >
+                          <CheckCircle className="w-5 h-5" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                          disabled={purchaseApprovalMutation.isPending}
+                          title="Decline purchase"
+                          onClick={() =>
+                            purchaseApprovalMutation.mutate({
+                              id: Number(request.id),
+                              status: 'rejected',
+                            })
+                          }
+                        >
+                          <XCircle className="w-5 h-5" />
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-emerald-600 hover:bg-emerald-100"
+                          disabled={
+                            !request.join_request_id || joinRequestActionMutation.isPending
+                          }
+                          title={
+                            request.join_request_id
+                              ? 'Approve join request'
+                              : 'No join request linked (legacy invite only)'
+                          }
+                          onClick={() => {
+                            if (!request.join_request_id) return;
+                            joinRequestActionMutation.mutate({
+                              id: Number(request.join_request_id),
+                              action: 'approve',
+                            });
+                          }}
+                        >
+                          <CheckCircle className="w-5 h-5" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                          disabled={
+                            !request.join_request_id || joinRequestActionMutation.isPending
+                          }
+                          onClick={() => {
+                            if (!request.join_request_id) return;
+                            joinRequestActionMutation.mutate({
+                              id: Number(request.join_request_id),
+                              action: 'reject',
+                            });
+                          }}
+                        >
+                          <XCircle className="w-5 h-5" />
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}

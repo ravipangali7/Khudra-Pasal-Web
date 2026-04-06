@@ -2204,11 +2204,30 @@ export type PortalChildMemberLimits = {
   spending_limit_monthly: number;
 };
 
+export type PortalPurchaseApprovalRequestRow = {
+  id: number;
+  product_id: number;
+  product_name: string;
+  product_slug: string;
+  product_image_url?: string;
+  amount: number;
+  note: string;
+  status: string;
+  parent_note: string;
+  created_at: string | null;
+  responded_at: string | null;
+  consumed_at: string | null;
+  child_id: number;
+  child_name: string;
+};
+
 export type PortalChildRulesResponse = {
   group_permissions: PortalChildGroupPermissions | null;
   member_limits: PortalChildMemberLimits | null;
   product_restrictions: PortalFamilyProductRestrictionRow[];
   auto_approval_rules: PortalFamilyAutoApprovalRuleRow[];
+  /** Product PKs with an active parent-approved purchase request (unconsumed). */
+  approved_purchase_product_ids?: number[];
 };
 
 export type PortalSwitchPortalContext = {
@@ -2577,6 +2596,33 @@ export const portalApi = {
   childWalletWithdrawals: () =>
     portalFetch<{ results: PortalWithdrawalRow[] }>("/child-portal/child/wallet/withdrawals/", undefined, true),
   childRules: () => portalFetch<PortalChildRulesResponse>("/portal/child/rules/", undefined, true),
+  childPurchaseApprovalRequests: () =>
+    portalFetch<{ results: PortalPurchaseApprovalRequestRow[] }>(
+      "/portal/child/purchase-approval-requests/",
+      undefined,
+      true,
+    ),
+  childPurchaseApprovalRequestCreate: (body: { product_id: number; note?: string }) =>
+    portalFetch<PortalPurchaseApprovalRequestRow>(
+      "/portal/child/purchase-approval-requests/",
+      { method: "POST", body: JSON.stringify(body) },
+      true,
+    ),
+  familyPurchaseApprovalRequests: (params?: { status?: string }) =>
+    portalFetch<{ results: PortalPurchaseApprovalRequestRow[] }>(
+      `/portal/family/purchase-approval-requests/${buildQuery(params)}`,
+      undefined,
+      true,
+    ),
+  familyPurchaseApprovalRequestPatch: (
+    id: number | string,
+    body: { status: "approved" | "rejected"; parent_note?: string },
+  ) =>
+    portalFetch<PortalPurchaseApprovalRequestRow>(
+      `/portal/family/purchase-approval-requests/${encodeURIComponent(String(id))}/`,
+      { method: "PATCH", body: JSON.stringify(body) },
+      true,
+    ),
   childWalletTransactions: (params?: QueryParams) =>
     portalPaged<PortalChildWalletTxnRow>("child/wallet-transactions", params),
   customerProfile: () => portalFetch<PortalCustomerProfile>("/portal/profile/", undefined, true),

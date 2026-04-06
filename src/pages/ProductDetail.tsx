@@ -28,6 +28,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useChildShoppingRules } from '@/contexts/ChildShoppingRulesContext';
 import { evaluateChildProductCommerce } from '@/lib/childShoppingRules';
+import { useChildPurchaseApprovalRequest } from '@/hooks/useChildPurchaseApprovalRequest';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -164,6 +165,17 @@ const ProductDetail = () => {
     (isChildShopper &&
       (isLoadingProfile || isLoadingRules || rulesFetchError || !rules)) ||
     Boolean(childCommerce?.commerceDisabled);
+
+  const purchaseApprovalMut = useChildPurchaseApprovalRequest();
+  const showChildPurchaseRequest = Boolean(
+    isChildShopper &&
+      product.id !== '0' &&
+      childCommerce?.needsApproval &&
+      !childCommerce?.hasPurchaseApproval &&
+      !childCommerce?.blocked &&
+      !childCommerce?.overMaxPrice &&
+      !childCommerce?.purchasesOff,
+  );
 
   const guardChildCartAction = useCallback(
     (fn: () => void) => {
@@ -593,6 +605,18 @@ const ProductDetail = () => {
                 <ShoppingCart className="w-5 h-5 text-muted-foreground" />
               </button>
             </div>
+
+            {showChildPurchaseRequest ? (
+              <Button
+                type="button"
+                className="w-full"
+                variant="secondary"
+                disabled={purchaseApprovalMut.isPending}
+                onClick={() => purchaseApprovalMut.mutate(Number(product.id))}
+              >
+                {purchaseApprovalMut.isPending ? 'Sending request…' : 'Request purchase approval from parent'}
+              </Button>
+            ) : null}
 
             {/* WhatsApp Button */}
             <button

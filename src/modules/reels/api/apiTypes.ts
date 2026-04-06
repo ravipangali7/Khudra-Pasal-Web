@@ -34,6 +34,7 @@ export interface ApiReelPublicRow {
     rating: number;
     reviews: number;
     category_slug?: string;
+    parent_category_slug?: string | null;
   } | null;
   is_sponsored?: boolean;
   boost_expires_at?: string | null;

@@ -66,6 +66,7 @@ const VendorReelsViewerOverlay: React.FC<Props> = ({ vendorId, initialReelId, on
       originalPrice: reel.product.originalPrice || undefined,
       image: reel.product.image,
       category: reel.product.categorySlug || 'all',
+      parentCategorySlug: reel.product.parentCategorySlug ?? undefined,
       rating: reel.product.rating,
       reviewCount: reel.product.reviews,
       inStock: reel.product.inStock,
@@ -323,8 +324,10 @@ const VendorReelsViewerOverlay: React.FC<Props> = ({ vendorId, initialReelId, on
         }
         const ev = evaluateChildProductCommerce(
           {
+            id: String(reel.product.id),
             category: reel.product.categorySlug || 'all',
             price: reel.product.price,
+            parentCategorySlug: reel.product.parentCategorySlug ?? null,
           },
           rules,
         );
@@ -344,6 +347,7 @@ const VendorReelsViewerOverlay: React.FC<Props> = ({ vendorId, initialReelId, on
             quantity,
             reelId: reel.id,
             categorySlug: reel.product.categorySlug,
+            parentCategorySlug: reel.product.parentCategorySlug ?? undefined,
           },
         },
       });

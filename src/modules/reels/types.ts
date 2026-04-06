@@ -10,6 +10,7 @@ export interface ReelProduct {
   reviews: number;
   /** Leaf category slug for storefront / child rules (from API when present). */
   categorySlug?: string;
+  parentCategorySlug?: string | null;
   description?: string;
   variants?: { type: string; options: string[] }[];
 }

@@ -57,6 +57,7 @@ type BuyNowState = {
   reelId?: number;
   sellerId?: number;
   categorySlug?: string;
+  parentCategorySlug?: string;
 };
 
 type CheckoutLocationState = {
@@ -436,7 +437,12 @@ const Checkout = () => {
       }
       if (buyNow) {
         const ev = evaluateChildProductCommerce(
-          { category: buyNow.categorySlug || 'all', price: buyNow.price },
+          {
+            id: String(buyNow.productId),
+            category: buyNow.categorySlug || 'all',
+            price: buyNow.price,
+            parentCategorySlug: buyNow.parentCategorySlug ?? null,
+          },
           rules,
         );
         if (ev.commerceDisabled) {

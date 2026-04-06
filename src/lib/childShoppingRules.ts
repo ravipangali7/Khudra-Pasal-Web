@@ -1,4 +1,4 @@
-import type { PortalChildRulesResponse } from '@/lib/api';
+import type { PortalChildRulesResponse, PortalFamilyProductRestrictionRow } from '@/lib/api';
 import type { Product } from '@/types';
 
 export type ChildProductCommerceEval = {
@@ -8,26 +8,71 @@ export type ChildProductCommerceEval = {
   overMaxPrice: boolean;
   commerceDisabled: boolean;
   message: string;
+  /** Parent approved this product; approval gate is waived (blocked / max price still apply). */
+  hasPurchaseApproval: boolean;
 };
 
-const allowed: ChildProductCommerceEval = {
+const allowed = (): ChildProductCommerceEval => ({
   purchasesOff: false,
   blocked: false,
   needsApproval: false,
   overMaxPrice: false,
   commerceDisabled: false,
   message: '',
+  hasPurchaseApproval: false,
+});
+
+function restrictionRowsForCategorySlugs(
+  restrictions: PortalFamilyProductRestrictionRow[] | undefined,
+  leafSlug: string,
+  parentSlug?: string | null,
+): PortalFamilyProductRestrictionRow[] {
+  if (!restrictions?.length) return [];
+  const slugs = new Set<string>();
+  if (leafSlug && leafSlug !== 'all') slugs.add(leafSlug);
+  if (parentSlug) slugs.add(parentSlug);
+  return restrictions.filter((x) => Boolean(x.category_slug) && slugs.has(x.category_slug));
+}
+
+function mergeRestrictionRows(rows: PortalFamilyProductRestrictionRow[]): {
+  blocked: boolean;
+  requiresApproval: boolean;
+  maxPrice: number | null;
+} | null {
+  if (!rows.length) return null;
+  const caps = rows
+    .map((r) => (r.max_price != null && r.max_price !== '' ? Number(r.max_price) : NaN))
+    .filter((n) => Number.isFinite(n));
+  return {
+    blocked: rows.some((r) => r.is_blocked),
+    requiresApproval: rows.some((r) => r.requires_approval),
+    maxPrice: caps.length ? Math.min(...caps) : null,
+  };
+}
+
+function productHasApprovedPurchase(
+  rules: PortalChildRulesResponse | null | undefined,
+  productId: string | undefined,
+): boolean {
+  if (!rules?.approved_purchase_product_ids?.length || !productId) return false;
+  const pid = Number(productId);
+  if (!Number.isFinite(pid)) return false;
+  return rules.approved_purchase_product_ids.includes(pid);
+}
+
+export type ChildProductCommerceProductArg = Pick<Product, 'category' | 'price' | 'parentCategorySlug'> & {
+  id?: string;
 };
 
 /**
  * Apply the same family rules as the child portal catalog / backend guard
- * (group_permissions + product_restrictions by category slug).
+ * (group_permissions + product_restrictions merged along leaf + parent category slugs).
  */
 export function evaluateChildProductCommerce(
-  product: Pick<Product, 'category' | 'price'>,
+  product: ChildProductCommerceProductArg | { category: string; price: number; parentCategorySlug?: string | null; id?: string },
   rules: PortalChildRulesResponse | null | undefined,
 ): ChildProductCommerceEval {
-  if (!rules?.group_permissions) return allowed;
+  if (!rules?.group_permissions) return allowed();
 
   const gp = rules.group_permissions;
   if (!gp.allow_online_purchases) {
@@ -38,14 +83,22 @@ export function evaluateChildProductCommerce(
       overMaxPrice: false,
       commerceDisabled: true,
       message: 'Online purchases are turned off for your account.',
+      hasPurchaseApproval: false,
     };
   }
 
-  const slug = product.category;
-  const r = rules.product_restrictions?.find((x) => x.category_slug === slug);
-  if (!r) return allowed;
+  const leaf = product.category;
+  const parentSlug =
+    'parentCategorySlug' in product ? (product.parentCategorySlug ?? null) : null;
+  const rows = restrictionRowsForCategorySlugs(rules.product_restrictions, leaf, parentSlug);
+  const merged = mergeRestrictionRows(rows);
+  if (!merged) {
+    return allowed();
+  }
 
-  if (r.is_blocked) {
+  const hasPurchaseApproval = productHasApprovedPurchase(rules, product.id);
+
+  if (merged.blocked) {
     return {
       purchasesOff: false,
       blocked: true,
@@ -53,9 +106,10 @@ export function evaluateChildProductCommerce(
       overMaxPrice: false,
       commerceDisabled: true,
       message: 'This category is blocked for your account.',
+      hasPurchaseApproval: false,
     };
   }
-  if (r.requires_approval) {
+  if (merged.requiresApproval && !hasPurchaseApproval) {
     return {
       purchasesOff: false,
       blocked: false,
@@ -63,18 +117,32 @@ export function evaluateChildProductCommerce(
       overMaxPrice: false,
       commerceDisabled: true,
       message: 'This category requires parent approval before you can purchase.',
+      hasPurchaseApproval: false,
     };
   }
-  const maxP = r.max_price != null && r.max_price !== '' ? Number(r.max_price) : NaN;
-  if (Number.isFinite(maxP) && product.price > maxP) {
+  if (merged.maxPrice != null && product.price > merged.maxPrice) {
     return {
       purchasesOff: false,
       blocked: false,
       needsApproval: false,
       overMaxPrice: true,
       commerceDisabled: true,
-      message: `This product exceeds the maximum price (Rs. ${maxP.toLocaleString('en-NP')}) allowed for this category.`,
+      message: `This product exceeds the maximum price (Rs. ${merged.maxPrice.toLocaleString('en-NP')}) allowed for this category.`,
+      hasPurchaseApproval: false,
     };
   }
-  return allowed;
+  const out = allowed();
+  out.hasPurchaseApproval = hasPurchaseApproval;
+  return out;
+}
+
+/** True if the product should be hidden from the child portal catalog (blocked on leaf or parent category). */
+export function isChildCatalogProductBlocked(
+  leafSlug: string | undefined,
+  parentSlug: string | null | undefined,
+  rules: PortalChildRulesResponse | null | undefined,
+): boolean {
+  if (!rules?.product_restrictions?.length) return false;
+  const rows = restrictionRowsForCategorySlugs(rules.product_restrictions, leafSlug || 'all', parentSlug);
+  return rows.some((r) => r.is_blocked);
 }

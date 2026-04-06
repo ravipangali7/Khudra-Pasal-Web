@@ -1,13 +1,15 @@
 import { useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { AlertCircle, Bell, Minus, Package, Plus } from "lucide-react";
+import { AlertCircle, Bell, Minus, Package, Plus, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { useCart } from "@/contexts/CartContext";
+import { useChildPurchaseApprovalRequest } from "@/hooks/useChildPurchaseApprovalRequest";
 import NotifyMeModal from "@/components/modals/NotifyMeModal";
 import {
   mapWebsiteProductToUi,
@@ -16,7 +18,7 @@ import {
   type WebsiteVendorMini,
   websiteApi,
 } from "@/lib/api";
-import { evaluateChildProductCommerce } from "@/lib/childShoppingRules";
+import { evaluateChildProductCommerce, isChildCatalogProductBlocked } from "@/lib/childShoppingRules";
 
 const PAGE_SIZE = 100;
 
@@ -70,11 +72,17 @@ function PortalCatalogProductCard({
   commerceDisabled,
   commerceDisabledMessage,
   needsApprovalBadge,
+  showRequestPurchaseApproval,
+  requestPurchaseApprovalBusy,
+  onRequestPurchaseApproval,
 }: {
   product: WebsiteProduct;
   commerceDisabled: boolean;
   commerceDisabledMessage: string;
   needsApprovalBadge: boolean;
+  showRequestPurchaseApproval: boolean;
+  requestPurchaseApprovalBusy: boolean;
+  onRequestPurchaseApproval: () => void;
 }) {
   const ui = mapWebsiteProductToUi(product);
   const navigate = useNavigate();
@@ -123,6 +131,7 @@ function PortalCatalogProductCard({
           image: ui.image || undefined,
           quantity: 1,
           categorySlug: product.category_slug,
+          parentCategorySlug: product.parent_category_slug ?? undefined,
           ...(sellerId != null && Number.isFinite(sellerId) ? { sellerId } : {}),
         },
       },
@@ -196,6 +205,26 @@ function PortalCatalogProductCard({
                 <Bell className="w-3.5 h-3.5" />
                 Notify me
               </button>
+            ) : showRequestPurchaseApproval ? (
+              <div className="space-y-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  className="w-full h-9 text-xs gap-1.5"
+                  disabled={requestPurchaseApprovalBusy}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onRequestPurchaseApproval();
+                  }}
+                >
+                  <Send className="w-3.5 h-3.5 shrink-0" />
+                  {requestPurchaseApprovalBusy ? "Sending…" : "Request purchase approval"}
+                </Button>
+                <p className="text-[10px] text-muted-foreground text-center leading-snug">
+                  Add to cart unlocks after your parent approves.
+                </p>
+              </div>
             ) : (
               <>
                 {isInCart && !commerceDisabled ? (
@@ -270,25 +299,24 @@ export default function PortalProductsCatalogSection({
   childRulesLoading = false,
   childRulesError = false,
 }: PortalProductsCatalogSectionProps) {
+  const purchaseApprovalMut = useChildPurchaseApprovalRequest();
   const { data, isLoading, isError, error } = useQuery({
     queryKey: ["portal", "products", "all-vendors", variant],
     queryFn: fetchAllProductsAllVendors,
   });
 
-  const blockedSlugs = useMemo(() => {
-    if (variant !== "child" || !childRules?.product_restrictions?.length) return new Set<string>();
-    const s = new Set<string>();
-    for (const r of childRules.product_restrictions) {
-      if (r.is_blocked && r.category_slug) s.add(r.category_slug);
-    }
-    return s;
-  }, [variant, childRules]);
-
   const filteredProducts = useMemo(() => {
     const list = data ?? [];
-    if (variant !== "child" || blockedSlugs.size === 0) return list;
-    return list.filter((p) => !blockedSlugs.has(p.category_slug));
-  }, [data, variant, blockedSlugs]);
+    if (variant !== "child" || !childRules) return list;
+    return list.filter(
+      (p) =>
+        !isChildCatalogProductBlocked(
+          p.category_slug,
+          p.parent_category_slug ?? null,
+          childRules,
+        ),
+    );
+  }, [data, variant, childRules]);
 
   const vendorGroups = useMemo((): VendorGroup[] => {
     const map = new Map<string, WebsiteProduct[]>();
@@ -359,7 +387,10 @@ export default function PortalProductsCatalogSection({
       {vendorGroups.length === 0 ? (
         <Card>
           <CardContent className="p-6 text-center text-sm text-muted-foreground">
-            No products to show{variant === "child" && blockedSlugs.size > 0 ? " (some may be hidden by parent rules)." : "."}
+            No products to show
+            {variant === "child" && childRules?.product_restrictions?.some((r) => r.is_blocked)
+              ? " (some may be hidden by parent rules)."
+              : "."}
           </CardContent>
         </Card>
       ) : (
@@ -403,8 +434,10 @@ export default function PortalProductsCatalogSection({
                   } else {
                     ev = evaluateChildProductCommerce(
                       {
+                        id: String(product.id),
                         category: product.category_slug || "all",
                         price: Number(product.price || 0),
+                        parentCategorySlug: product.parent_category_slug ?? null,
                       },
                       childRules,
                     );
@@ -415,13 +448,28 @@ export default function PortalProductsCatalogSection({
                   }
                 }
 
+                const showReq =
+                  variant === "child" &&
+                  Boolean(
+                    ev?.needsApproval &&
+                      !ev?.hasPurchaseApproval &&
+                      !ev?.blocked &&
+                      !ev?.overMaxPrice &&
+                      !ev?.purchasesOff,
+                  );
+
                 return (
                   <PortalCatalogProductCard
                     key={product.id}
                     product={product}
                     commerceDisabled={commerceDisabled}
                     commerceDisabledMessage={commerceDisabledMessage}
-                    needsApprovalBadge={Boolean(ev?.needsApproval)}
+                    needsApprovalBadge={Boolean(ev?.needsApproval && !ev?.hasPurchaseApproval)}
+                    showRequestPurchaseApproval={showReq}
+                    requestPurchaseApprovalBusy={
+                      purchaseApprovalMut.isPending && purchaseApprovalMut.variables === product.id
+                    }
+                    onRequestPurchaseApproval={() => purchaseApprovalMut.mutate(product.id)}
                   />
                 );
               })}

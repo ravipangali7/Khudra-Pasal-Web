@@ -9,6 +9,7 @@ import { resolveThemeClass } from '@/lib/categoryTheme';
 import { isStorefrontCustomerSession } from '@/lib/api';
 import { useChildShoppingRules } from '@/contexts/ChildShoppingRulesContext';
 import { evaluateChildProductCommerce } from '@/lib/childShoppingRules';
+import { useChildPurchaseApprovalRequest } from '@/hooks/useChildPurchaseApprovalRequest';
 import { toast } from 'sonner';
 import { savePendingCartIntent } from '@/lib/pendingCartIntent';
 
@@ -47,6 +48,7 @@ const ProductCard = ({
     isLoadingRules,
     rulesFetchError,
   } = useChildShoppingRules();
+  const purchaseApprovalMut = useChildPurchaseApprovalRequest();
   const [showNotifyModal, setShowNotifyModal] = useState(false);
 
   const childCommerce = useMemo(() => {
@@ -65,6 +67,16 @@ const ProductCard = ({
     (isChildShopper &&
       (isLoadingProfile || isLoadingRules || rulesFetchError || !rules)) ||
     Boolean(childCommerce?.commerceDisabled);
+
+  const showChildPurchaseRequest =
+    Boolean(
+      isChildShopper &&
+        childCommerce?.needsApproval &&
+        !childCommerce?.hasPurchaseApproval &&
+        !childCommerce?.blocked &&
+        !childCommerce?.overMaxPrice &&
+        !childCommerce?.purchasesOff,
+    );
 
   const quantity = getItemQuantity(product.id);
   const showCartControls = listingScope
@@ -201,18 +213,38 @@ const ProductCard = ({
             {!isSoldOut && !showCartControls && (
               <button
                 type="button"
-                onClick={handleAddToCart}
-                disabled={childCommerceDisabled}
+                onClick={(e) => {
+                  if (showChildPurchaseRequest) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    purchaseApprovalMut.mutate(Number(product.id));
+                    return;
+                  }
+                  handleAddToCart(e);
+                }}
+                disabled={
+                  showChildPurchaseRequest
+                    ? purchaseApprovalMut.isPending
+                    : childCommerceDisabled
+                }
                 className={cn(
                   'absolute bottom-2 right-2 z-20 px-3.5 py-1.5 rounded-lg text-white text-xs font-bold shadow-md transition-all',
-                  childCommerceDisabled
-                    ? 'opacity-50 cursor-not-allowed bg-muted-foreground'
-                    : 'hover:opacity-95 active:scale-[0.97]',
+                  showChildPurchaseRequest || !childCommerceDisabled
+                    ? 'hover:opacity-95 active:scale-[0.97]'
+                    : 'opacity-50 cursor-not-allowed bg-muted-foreground',
                 )}
-                style={childCommerceDisabled ? undefined : { backgroundColor: ADD_ORANGE }}
-                aria-label="Add to cart"
+                style={
+                  showChildPurchaseRequest || !childCommerceDisabled
+                    ? { backgroundColor: showChildPurchaseRequest ? '#6366f1' : ADD_ORANGE }
+                    : undefined
+                }
+                aria-label={showChildPurchaseRequest ? 'Request purchase approval' : 'Add to cart'}
               >
-                ADD
+                {showChildPurchaseRequest
+                  ? purchaseApprovalMut.isPending
+                    ? '…'
+                    : 'ASK PARENT'
+                  : 'ADD'}
               </button>
             )}
           </div>

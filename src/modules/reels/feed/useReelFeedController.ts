@@ -18,6 +18,7 @@ function toCartProduct(reel: Reel) {
     originalPrice: reel.product.originalPrice || undefined,
     image: reel.product.image,
     category: reel.product.categorySlug || 'all',
+    parentCategorySlug: reel.product.parentCategorySlug ?? undefined,
     rating: reel.product.rating,
     reviewCount: reel.product.reviews,
     inStock: reel.product.inStock,
@@ -151,8 +152,10 @@ export function useReelFeedController(
         }
         const ev = evaluateChildProductCommerce(
           {
+            id: String(reel.product.id),
             category: reel.product.categorySlug || 'all',
             price: reel.product.price,
+            parentCategorySlug: reel.product.parentCategorySlug ?? null,
           },
           rules,
         );
@@ -172,6 +175,7 @@ export function useReelFeedController(
             quantity,
             reelId: reel.id,
             categorySlug: reel.product.categorySlug,
+            parentCategorySlug: reel.product.parentCategorySlug ?? undefined,
           },
         },
       });

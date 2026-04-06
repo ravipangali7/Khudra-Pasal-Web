@@ -66,6 +66,8 @@ import {
   type PortalChildWalletTxnRow,
   type WebsiteProduct,
 } from '@/lib/api';
+import { evaluateChildProductCommerce } from '@/lib/childShoppingRules';
+import { useChildPurchaseApprovalRequest } from '@/hooks/useChildPurchaseApprovalRequest';
 import { mapApiNavToPortalItems } from '@/lib/navIcons';
 import LogoutConfirmDialog from '@/components/auth/LogoutConfirmDialog';
 import UnifiedAuthLoginPage from '@/components/auth/UnifiedAuthLoginPage';
@@ -231,6 +233,16 @@ const ChildPortal = () => {
     ...pollOpts,
   });
 
+  const purchaseApprovalsQuery = useQuery({
+    queryKey: ['portal', 'child', 'purchase-approvals', sessionTick],
+    queryFn: () => portalApi.childPurchaseApprovalRequests().then((r) => r.results),
+    enabled: authed,
+    retry: false,
+    ...pollOpts,
+  });
+
+  const purchaseApprovalMut = useChildPurchaseApprovalRequest();
+
   const meQuery = useQuery({
     queryKey: ['portal', 'me', sessionTick],
     queryFn: () => portalApi.me(),
@@ -297,18 +309,19 @@ const ChildPortal = () => {
       ? Math.min(100, (walletData.spentThisMonth / walletData.spendingLimit) * 100)
       : 0;
 
-  const pendingPurchaseRequests = useMemo(
-    () =>
-      [] as Array<{
-        id: string;
-        item: string;
-        amount: number;
-        status: string;
-        time: string;
-        image: string;
-      }>,
-    [],
-  );
+  const pendingPurchaseRequests = useMemo(() => {
+    const rows = purchaseApprovalsQuery.data ?? [];
+    return rows
+      .filter((x) => x.status === 'pending')
+      .map((r) => ({
+        id: String(r.id),
+        item: r.product_name,
+        amount: r.amount,
+        status: r.status,
+        time: r.created_at ? new Date(r.created_at).toLocaleString() : '',
+        image: '🛒',
+      }));
+  }, [purchaseApprovalsQuery.data]);
   const approvedByParentItems = useMemo(
     () =>
       [] as Array<{
@@ -653,6 +666,28 @@ const ChildPortal = () => {
                 !exploreProductsQuery.isError &&
                 exploreProducts.map((product) => {
                   const canBuy = product.stock > 0;
+                  const rules = childRulesQuery.data;
+                  const ev =
+                    rules && !childRulesQuery.isLoading && !childRulesQuery.isError
+                      ? evaluateChildProductCommerce(
+                          {
+                            id: String(product.id),
+                            category: product.category_slug || 'all',
+                            price: Number(product.price || 0),
+                            parentCategorySlug: product.parent_category_slug ?? null,
+                          },
+                          rules,
+                        )
+                      : null;
+                  const showPurchaseRequest =
+                    canBuy &&
+                    Boolean(
+                      ev?.needsApproval &&
+                        !ev?.hasPurchaseApproval &&
+                        !ev?.blocked &&
+                        !ev?.overMaxPrice &&
+                        !ev?.purchasesOff,
+                    );
                   return (
                     <div
                       key={product.id}
@@ -674,13 +709,23 @@ const ChildPortal = () => {
                           Rs. {Number(product.price).toLocaleString('en-NP')}
                         </p>
                       </Link>
-                      {canBuy ? (
+                      {showPurchaseRequest ? (
+                        <Button
+                          size="sm"
+                          className="w-full mt-2 h-7 text-xs gap-1"
+                          type="button"
+                          disabled={purchaseApprovalMut.isPending}
+                          onClick={() => purchaseApprovalMut.mutate(product.id)}
+                        >
+                          <Send className="w-3 h-3 shrink-0" /> Request approval
+                        </Button>
+                      ) : canBuy ? (
                         <Button size="sm" className="w-full mt-2 h-7 text-xs" asChild>
                           <Link to={`/product/${product.slug}`}>Buy Now</Link>
                         </Button>
                       ) : (
                         <Button size="sm" variant="outline" className="w-full mt-2 h-7 text-xs gap-1" type="button">
-                          <Clock className="w-3 h-3" /> Request Parent
+                          <Clock className="w-3 h-3" /> Notify me
                         </Button>
                       )}
                     </div>
