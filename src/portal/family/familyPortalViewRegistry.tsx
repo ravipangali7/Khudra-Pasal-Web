@@ -14,7 +14,6 @@ export const FAMILY_PORTAL_VIEW_KEYS = [
   "my-orders",
   "profile",
   "support",
-  "settings",
 ] as const;
 
 export type FamilyPortalViewKey = (typeof FAMILY_PORTAL_VIEW_KEYS)[number];
@@ -32,7 +31,6 @@ export type FamilyPortalViewRenderFns = {
   myOrders: () => ReactNode;
   profile: () => ReactNode;
   support: () => ReactNode;
-  settings: () => ReactNode;
 };
 
 /** Single map from `viewKey` → renderer; driven by navigation API, not URL id aliases. */
@@ -52,6 +50,5 @@ export function createFamilyPortalViewRegistry(
     "my-orders": f.myOrders,
     profile: f.profile,
     support: f.support,
-    settings: f.settings,
   };
 }

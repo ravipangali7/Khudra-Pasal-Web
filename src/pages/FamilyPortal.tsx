@@ -6,12 +6,12 @@ import { findSidebarNodeById, resolvePortalNavViewKey, usePortalSectionPath } fr
 import { createFamilyPortalViewRegistry } from '@/portal/family/familyPortalViewRegistry';
 import { toast } from 'sonner';
 import {
-  Users, Wallet, Shield, Settings, Bell, Plus, Search, 
+  Users, Wallet, Shield, Bell, Plus, Search, 
   MoreVertical, Lock, Unlock, Eye, Edit, Trash2, 
   UserPlus, CheckCircle, XCircle, Clock, AlertTriangle,
   TrendingUp, CreditCard, History, Filter, Download,
   Home, Banknote, ShieldCheck, Cog, FileText, Store,
-  AlertOctagon, Send, UserCog, Folder, Loader2, Link2, Copy
+  Send, UserCog, Folder, Loader2, Link2, Copy
 } from 'lucide-react';
 import PortalLayout from '@/components/portal/PortalLayout';
 import PortalSidebar from '@/components/portal/PortalSidebar';
@@ -60,7 +60,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import {
   Table,
@@ -71,7 +70,6 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
-import { Checkbox } from '@/components/ui/checkbox';
 import PortalMyOrdersSection from '@/components/portal/PortalMyOrdersSection';
 import {
   clearAllAuthTokens,
@@ -88,7 +86,6 @@ import {
   type PortalFamilyMemberRow,
   type PortalFamilyProductRestrictionRow,
   type PortalFamilyWalletTxnRow,
-  type PortalFamilyWalletCategoryFieldMeta,
   type PortalWithdrawalRow,
   type WebsiteCategory,
   type WebsiteProduct,
@@ -166,7 +163,6 @@ export function FamilyPortal() {
   const [sessionTick, setSessionTick] = useState(0);
   const portalToken = Boolean(getAuthToken());
   const [showAddMember, setShowAddMember] = useState(false);
-  const [showEmergencyLock, setShowEmergencyLock] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [notificationsModalOpen, setNotificationsModalOpen] = useState(false);
 
@@ -336,31 +332,6 @@ export function FamilyPortal() {
           </span>
         )}
       </Button>
-      <AlertDialog open={showEmergencyLock} onOpenChange={setShowEmergencyLock}>
-        <AlertDialogTrigger asChild>
-          <Button variant="destructive" size="sm" className="gap-1.5">
-            <AlertOctagon className="w-4 h-4" />
-            <span className="hidden sm:inline">Emergency Lock</span>
-          </Button>
-        </AlertDialogTrigger>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
-              <AlertOctagon className="w-5 h-5" />
-              Emergency Lock All Wallets
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              This will immediately freeze all member wallets. No transactions will be allowed until you unlock them. This action requires OTP verification.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Lock All Wallets (OTP Required)
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 
@@ -395,7 +366,6 @@ export function FamilyPortal() {
           <FamilyPortalSupportFaqs />
         </div>
       ),
-      settings: () => <SettingsContent />,
       profile: () => <PortalFamilyChildProfileModule variant="family" onLogoutClick={performPortalLogout} />,
     });
 
@@ -1420,7 +1390,6 @@ export function FamilyPortal() {
     const [showLoadMoney, setShowLoadMoney] = useState(false);
     const [showDistribute, setShowDistribute] = useState(false);
     const [showTransfer, setShowTransfer] = useState(false);
-    const [showNewCategory, setShowNewCategory] = useState(false);
     const [loadAmount, setLoadAmount] = useState('');
     const [loadMethod, setLoadMethod] = useState('esewa');
     const [distMember, setDistMember] = useState('');
@@ -1430,10 +1399,6 @@ export function FamilyPortal() {
     const [transToWallet, setTransToWallet] = useState('');
     const [transCategoryId, setTransCategoryId] = useState('');
     const [transAmount, setTransAmount] = useState('');
-    const [categoryFieldValues, setCategoryFieldValues] = useState<
-      Record<string, string | number | string[]>
-    >({});
-    const [categoryImageFile, setCategoryImageFile] = useState<File | null>(null);
     const [walletErr, setWalletErr] = useState('');
     const [famWithdrawWallet, setFamWithdrawWallet] = useState('');
     const [famWithdrawPayout, setFamWithdrawPayout] = useState('');
@@ -1545,30 +1510,6 @@ export function FamilyPortal() {
       famWNum >= 1 &&
       famWNum <= famWMax;
 
-    const { data: categoryMeta } = useQuery({
-      queryKey: ['portal', 'family', 'wallet-category-meta'],
-      queryFn: () => portalApi.familyWalletCategoryMeta(),
-      enabled: showNewCategory,
-    });
-
-    useEffect(() => {
-      if (!showNewCategory || !categoryMeta?.fields?.length) return;
-      const next: Record<string, string | number | string[]> = {};
-      for (const f of categoryMeta.fields) {
-        if (f.type === 'file') continue;
-        if (f.type === 'multiselect') {
-          const d = f.default;
-          next[f.name] = [...(Array.isArray(d) ? d : ['child'])];
-        } else if (f.type === 'integer') {
-          next[f.name] = typeof f.default === 'number' ? f.default : 0;
-        } else {
-          next[f.name] = '';
-        }
-      }
-      setCategoryFieldValues(next);
-      setCategoryImageFile(null);
-    }, [showNewCategory, categoryMeta]);
-
     const invFamily = () => {
       void qc.invalidateQueries({ queryKey: ['portal', 'family', 'overview'] });
       void qc.invalidateQueries({ queryKey: ['portal', 'family', 'txns'] });
@@ -1627,38 +1568,6 @@ export function FamilyPortal() {
         setTransToWallet('');
         setTransCategoryId('');
         setTransAmount('');
-        invFamily();
-      },
-      onError: (e: Error) => setWalletErr(e.message),
-    });
-
-    const categoryMutation = useMutation({
-      mutationFn: () => {
-        const fields = categoryMeta?.fields;
-        if (!fields?.length) throw new Error('Form not ready');
-        const fd = new FormData();
-        for (const f of fields) {
-          if (f.type === 'file') {
-            if (categoryImageFile) fd.append(f.name, categoryImageFile);
-            continue;
-          }
-          const v = categoryFieldValues[f.name];
-          if (f.type === 'multiselect') {
-            const arr = Array.isArray(v) ? v : [];
-            for (const x of arr) fd.append(f.name, String(x));
-          } else if (f.type === 'integer') {
-            fd.append(f.name, String(v ?? f.default ?? 0));
-          } else {
-            fd.append(f.name, String(v ?? ''));
-          }
-        }
-        return portalApi.familyWalletCategoryCreate(fd);
-      },
-      onSuccess: () => {
-        setWalletErr('');
-        setShowNewCategory(false);
-        setCategoryFieldValues({});
-        setCategoryImageFile(null);
         invFamily();
       },
       onError: (e: Error) => setWalletErr(e.message),
@@ -1731,8 +1640,6 @@ export function FamilyPortal() {
         return Boolean(ra && rb && ar.includes(ra) && ar.includes(rb));
       });
     }, [categoryOptions, transFromOpt, transToOpt]);
-
-    const newCategoryNameTrim = String(categoryFieldValues.name ?? '').trim();
 
     const parentWalletMember = useMemo(
       () => familyMembers.find((m) => m.is_leader || m.role === 'parent'),
@@ -1878,7 +1785,7 @@ export function FamilyPortal() {
                 <div className="grid gap-3 pt-1">
                   {walletCategories.length === 0 ? (
                     <p className="text-sm text-amber-900/70 dark:text-amber-200/80 py-2">
-                      No shared buckets yet. Create a category below.
+                      No shared buckets yet.
                     </p>
                   ) : (
                     walletCategories.map((wallet) => (
@@ -1918,19 +1825,6 @@ export function FamilyPortal() {
                 </div>
               </div>
             </div>
-
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full border-amber-400/90 bg-white/90 text-amber-950 hover:bg-white dark:border-amber-700 dark:bg-amber-950/50 dark:text-amber-50 dark:hover:bg-amber-950/70"
-              onClick={() => {
-                setWalletErr('');
-                setShowNewCategory(true);
-              }}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Create New Wallet Category
-            </Button>
 
             <Card className="border-amber-300/80 bg-white/90 dark:bg-amber-950/40 dark:border-amber-800/50">
               <CardHeader>
@@ -2441,119 +2335,6 @@ export function FamilyPortal() {
                 onClick={() => transferMutation.mutate()}
               >
                 {transferMutation.isPending ? 'Working…' : 'Transfer'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={showNewCategory} onOpenChange={(o) => { setShowNewCategory(o); if (!o) setWalletErr(''); }}>
-          <DialogContent className="max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>New wallet category</DialogTitle>
-              <DialogDescription>Creates a labeled bucket with its own shared balance.</DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              {!categoryMeta?.fields?.length ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Loading form…
-                </div>
-              ) : (
-                categoryMeta.fields.map((f: PortalFamilyWalletCategoryFieldMeta) => {
-                  if (f.type === 'file') {
-                    return (
-                      <div key={f.name} className="space-y-2">
-                        <Label>Category image{f.required ? '' : ' (optional)'}</Label>
-                        <Input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => setCategoryImageFile(e.target.files?.[0] ?? null)}
-                        />
-                      </div>
-                    );
-                  }
-                  if (f.type === 'multiselect' && f.choices?.length) {
-                    const cur = (categoryFieldValues[f.name] as string[] | undefined) ?? [];
-                    return (
-                      <div key={f.name} className="space-y-2">
-                        <Label>Allowed member roles</Label>
-                        <div className="grid gap-2">
-                          {f.choices.map((c) => (
-                            <label
-                              key={c.value}
-                              className="flex items-center gap-2 text-sm cursor-pointer"
-                            >
-                              <Checkbox
-                                checked={cur.includes(c.value)}
-                                onCheckedChange={(checked) => {
-                                  const on = checked === true;
-                                  setCategoryFieldValues((prev) => {
-                                    const base = (prev[f.name] as string[] | undefined) ?? [];
-                                    const next = on
-                                      ? [...new Set([...base, c.value])]
-                                      : base.filter((x) => x !== c.value);
-                                    return { ...prev, [f.name]: next.length ? next : ['child'] };
-                                  });
-                                }}
-                              />
-                              {c.label}
-                            </label>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  }
-                  if (f.type === 'integer') {
-                    return (
-                      <div key={f.name} className="space-y-2">
-                        <Label className="capitalize">{f.name.replace(/_/g, ' ')}</Label>
-                        <Input
-                          type="number"
-                          min={0}
-                          value={categoryFieldValues[f.name] ?? ''}
-                          onChange={(e) =>
-                            setCategoryFieldValues((prev) => ({
-                              ...prev,
-                              [f.name]: e.target.value === '' ? '' : Number(e.target.value),
-                            }))
-                          }
-                        />
-                      </div>
-                    );
-                  }
-                  return (
-                    <div key={f.name} className="space-y-2">
-                      <Label>
-                        {f.name === 'name' ? 'Name' : f.name.replace(/_/g, ' ')}
-                        {f.required ? '' : ' (optional)'}
-                      </Label>
-                      <Input
-                        value={String(categoryFieldValues[f.name] ?? '')}
-                        maxLength={f.max_length}
-                        onChange={(e) =>
-                          setCategoryFieldValues((prev) => ({ ...prev, [f.name]: e.target.value }))
-                        }
-                        placeholder={f.name === 'name' ? 'e.g. School fees' : undefined}
-                      />
-                    </div>
-                  );
-                })
-              )}
-              {walletErr ? <p className="text-sm text-destructive">{walletErr}</p> : null}
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowNewCategory(false)}>
-                Cancel
-              </Button>
-              <Button
-                disabled={
-                  !categoryMeta?.fields?.length ||
-                  !newCategoryNameTrim ||
-                  categoryMutation.isPending
-                }
-                onClick={() => categoryMutation.mutate()}
-              >
-                {categoryMutation.isPending ? 'Creating…' : 'Create'}
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -3333,167 +3114,6 @@ export function FamilyPortal() {
           onExport={() => console.log('Export')}
           onFilter={() => console.log('Filter')}
         />
-      </div>
-    );
-  }
-
-  // Settings Content
-  function SettingsContent() {
-    const childMembers = familyMembers.filter((m) => m.role === 'child');
-    const { data: restrictionsResp, isLoading: restrictionsLoading, isError: restrictionsError } = useQuery({
-      queryKey: FAMILY_PRODUCT_RESTRICTIONS_QUERY_KEY,
-      queryFn: () => portalApi.familyProductRestrictions(),
-    });
-    const restrictionRows = restrictionsResp?.results ?? [];
-
-    return (
-      <div className="p-4 lg:p-6 space-y-6">
-        <h2 className="text-lg font-bold text-foreground">Family Settings</h2>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base">General</CardTitle>
-            <CardDescription className="text-xs">
-              Notification and security preferences will be configurable when available from the server.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <EmptyState
-              icon={Bell}
-              title="No configurable preferences yet"
-              description="Account alerts and 2FA will appear here when exposed by the API."
-            />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Wallet className="w-4 h-4" />
-              Child spending (from API)
-            </CardTitle>
-            <CardDescription className="text-xs">Monthly limits and spend from your family overview</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {childMembers.length === 0 ? (
-              <EmptyState
-                icon={Users}
-                title="No child members"
-                description="Add a child member to see spending limits here."
-              />
-            ) : (
-              childMembers.map((member) => (
-                <div key={member.id} className="p-4 border border-border rounded-xl space-y-3">
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">{member.avatar}</span>
-                    <span className="font-semibold text-sm">{member.name}</span>
-                    <Badge variant="secondary" className="text-[10px] capitalize">
-                      {member.status}
-                    </Badge>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 text-sm">
-                    <div className="bg-muted/50 rounded-lg p-2 text-center">
-                      <p className="text-[10px] text-muted-foreground">Spent</p>
-                      <p className="font-bold">Rs. {member.spending.toLocaleString()}</p>
-                    </div>
-                    <div className="bg-muted/50 rounded-lg p-2 text-center">
-                      <p className="text-[10px] text-muted-foreground">Monthly limit</p>
-                      <p className="font-bold">Rs. {member.limit.toLocaleString()}</p>
-                    </div>
-                    <div className="bg-muted/50 rounded-lg p-2 text-center">
-                      <p className="text-[10px] text-muted-foreground">Personal wallet</p>
-                      <p className="font-bold tabular-nums">Rs. {member.balance.toLocaleString()}</p>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Lock className="w-4 h-4" />
-              Product restriction rules
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Same data as{' '}
-              <button
-                type="button"
-                className="text-primary underline"
-                onClick={() => goTo('controls-restrictions')}
-              >
-                Product Restrictions
-              </button>
-              . Updates apply everywhere immediately.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {restrictionsLoading ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">Loading rules…</p>
-            ) : restrictionsError ? (
-              <p className="text-sm text-destructive py-4 text-center">Could not load restrictions.</p>
-            ) : restrictionRows.length === 0 ? (
-              <EmptyState
-                icon={Lock}
-                title="No saved product rules"
-                description="Configure categories under Product Restrictions to block items, require approval, or set a max price."
-              />
-            ) : (
-              <div className="rounded-xl border border-border overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Blocked</TableHead>
-                      <TableHead>Approval</TableHead>
-                      <TableHead className="text-right">Max price</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {restrictionRows.map((row) => (
-                      <TableRow key={row.id}>
-                        <TableCell className="font-medium text-sm">{row.category_name}</TableCell>
-                        <TableCell>
-                          <Badge variant={row.is_blocked ? 'destructive' : 'secondary'} className="text-[10px]">
-                            {row.is_blocked ? 'Yes' : 'No'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant={row.requires_approval ? 'default' : 'outline'} className="text-[10px]">
-                            {row.requires_approval ? 'Required' : 'No'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-right text-sm">
-                          {row.max_price != null && row.max_price !== ''
-                            ? `Rs. ${Number(row.max_price).toLocaleString()}`
-                            : '—'}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Clock className="w-4 h-4" />
-              Time-based rules
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <EmptyState
-              icon={Clock}
-              title="No time rules yet"
-              description="Purchase windows and quiet hours will appear here when the family API supports them."
-            />
-          </CardContent>
-        </Card>
       </div>
     );
   }
