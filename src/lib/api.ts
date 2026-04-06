@@ -376,6 +376,36 @@ export type AdminSummary = {
   delivery_men_count?: number;
 };
 
+/** GET /admin/dashboard/reports/ */
+export type AdminReportsSnapshot = {
+  period: { date_from: string; date_to: string };
+  previous_period: { date_from: string; date_to: string };
+  kpis: {
+    total_sales: number;
+    total_orders: number;
+    aov: number;
+    previous_total_sales: number;
+    previous_total_orders: number;
+    sales_growth_pct: number | null;
+    orders_growth_pct: number | null;
+  };
+  series: Array<{ day: string; sales: number; orders: number }>;
+  category_breakdown: Array<{
+    name: string;
+    category_id: number | null;
+    sales: number;
+    lines: number;
+  }>;
+  vendor_breakdown: Array<{
+    vendor_id: number;
+    name: string;
+    sales: number;
+    orders: number;
+  }>;
+  wallet_by_type: Array<{ type: string; amount: number; count: number }>;
+  signup_series: Array<{ day: string; signups: number }>;
+};
+
 /** GET /admin/wallets/summary/ */
 export type AdminWalletsSummary = {
   total_wallets: number;
@@ -1214,6 +1244,22 @@ export const adminApi = {
   salesSeries: (days = 7) =>
     apiFetch<Array<{ day: string; sales: number; orders: number }>>(
       `/admin/dashboard/sales-series/${buildQuery({ days })}`,
+      undefined,
+      true,
+    ),
+  reportsSnapshot: (params: {
+    date_from: string;
+    date_to: string;
+    vendor_id?: number;
+    category_id?: number;
+  }) =>
+    apiFetch<AdminReportsSnapshot>(
+      `/admin/dashboard/reports/${buildQuery({
+        date_from: params.date_from,
+        date_to: params.date_to,
+        ...(params.vendor_id != null ? { vendor_id: params.vendor_id } : {}),
+        ...(params.category_id != null ? { category_id: params.category_id } : {}),
+      })}`,
       undefined,
       true,
     ),

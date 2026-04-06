@@ -1,403 +1,925 @@
-import { useMemo, useState } from 'react';
-import { Download } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useMemo, useState } from "react";
+import { format, subDays } from "date-fns";
+import type { DateRange } from "react-day-picker";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Legend,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { useQuery } from "@tanstack/react-query";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  LineChart, Line, PieChart, Pie, Cell, AreaChart, Area, Legend
-} from 'recharts';
-import { adminApi } from '@/lib/api';
-import { useAdminList } from '../hooks/useAdminList';
-
-const COLORS = ['hsl(36, 100%, 50%)', 'hsl(270, 80%, 35%)', 'hsl(142, 71%, 45%)', 'hsl(217, 91%, 60%)', 'hsl(32, 92%, 48%)'];
+  CreditCard,
+  LayoutDashboard,
+  Package,
+  PieChart as PieChartIcon,
+  RefreshCw,
+  ShoppingCart,
+  Store,
+  Users,
+  Wallet,
+} from "lucide-react";
+import { ReportChartCard } from "@/components/admin/reports/ReportChartCard";
+import { ReportsDataTable } from "@/components/admin/reports/ReportsDataTable";
+import { ReportsFilters } from "@/components/admin/reports/ReportsFilters";
+import { ReportsPageSkeleton } from "@/components/admin/reports/ReportsSkeleton";
+import { ReportsStatCard } from "@/components/admin/reports/ReportsStatCard";
+import {
+  CHART_PALETTE,
+  CHART_PRIMARY,
+  CHART_SECONDARY,
+  chartAxisTick,
+  chartTooltipStyle,
+} from "@/components/admin/reports/reportsChartTheme";
+import { downloadCsv, rowsToCsv } from "@/components/admin/reports/reportsCsv";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { adminApi, extractResults, type AdminOrderListRow, type AdminReportsSnapshot } from "@/lib/api";
+import { useAdminList } from "../hooks/useAdminList";
 
 function fmtRs(n: number) {
-  if (!Number.isFinite(n)) return 'Rs. 0';
+  if (!Number.isFinite(n)) return "Rs. 0";
   if (n >= 1_000_000) return `Rs. ${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1000) return `Rs. ${(n / 1000).toFixed(0)}K`;
   return `Rs. ${n.toFixed(0)}`;
 }
 
+function defaultRange(): DateRange {
+  const to = new Date();
+  const from = subDays(to, 6);
+  return { from, to };
+}
+
+function snapshotQueryParams(
+  dateFromStr: string,
+  dateToStr: string,
+  vendorId: string,
+  categoryId: string,
+): Parameters<typeof adminApi.reportsSnapshot>[0] | null {
+  if (!dateFromStr || !dateToStr) return null;
+  return {
+    date_from: dateFromStr,
+    date_to: dateToStr,
+    ...(vendorId !== "all" ? { vendor_id: Number(vendorId) } : {}),
+    ...(categoryId !== "all" ? { category_id: Number(categoryId) } : {}),
+  };
+}
+
+function useReportFilterOptions() {
+  const { data: vendorsRaw = [] } = useAdminList<Record<string, unknown>>(
+    ["admin", "vendors", "reports-filters"],
+    () => adminApi.vendors({ page_size: 100 }),
+  );
+  const { data: categoriesRaw = [] } = useAdminList<Record<string, unknown>>(
+    ["admin", "categories", "reports-filters"],
+    () => adminApi.categories({ page_size: 200 }),
+  );
+  const vendors = useMemo(
+    () =>
+      vendorsRaw.map((v) => ({
+        id: Number(v.id),
+        label: String(v.name ?? "Vendor"),
+      })),
+    [vendorsRaw],
+  );
+  const categories = useMemo(
+    () =>
+      categoriesRaw.map((c) => ({
+        id: Number(c.id),
+        label: String(c.name ?? "Category"),
+      })),
+    [categoriesRaw],
+  );
+  return { vendors, categories };
+}
+
 export default function ReportsModule() {
-  const [period, setPeriod] = useState('weekly');
-  const periodDays =
-    period === 'daily' ? 7 : period === 'weekly' ? 7 : period === 'monthly' ? 30 : 90;
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(() => defaultRange());
+  const [vendorId, setVendorId] = useState("all");
+  const [categoryId, setCategoryId] = useState("all");
+  const { vendors, categories } = useReportFilterOptions();
+
+  const dateFromStr = dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : "";
+  const dateToStr = dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : "";
+  const filtersReady = Boolean(dateFromStr && dateToStr);
+  const snapParams = filtersReady ? snapshotQueryParams(dateFromStr, dateToStr, vendorId, categoryId) : null;
+
+  const {
+    data: snapshot,
+    isLoading: snapLoading,
+    isError: snapError,
+    error: snapErr,
+    refetch,
+    isFetching: snapFetching,
+  } = useQuery({
+    queryKey: ["admin", "reports-snapshot", dateFromStr, dateToStr, vendorId, categoryId],
+    queryFn: () => adminApi.reportsSnapshot(snapParams!),
+    enabled: Boolean(snapParams),
+    refetchInterval: 60_000,
+    retry: 1,
+  });
 
   const { data: summary } = useQuery({
-    queryKey: ['admin', 'summary', 'reports'],
+    queryKey: ["admin", "summary", "reports-module"],
     queryFn: () => adminApi.summary(),
     retry: false,
   });
 
-  const { data: salesSeries = [] } = useQuery({
-    queryKey: ['admin', 'sales-series', 'reports', periodDays],
-    queryFn: () => adminApi.salesSeries(periodDays),
-    retry: false,
+  const listQueryParams = useMemo(() => {
+    if (!filtersReady) return null;
+    return {
+      page: 1,
+      page_size: 500,
+      date_from: dateFromStr,
+      date_to: dateToStr,
+      ...(vendorId !== "all" ? { vendor_id: Number(vendorId) } : {}),
+      ...(categoryId !== "all" ? { category_id: Number(categoryId) } : {}),
+    } as Record<string, string | number>;
+  }, [filtersReady, dateFromStr, dateToStr, vendorId, categoryId]);
+
+  const { data: orderRows = [] } = useQuery({
+    queryKey: ["admin", "orders", "reports-detail", listQueryParams],
+    queryFn: () => adminApi.orders(listQueryParams!),
+    enabled: Boolean(listQueryParams),
+    select: (d) => extractResults<AdminOrderListRow>(d),
   });
 
-  const { data: vendors = [] } = useAdminList<Record<string, unknown>>(
-    ['admin', 'vendors', 'reports'],
-    () => adminApi.vendors({ page_size: 80 }),
-  );
+  const { data: walletRows = [] } = useQuery({
+    queryKey: ["admin", "wallet-txns", "reports-detail", listQueryParams],
+    queryFn: () => adminApi.walletTransactions(listQueryParams!),
+    enabled: Boolean(listQueryParams),
+    select: (d) => extractResults<Record<string, unknown>>(d),
+  });
 
-  const { data: categories = [] } = useAdminList<Record<string, unknown>>(
-    ['admin', 'categories', 'reports'],
-    () => adminApi.categories({ page_size: 200 }),
-  );
+  const seriesChart = useMemo(() => {
+    const s = snapshot?.series ?? [];
+    return s.map((row) => ({
+      name: row.day.length >= 10 ? row.day.slice(5, 10) : row.day,
+      sales: row.sales,
+      orders: row.orders,
+    }));
+  }, [snapshot]);
 
-  const { data: walletTxns = [] } = useAdminList<Record<string, unknown>>(
-    ['admin', 'wallet-txns', 'reports'],
-    () => adminApi.walletTransactions({ page_size: 150 }),
-  );
-
-  const salesChartData = useMemo(
-    () =>
-      salesSeries.map((row) => ({
-        name: row.day.length > 5 ? row.day.slice(5) : row.day,
-        sales: row.sales,
-        orders: row.orders,
-      })),
-    [salesSeries],
-  );
-
-  const revenueChartData = useMemo(
-    () =>
-      salesSeries.map((row) => ({
-        name: row.day.length > 5 ? row.day.slice(5) : row.day,
-        revenue: row.sales,
-        profit: row.sales * 0.18,
-      })),
-    [salesSeries],
-  );
-
-  const categoryWiseSales = useMemo(() => {
-    const rows = categories
-      .map((c) => ({
-        name: String(c.name),
-        products: Number(c.products ?? 0),
-      }))
-      .filter((c) => c.products > 0);
-    const sum = rows.reduce((a, r) => a + r.products, 0) || 1;
+  const categoryPie = useMemo(() => {
+    const rows = snapshot?.category_breakdown ?? [];
+    const total = rows.reduce((a, c) => a + c.sales, 0) || 1;
     return rows.map((c) => ({
       name: c.name,
-      value: Math.round((100 * c.products) / sum),
-      amount: c.products * 1000,
+      value: Math.round((100 * c.sales) / total),
+      sales: c.sales,
     }));
-  }, [categories]);
+  }, [snapshot]);
 
-  const vendorSalesData = useMemo(
+  const vendorPie = useMemo(() => {
+    const rows = snapshot?.vendor_breakdown ?? [];
+    const total = rows.reduce((a, c) => a + c.sales, 0) || 1;
+    return rows.slice(0, 8).map((c) => ({
+      name: c.name,
+      value: Math.round((100 * c.sales) / total),
+      sales: c.sales,
+    }));
+  }, [snapshot]);
+
+  const walletBarData = useMemo(
     () =>
-      vendors.map((v) => ({
-        name: String(v.name),
-        revenue: Number(v.revenue ?? 0) / 1000,
-        orders: Number(v.orders ?? 0),
-        commission: Number(v.commission ?? 0),
+      (snapshot?.wallet_by_type ?? []).map((w) => ({
+        name: w.type.replace(/_/g, " "),
+        amount: w.amount,
+        count: w.count,
       })),
-    [vendors],
+    [snapshot],
   );
 
-  const vendorCommissionData = useMemo(
+  const signupChart = useMemo(
     () =>
-      vendors.map((v) => ({
-        name: String(v.name),
-        earned: (Number(v.revenue ?? 0) * Number(v.commission ?? 0)) / 100 / 1000,
-        rate: Number(v.commission ?? 0),
+      (snapshot?.signup_series ?? []).map((r) => ({
+        name: r.day.length >= 10 ? r.day.slice(5, 10) : r.day,
+        signups: r.signups,
       })),
-    [vendors],
+    [snapshot],
   );
 
-  const walletActivityData = useMemo(() => {
-    let topups = 0;
-    let purchases = 0;
-    let transfers = 0;
-    for (const t of walletTxns) {
-      const a = Math.abs(Number(t.amount ?? 0));
-      const typ = String(t.type ?? '').toLowerCase();
-      if (typ === 'topup' || typ === 'credit' || typ === 'bonus') topups += a;
-      else if (typ === 'purchase' || typ === 'debit' || typ === 'withdrawal') purchases += a;
-      else transfers += a;
-    }
-    return [{ name: 'Selected period', topups, purchases, transfers }];
-  }, [walletTxns]);
-
-  const periodSales = useMemo(
-    () => salesSeries.reduce((a, r) => a + r.sales, 0),
-    [salesSeries],
-  );
-  const periodOrders = useMemo(
-    () => salesSeries.reduce((a, r) => a + r.orders, 0),
-    [salesSeries],
-  );
-  const aov = periodOrders > 0 ? periodSales / periodOrders : 0;
-
-  const vendorRevTotal = useMemo(
-    () => vendors.reduce((a, v) => a + Number(v.revenue ?? 0), 0),
-    [vendors],
+  const totalSignups = useMemo(
+    () => (snapshot?.signup_series ?? []).reduce((a, r) => a + r.signups, 0),
+    [snapshot],
   );
 
-  const salesKpis = [
-    { label: 'Period sales', value: fmtRs(periodSales), trend: '' },
-    { label: 'Orders', value: String(periodOrders), trend: '' },
-    { label: 'Avg order value', value: fmtRs(aov), trend: '' },
-    { label: 'Today sales', value: fmtRs(summary?.today_sales ?? 0), trend: '' },
-  ];
+  const walletTotalAmount = useMemo(
+    () => (snapshot?.wallet_by_type ?? []).reduce((a, w) => a + w.amount, 0),
+    [snapshot],
+  );
+
+  const exportSnapshotCsv = () => {
+    if (!snapshot) return;
+    const rows = (snapshot.series ?? []).map((r) => ({
+      day: r.day,
+      sales: r.sales,
+      orders: r.orders,
+    }));
+    downloadCsv(
+      `report-series-${dateFromStr}-${dateToStr}.csv`,
+      rowsToCsv(["day", "sales", "orders"], rows),
+    );
+  };
+
+  const resetFilters = () => {
+    setDateRange(defaultRange());
+    setVendorId("all");
+    setCategoryId("all");
+  };
+
+  const kpis = snapshot?.kpis;
+  const showSkeleton = snapLoading && !snapshot;
+
+  if (showSkeleton) {
+    return <ReportsPageSkeleton />;
+  }
 
   return (
-    <div className="p-4 lg:p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div><h2 className="text-lg font-bold text-foreground">Reports & Analytics</h2><p className="text-sm text-muted-foreground">Chart-based insights — exportable reports</p></div>
-        <div className="flex items-center gap-2">
-          <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger className="w-32"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="daily">Daily</SelectItem>
-              <SelectItem value="weekly">Weekly</SelectItem>
-              <SelectItem value="monthly">Monthly</SelectItem>
-              <SelectItem value="yearly">Yearly</SelectItem>
-            </SelectContent>
-          </Select>
-          <Button variant="outline" size="sm"><Download className="w-4 h-4 mr-1" /> Export</Button>
+    <div className="p-4 lg:p-6 space-y-6 max-w-[1600px] mx-auto">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+        <div className="space-y-1">
+          <h2 className="text-xl font-bold text-foreground tracking-tight">Reports & Analytics</h2>
+          <p className="text-sm text-muted-foreground">
+            Unified dashboard — filters apply to every tab, charts, and tables.
+          </p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={!snapshot}
+            onClick={exportSnapshotCsv}
+          >
+            Export series (CSV)
+          </Button>
+          <Button
+            type="button"
+            variant="default"
+            size="sm"
+            className="gap-1.5"
+            disabled={!filtersReady}
+            onClick={() => void refetch()}
+          >
+            <RefreshCw className={`h-4 w-4 ${snapFetching ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
         </div>
       </div>
 
-      <Tabs defaultValue="sales">
-        <TabsList className="mb-4">
-          <TabsTrigger value="sales">Sales</TabsTrigger>
-          <TabsTrigger value="revenue">Revenue</TabsTrigger>
-          <TabsTrigger value="products">Products</TabsTrigger>
-          <TabsTrigger value="customers">Customers</TabsTrigger>
-          <TabsTrigger value="wallet">Wallet</TabsTrigger>
-          <TabsTrigger value="vendors">Vendors</TabsTrigger>
+      <ReportsFilters
+        dateRange={dateRange}
+        onDateRangeChange={setDateRange}
+        vendorId={vendorId}
+        onVendorIdChange={setVendorId}
+        categoryId={categoryId}
+        onCategoryIdChange={setCategoryId}
+        vendors={vendors}
+        categories={categories}
+        onReset={resetFilters}
+      />
+
+      {!filtersReady ? (
+        <p className="text-sm text-amber-700 dark:text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded-lg px-4 py-3">
+          Select a complete date range (start and end) to load report data.
+        </p>
+      ) : null}
+
+      {snapError ? (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <p className="text-sm text-destructive">
+            {snapErr instanceof Error ? snapErr.message : "Could not load reports."}
+          </p>
+          <Button type="button" variant="outline" size="sm" onClick={() => void refetch()}>
+            Retry
+          </Button>
+        </div>
+      ) : null}
+
+      <Tabs defaultValue="sales" className="space-y-4">
+        <TabsList className="flex w-full flex-nowrap justify-start overflow-x-auto h-auto p-1 bg-secondary/20 rounded-lg gap-1">
+          {(
+            [
+              ["sales", "Sales", ShoppingCart],
+              ["revenue", "Revenue", CreditCard],
+              ["products", "Products", Package],
+              ["customers", "Customers", Users],
+              ["wallet", "Wallet", Wallet],
+              ["vendors", "Vendors", Store],
+            ] as const
+          ).map(([value, label, Icon]) => (
+            <TabsTrigger
+              key={value}
+              value={value}
+              className="shrink-0 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm gap-1.5"
+            >
+              <Icon className="h-4 w-4 opacity-80" />
+              {label}
+            </TabsTrigger>
+          ))}
         </TabsList>
 
-        {/* Sales Report */}
-        <TabsContent value="sales" className="space-y-4">
-          <div className="grid lg:grid-cols-4 gap-3">
-            {salesKpis.map((s, i) => (
-              <Card key={i}><CardContent className="p-4">
-                <p className="text-xs text-muted-foreground">{s.label}</p>
-                <p className="text-xl font-bold text-foreground">{s.value}</p>
-                {s.trend ? <span className="text-xs text-emerald-600">{s.trend}</span> : null}
-              </CardContent></Card>
-            ))}
-          </div>
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-base">Sales & Orders Trend</CardTitle></CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={salesChartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                  <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                  <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
-                  <Bar dataKey="sales" fill="hsl(36, 100%, 50%)" radius={[4, 4, 0, 0]} name="Sales (Rs.)" />
-                  <Bar dataKey="orders" fill="hsl(270, 80%, 35%)" radius={[4, 4, 0, 0]} name="Orders" />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Revenue Report */}
-        <TabsContent value="revenue" className="space-y-4">
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-base">Monthly Revenue & Profit</CardTitle></CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={revenueChartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                  <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} tickFormatter={(v) => `${(v / 1000000).toFixed(1)}M`} />
-                  <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
-                    formatter={(v: number) => [`Rs. ${(v / 1000).toFixed(0)}K`]} />
-                  <Area type="monotone" dataKey="revenue" stroke="hsl(36, 100%, 50%)" fill="hsl(36, 100%, 50%)" fillOpacity={0.1} name="Revenue" />
-                  <Area type="monotone" dataKey="profit" stroke="hsl(142, 71%, 45%)" fill="hsl(142, 71%, 45%)" fillOpacity={0.1} name="Profit" />
-                  <Legend />
-                </AreaChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Products Report */}
-        <TabsContent value="products" className="space-y-4">
-          <div className="grid lg:grid-cols-2 gap-4">
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-base">Category-wise Sales</CardTitle></CardHeader>
-              <CardContent>
-                {categoryWiseSales.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-12">No category catalog data yet.</p>
-                ) : (
-                  <ResponsiveContainer width="100%" height={280}>
-                    <PieChart>
-                      <Pie data={categoryWiseSales} cx="50%" cy="50%" innerRadius={60} outerRadius={100} dataKey="value" label={({ name, value }) => `${name} ${value}%`}>
-                        {categoryWiseSales.map((_, idx) => <Cell key={idx} fill={COLORS[idx % COLORS.length]} />)}
-                      </Pie>
-                      <Tooltip formatter={(v: number) => `${v}%`} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                )}
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-base">Top Categories Revenue</CardTitle></CardHeader>
-              <CardContent className="space-y-3">
-                {categoryWiseSales.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-8">No categories to list.</p>
-                ) : (
-                  categoryWiseSales.map((cat, i) => (
-                    <div key={cat.name} className="flex items-center gap-3">
-                      <div className="w-3 h-3 rounded-full" style={{ background: COLORS[i % COLORS.length] }} />
-                      <span className="flex-1 text-sm font-medium">{cat.name}</span>
-                      <span className="text-sm text-muted-foreground">Rs. {(cat.amount / 1000).toFixed(0)}K</span>
-                      <Badge variant="outline" className="text-[10px]">{cat.value}%</Badge>
-                    </div>
-                  ))
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-
-        {/* Customer Report */}
-        <TabsContent value="customers" className="space-y-4">
-          <div className="grid lg:grid-cols-3 gap-3">
-            {[
-              { label: 'Total users', value: String(summary?.total_users ?? '—'), trend: '' },
-              { label: 'Total vendors', value: String(summary?.total_vendors ?? '—'), trend: '' },
-              { label: 'Wallet balance (all)', value: fmtRs(summary?.wallet_balance_total ?? 0), trend: '' },
-            ].map((s, i) => (
-              <Card key={i}><CardContent className="p-4">
-                <p className="text-xs text-muted-foreground">{s.label}</p>
-                <p className="text-xl font-bold text-foreground">{s.value}</p>
-                {s.trend ? <span className="text-xs text-emerald-600">{s.trend}</span> : null}
-              </CardContent></Card>
-            ))}
-          </div>
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-base">Customer Growth</CardTitle></CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={250}>
-                <LineChart data={revenueChartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                  <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                  <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }} />
-                  <Line type="monotone" dataKey="revenue" stroke="hsl(270, 80%, 35%)" strokeWidth={2} dot={false} name="Sales (proxy)" />
-                </LineChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Wallet Report */}
-        <TabsContent value="wallet" className="space-y-4">
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-base">Wallet activity</CardTitle></CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={walletActivityData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                  <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} tickFormatter={(v) => `${(v / 1000).toFixed(0)}K`} />
-                  <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
-                    formatter={(v: number) => [`Rs. ${(v / 1000).toFixed(0)}K`]} />
-                  <Bar dataKey="topups" fill="hsl(142, 71%, 45%)" radius={[4, 4, 0, 0]} name="Top-ups" />
-                  <Bar dataKey="purchases" fill="hsl(36, 100%, 50%)" radius={[4, 4, 0, 0]} name="Purchases" />
-                  <Bar dataKey="transfers" fill="hsl(270, 80%, 35%)" radius={[4, 4, 0, 0]} name="Transfers" />
-                  <Legend />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Vendor Report — WITH CHARTS */}
-        <TabsContent value="vendors" className="space-y-4">
-          <div className="grid lg:grid-cols-3 gap-3">
-            {[
-              { label: 'Total Vendors', value: `${vendors.length}`, trend: '' },
-              { label: 'Vendor Revenue', value: fmtRs(vendorRevTotal), trend: '' },
-              { label: 'Avg Fulfillment', value: '—', trend: '' },
-            ].map((s, i) => (
-              <Card key={i}><CardContent className="p-4">
-                <p className="text-xs text-muted-foreground">{s.label}</p>
-                <p className="text-xl font-bold text-foreground">{s.value}</p>
-                {s.trend ? <span className="text-xs text-emerald-600">{s.trend}</span> : null}
-              </CardContent></Card>
-            ))}
-          </div>
-
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-base">Vendor Revenue Comparison (in K)</CardTitle></CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={vendorSalesData} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis type="number" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} tickFormatter={(v) => `Rs. ${v}K`} />
-                  <YAxis dataKey="name" type="category" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} width={120} />
-                  <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
-                    formatter={(v: number) => [`Rs. ${v}K`]} />
-                  <Bar dataKey="revenue" fill="hsl(36, 100%, 50%)" radius={[0, 4, 4, 0]} name="Revenue" />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-base">Platform Commission Earned (in K)</CardTitle></CardHeader>
-            <CardContent>
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={vendorCommissionData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-                  <XAxis dataKey="name" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} />
-                  <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }} tickFormatter={(v) => `Rs. ${v}K`} />
-                  <Tooltip contentStyle={{ background: 'hsl(var(--card))', border: '1px solid hsl(var(--border))', borderRadius: '8px' }}
-                    formatter={(v: number, name: string) => [name === 'rate' ? `${v}%` : `Rs. ${v.toFixed(0)}K`]} />
-                  <Bar dataKey="earned" fill="hsl(142, 71%, 45%)" radius={[4, 4, 0, 0]} name="Commission Earned" />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-base">Vendor Performance</CardTitle></CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {vendors.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-6">No vendors yet.</p>
-                ) : (
-                  vendors.map((s, i) => (
-                    <div key={String(s.id)} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded bg-primary/10 flex items-center justify-center text-sm font-bold text-primary">{i + 1}</div>
-                        <div>
-                          <p className="font-medium text-sm">{String(s.name)}</p>
-                          <p className="text-xs text-muted-foreground">{String(s.products ?? 0)} products • {String(s.orders ?? 0)} orders</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <div className="text-right">
-                          <p className="font-bold text-sm">Rs. {(Number(s.revenue ?? 0) / 1000).toFixed(0)}K</p>
-                          <p className="text-xs text-muted-foreground">{String(s.commission ?? 0)}% commission</p>
-                        </div>
-                        <Badge variant={s.status === 'approved' ? 'default' : 'secondary'} className={cn("text-xs", s.status === 'approved' && "bg-emerald-500")}>{String(s.status)}</Badge>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+        <TabSales
+          snapshot={snapshot}
+          kpis={kpis}
+          seriesChart={seriesChart}
+          categoryPie={categoryPie}
+          orderRows={orderRows}
+        />
+        <TabRevenue snapshot={snapshot} kpis={kpis} seriesChart={seriesChart} orderRows={orderRows} />
+        <TabProducts categoryPie={categoryPie} snapshot={snapshot} />
+        <TabCustomers
+          summary={summary}
+          signupChart={signupChart}
+          totalSignups={totalSignups}
+          snapshot={snapshot}
+        />
+        <TabWallet
+          walletBarData={walletBarData}
+          walletTotalAmount={walletTotalAmount}
+          snapshot={snapshot}
+          walletRows={walletRows}
+        />
+        <TabVendors
+          vendorPie={vendorPie}
+          snapshot={snapshot}
+          kpis={kpis}
+          seriesChart={seriesChart}
+        />
       </Tabs>
     </div>
+  );
+}
+
+function TabSales({
+  snapshot,
+  kpis,
+  seriesChart,
+  categoryPie,
+  orderRows,
+}: {
+  snapshot: AdminReportsSnapshot | undefined;
+  kpis: AdminReportsSnapshot["kpis"] | undefined;
+  seriesChart: { name: string; sales: number; orders: number }[];
+  categoryPie: { name: string; value: number; sales: number }[];
+  orderRows: AdminOrderListRow[];
+}) {
+  return (
+    <TabsContent value="sales" className="space-y-4 mt-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+        <ReportsStatCard
+          title="Total sales"
+          value={fmtRs(kpis?.total_sales ?? 0)}
+          icon={ShoppingCart}
+          trendPct={kpis?.sales_growth_pct ?? null}
+        />
+        <ReportsStatCard
+          title="Total orders"
+          value={String(kpis?.total_orders ?? 0)}
+          icon={LayoutDashboard}
+          trendPct={kpis?.orders_growth_pct ?? null}
+        />
+        <ReportsStatCard title="Revenue" value={fmtRs(kpis?.total_sales ?? 0)} icon={CreditCard} />
+        <ReportsStatCard
+          title="Avg order value"
+          value={fmtRs(kpis?.aov ?? 0)}
+          icon={PieChartIcon}
+          trendPct={null}
+        />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <ReportChartCard title="Sales vs orders" subtitle="Comparison by day">
+          <div className="h-[260px] sm:h-[300px] w-full min-w-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={seriesChart}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="name" tick={chartAxisTick} />
+                <YAxis tick={chartAxisTick} />
+                <Tooltip contentStyle={chartTooltipStyle} />
+                <Bar dataKey="sales" fill={CHART_PRIMARY} radius={[4, 4, 0, 0]} name="Sales (Rs.)" />
+                <Bar dataKey="orders" fill={CHART_SECONDARY} radius={[4, 4, 0, 0]} name="Orders" />
+                <Legend />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </ReportChartCard>
+        <ReportChartCard title="Sales trend" subtitle="Line over selected period">
+          <div className="h-[260px] sm:h-[300px] w-full min-w-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={seriesChart}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="name" tick={chartAxisTick} />
+                <YAxis tick={chartAxisTick} />
+                <Tooltip contentStyle={chartTooltipStyle} />
+                <Line
+                  type="monotone"
+                  dataKey="sales"
+                  stroke={CHART_PRIMARY}
+                  strokeWidth={2}
+                  dot={false}
+                  name="Sales"
+                />
+                <Legend />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </ReportChartCard>
+      </div>
+      {categoryPie.length > 0 ? (
+        <ReportChartCard title="Category mix (sales share)" subtitle="Donut by revenue in scope">
+          <div className="h-[280px] w-full min-w-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={categoryPie}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={68}
+                  outerRadius={100}
+                  dataKey="value"
+                  nameKey="name"
+                  label={({ name, value }) => `${name} ${value}%`}
+                >
+                  {categoryPie.map((_, idx) => (
+                    <Cell key={idx} fill={CHART_PALETTE[idx % CHART_PALETTE.length]} />
+                  ))}
+                </Pie>
+                <Tooltip contentStyle={chartTooltipStyle} formatter={(v: number) => [`${v}%`, "Share"]} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </ReportChartCard>
+      ) : null}
+      <ReportsDataTable<Record<string, unknown>>
+        title="Order detail"
+        subtitle="All orders in the selected filters (up to 500 rows)"
+        csvFilename={`orders-${snapshot?.period.date_from ?? ""}-${snapshot?.period.date_to ?? ""}`}
+        rowKey="id"
+        searchKeys={["id", "customer", "seller", "status", "payment"]}
+        columns={[
+          { key: "id", label: "Order" },
+          { key: "date", label: "Date" },
+          { key: "customer", label: "Customer" },
+          { key: "seller", label: "Vendor" },
+          { key: "total", label: "Total", render: (r) => fmtRs(Number(r.total)) },
+          { key: "status", label: "Status" },
+          { key: "payment", label: "Payment" },
+        ]}
+        rows={orderRows as unknown as Record<string, unknown>[]}
+      />
+    </TabsContent>
+  );
+}
+
+function TabRevenue({
+  kpis,
+  seriesChart,
+  orderRows,
+  snapshot,
+}: {
+  kpis: AdminReportsSnapshot["kpis"] | undefined;
+  seriesChart: { name: string; sales: number; orders: number }[];
+  orderRows: AdminOrderListRow[];
+  snapshot: AdminReportsSnapshot | undefined;
+}) {
+  return (
+    <TabsContent value="revenue" className="space-y-4 mt-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+        <ReportsStatCard title="Revenue" value={fmtRs(kpis?.total_sales ?? 0)} icon={CreditCard} trendPct={kpis?.sales_growth_pct ?? null} />
+        <ReportsStatCard title="Orders" value={String(kpis?.total_orders ?? 0)} icon={ShoppingCart} trendPct={kpis?.orders_growth_pct ?? null} />
+        <ReportsStatCard title="Avg order value" value={fmtRs(kpis?.aov ?? 0)} icon={LayoutDashboard} trendPct={null} />
+        <ReportsStatCard title="Prev. revenue" value={fmtRs(kpis?.previous_total_sales ?? 0)} icon={PieChartIcon} trendPct={null} />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <ReportChartCard title="Revenue by day" subtitle="Bar comparison">
+          <div className="h-[260px] sm:h-[300px] w-full min-w-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={seriesChart}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="name" tick={chartAxisTick} />
+                <YAxis tick={chartAxisTick} />
+                <Tooltip contentStyle={chartTooltipStyle} />
+                <Bar dataKey="sales" fill={CHART_PRIMARY} radius={[4, 4, 0, 0]} name="Revenue" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </ReportChartCard>
+        <ReportChartCard title="Revenue trend">
+          <div className="h-[260px] sm:h-[300px] w-full min-w-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={seriesChart}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="name" tick={chartAxisTick} />
+                <YAxis tick={chartAxisTick} />
+                <Tooltip contentStyle={chartTooltipStyle} />
+                <Line type="monotone" dataKey="sales" stroke={CHART_SECONDARY} strokeWidth={2} dot={false} name="Revenue" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </ReportChartCard>
+      </div>
+      <ReportsDataTable
+        title="Revenue detail"
+        subtitle="Orders contributing to revenue in this range"
+        csvFilename={`revenue-orders-${snapshot?.period.date_from ?? ""}`}
+        rowKey="id"
+        searchKeys={["id", "customer", "seller"]}
+        columns={[
+          { key: "id", label: "Order" },
+          { key: "date", label: "Date" },
+          { key: "customer", label: "Customer" },
+          { key: "total", label: "Total", render: (r) => fmtRs(Number(r.total)) },
+          { key: "items", label: "Items" },
+          { key: "status", label: "Status" },
+        ]}
+        rows={orderRows as unknown as Record<string, unknown>[]}
+      />
+    </TabsContent>
+  );
+}
+
+function TabProducts({
+  categoryPie,
+  snapshot,
+}: {
+  categoryPie: { name: string; value: number; sales: number }[];
+  snapshot: AdminReportsSnapshot | undefined;
+}) {
+  const breakdown = snapshot?.category_breakdown ?? [];
+  const tableRows: Record<string, unknown>[] = breakdown.map((c) => ({
+    id: String(c.category_id ?? c.name),
+    name: c.name,
+    sales: c.sales,
+    lines: c.lines,
+  }));
+
+  return (
+    <TabsContent value="products" className="space-y-4 mt-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+        <ReportsStatCard title="Categories (in scope)" value={String(breakdown.length)} icon={Package} trendPct={null} />
+        <ReportsStatCard
+          title="Top category sales"
+          value={fmtRs(breakdown[0]?.sales ?? 0)}
+          icon={PieChartIcon}
+          trendPct={null}
+        />
+        <ReportsStatCard
+          title="Line items"
+          value={String(breakdown.reduce((a, c) => a + c.lines, 0))}
+          icon={LayoutDashboard}
+          trendPct={null}
+        />
+        <ReportsStatCard
+          title="Catalog revenue"
+          value={fmtRs(breakdown.reduce((a, c) => a + c.sales, 0))}
+          icon={CreditCard}
+          trendPct={null}
+        />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <ReportChartCard title="Category sales" subtitle="Bar by Rs.">
+          <div className="h-[260px] sm:h-[300px] w-full min-w-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={breakdown.map((c) => ({ name: c.name.length > 14 ? `${c.name.slice(0, 12)}…` : c.name, sales: c.sales }))}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="name" tick={chartAxisTick} interval={0} angle={-25} textAnchor="end" height={70} />
+                <YAxis tick={chartAxisTick} />
+                <Tooltip contentStyle={chartTooltipStyle} />
+                <Bar dataKey="sales" fill={CHART_SECONDARY} radius={[4, 4, 0, 0]} name="Sales" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </ReportChartCard>
+        {categoryPie.length > 0 ? (
+          <ReportChartCard title="Category distribution" subtitle="Donut (% of sales)">
+            <div className="h-[260px] sm:h-[300px] w-full min-w-0">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={categoryPie}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={90}
+                    label={({ name, value }) => `${name} ${value}%`}
+                  >
+                    {categoryPie.map((_, idx) => (
+                      <Cell key={idx} fill={CHART_PALETTE[idx % CHART_PALETTE.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip contentStyle={chartTooltipStyle} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </ReportChartCard>
+        ) : (
+          <ReportChartCard title="Category distribution">
+            <p className="text-sm text-muted-foreground py-16 text-center">No category sales in this range.</p>
+          </ReportChartCard>
+        )}
+      </div>
+      <ReportsDataTable
+        title="Category breakdown"
+        subtitle="From order line items in scope"
+        csvFilename={`categories-${snapshot?.period.date_from ?? ""}`}
+        rowKey="id"
+        searchKeys={["name"]}
+        columns={[
+          { key: "name", label: "Category" },
+          { key: "sales", label: "Sales", render: (r) => fmtRs(Number(r.sales)) },
+          { key: "lines", label: "Line items" },
+        ]}
+        rows={tableRows}
+      />
+    </TabsContent>
+  );
+}
+
+function TabCustomers({
+  summary,
+  signupChart,
+  totalSignups,
+  snapshot,
+}: {
+  summary: Awaited<ReturnType<typeof adminApi.summary>> | undefined;
+  signupChart: { name: string; signups: number }[];
+  totalSignups: number;
+  snapshot: AdminReportsSnapshot | undefined;
+}) {
+  const signupRows: Record<string, unknown>[] = signupChart.map((r, i) => ({
+    id: `${r.name}-${i}`,
+    day: r.name,
+    signups: r.signups,
+  }));
+
+  return (
+    <TabsContent value="customers" className="space-y-4 mt-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+        <ReportsStatCard title="Total users" value={String(summary?.total_users ?? "—")} icon={Users} trendPct={null} />
+        <ReportsStatCard title="New signups (range)" value={String(totalSignups)} icon={Users} trendPct={null} />
+        <ReportsStatCard title="Total vendors" value={String(summary?.total_vendors ?? "—")} icon={Store} trendPct={null} />
+        <ReportsStatCard
+          title="Wallet balance (all)"
+          value={fmtRs(summary?.wallet_balance_total ?? 0)}
+          icon={Wallet}
+          trendPct={null}
+        />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <ReportChartCard title="Signups by day" subtitle="Bar">
+          <div className="h-[260px] sm:h-[300px] w-full min-w-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={signupChart}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="name" tick={chartAxisTick} />
+                <YAxis tick={chartAxisTick} allowDecimals={false} />
+                <Tooltip contentStyle={chartTooltipStyle} />
+                <Bar dataKey="signups" fill={CHART_PRIMARY} radius={[4, 4, 0, 0]} name="Signups" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </ReportChartCard>
+        <ReportChartCard title="Signup trend" subtitle="Line">
+          <div className="h-[260px] sm:h-[300px] w-full min-w-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={signupChart}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="name" tick={chartAxisTick} />
+                <YAxis tick={chartAxisTick} allowDecimals={false} />
+                <Tooltip contentStyle={chartTooltipStyle} />
+                <Line type="monotone" dataKey="signups" stroke={CHART_SECONDARY} strokeWidth={2} dot={false} name="Signups" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </ReportChartCard>
+      </div>
+      <ReportChartCard title="Orders activity (same filters)" subtitle="Line — relates to customer demand in period">
+        <div className="h-[240px] w-full min-w-0">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={snapshot?.series ?? []}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis dataKey="day" tickFormatter={(d) => (d.length >= 10 ? d.slice(5, 10) : d)} tick={chartAxisTick} />
+              <YAxis tick={chartAxisTick} />
+              <Tooltip contentStyle={chartTooltipStyle} />
+              <Line type="monotone" dataKey="orders" stroke={CHART_PRIMARY} strokeWidth={2} dot={false} name="Orders" />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </ReportChartCard>
+      <ReportsDataTable
+        title="Signups by day"
+        csvFilename={`signups-${snapshot?.period.date_from ?? ""}`}
+        rowKey="id"
+        searchKeys={["day"]}
+        columns={[
+          { key: "day", label: "Day" },
+          { key: "signups", label: "Signups" },
+        ]}
+        rows={signupRows}
+      />
+    </TabsContent>
+  );
+}
+
+function TabWallet({
+  walletBarData,
+  walletTotalAmount,
+  snapshot,
+  walletRows,
+}: {
+  walletBarData: { name: string; amount: number; count: number }[];
+  walletTotalAmount: number;
+  snapshot: AdminReportsSnapshot | undefined;
+  walletRows: Record<string, unknown>[];
+}) {
+  const lineFromBar = walletBarData.map((w) => ({ name: w.name, amount: w.amount }));
+
+  return (
+    <TabsContent value="wallet" className="space-y-4 mt-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+        <ReportsStatCard title="Txn volume (range)" value={fmtRs(walletTotalAmount)} icon={Wallet} trendPct={null} />
+        <ReportsStatCard title="Txn types" value={String(walletBarData.length)} icon={PieChartIcon} trendPct={null} />
+        <ReportsStatCard title="Total orders (scope)" value={String(snapshot?.kpis.total_orders ?? 0)} icon={ShoppingCart} trendPct={null} />
+        <ReportsStatCard title="Sales (scope)" value={fmtRs(snapshot?.kpis.total_sales ?? 0)} icon={CreditCard} trendPct={null} />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <ReportChartCard title="Wallet activity by type" subtitle="Bar — amount">
+          <div className="h-[260px] sm:h-[300px] w-full min-w-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={walletBarData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="name" tick={chartAxisTick} interval={0} angle={-20} textAnchor="end" height={72} />
+                <YAxis tick={chartAxisTick} />
+                <Tooltip contentStyle={chartTooltipStyle} />
+                <Bar dataKey="amount" fill={CHART_PRIMARY} radius={[4, 4, 0, 0]} name="Amount" />
+                <Legend />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </ReportChartCard>
+        <ReportChartCard title="Type totals trend-style" subtitle="Line over types">
+          <div className="h-[260px] sm:h-[300px] w-full min-w-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={lineFromBar}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="name" tick={chartAxisTick} interval={0} angle={-20} textAnchor="end" height={72} />
+                <YAxis tick={chartAxisTick} />
+                <Tooltip contentStyle={chartTooltipStyle} />
+                <Line type="monotone" dataKey="amount" stroke={CHART_SECONDARY} strokeWidth={2} dot name="Amount" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </ReportChartCard>
+      </div>
+      {walletBarData.length > 0 ? (
+        <ReportChartCard title="Share by type" subtitle="Donut (amount)">
+          <div className="h-[260px] w-full min-w-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={walletBarData.map((w) => ({
+                    name: w.name,
+                    value: walletTotalAmount > 0 ? Math.round((100 * w.amount) / walletTotalAmount) : 0,
+                  }))}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius={58}
+                  outerRadius={88}
+                  label={({ name, value }) => `${name} ${value}%`}
+                >
+                  {walletBarData.map((_, idx) => (
+                    <Cell key={idx} fill={CHART_PALETTE[idx % CHART_PALETTE.length]} />
+                  ))}
+                </Pie>
+                <Tooltip contentStyle={chartTooltipStyle} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </ReportChartCard>
+      ) : null}
+      <ReportsDataTable
+        title="Wallet transactions"
+        subtitle="Filtered by the same date range"
+        csvFilename={`wallet-txns-${snapshot?.period.date_from ?? ""}`}
+        rowKey="id"
+        searchKeys={["user", "type", "item", "status"]}
+        columns={[
+          { key: "id", label: "ID" },
+          { key: "user", label: "Party" },
+          { key: "type", label: "Type" },
+          { key: "item", label: "Description" },
+          { key: "amount", label: "Amount", render: (r) => fmtRs(Number(r.amount)) },
+          { key: "time", label: "Time" },
+          { key: "status", label: "Status" },
+        ]}
+        rows={walletRows}
+      />
+    </TabsContent>
+  );
+}
+
+function TabVendors({
+  vendorPie,
+  snapshot,
+  kpis,
+  seriesChart,
+}: {
+  vendorPie: { name: string; value: number; sales: number }[];
+  snapshot: AdminReportsSnapshot | undefined;
+  kpis: AdminReportsSnapshot["kpis"] | undefined;
+  seriesChart: { name: string; sales: number; orders: number }[];
+}) {
+  const vendors = snapshot?.vendor_breakdown ?? [];
+  const tableRows: Record<string, unknown>[] = vendors.map((v) => ({
+    id: String(v.vendor_id),
+    name: v.name,
+    sales: v.sales,
+    orders: v.orders,
+  }));
+
+  return (
+    <TabsContent value="vendors" className="space-y-4 mt-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+        <ReportsStatCard title="Vendors (in range)" value={String(vendors.length)} icon={Store} trendPct={null} />
+        <ReportsStatCard title="Sales (scope)" value={fmtRs(kpis?.total_sales ?? 0)} icon={ShoppingCart} trendPct={kpis?.sales_growth_pct ?? null} />
+        <ReportsStatCard title="Orders (scope)" value={String(kpis?.total_orders ?? 0)} icon={LayoutDashboard} trendPct={kpis?.orders_growth_pct ?? null} />
+        <ReportsStatCard title="Top vendor sales" value={fmtRs(vendors[0]?.sales ?? 0)} icon={PieChartIcon} trendPct={null} />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <ReportChartCard title="Vendor revenue comparison">
+          <div className="h-[280px] w-full min-w-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={vendors.map((v) => ({ name: v.name.length > 12 ? `${v.name.slice(0, 10)}…` : v.name, sales: v.sales }))} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis type="number" tick={chartAxisTick} />
+                <YAxis type="category" dataKey="name" width={100} tick={chartAxisTick} />
+                <Tooltip contentStyle={chartTooltipStyle} />
+                <Bar dataKey="sales" fill={CHART_PRIMARY} radius={[0, 4, 4, 0]} name="Sales" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </ReportChartCard>
+        <ReportChartCard title="Platform sales trend" subtitle="Same filters — all vendors combined">
+          <div className="h-[280px] w-full min-w-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={seriesChart}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="name" tick={chartAxisTick} />
+                <YAxis tick={chartAxisTick} />
+                <Tooltip contentStyle={chartTooltipStyle} />
+                <Line type="monotone" dataKey="sales" stroke={CHART_SECONDARY} strokeWidth={2} dot={false} name="Sales" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </ReportChartCard>
+      </div>
+      {vendorPie.length > 0 ? (
+        <ReportChartCard title="Vendor share" subtitle="Donut (top vendors)">
+          <div className="h-[260px] w-full min-w-0">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={vendorPie}
+                  dataKey="value"
+                  nameKey="name"
+                  innerRadius={58}
+                  outerRadius={88}
+                  label={({ name, value }) => `${name} ${value}%`}
+                >
+                  {vendorPie.map((_, idx) => (
+                    <Cell key={idx} fill={CHART_PALETTE[idx % CHART_PALETTE.length]} />
+                  ))}
+                </Pie>
+                <Tooltip contentStyle={chartTooltipStyle} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </ReportChartCard>
+      ) : null}
+      <ReportsDataTable
+        title="Vendor performance"
+        csvFilename={`vendors-${snapshot?.period.date_from ?? ""}`}
+        rowKey="id"
+        searchKeys={["name"]}
+        columns={[
+          { key: "name", label: "Vendor" },
+          { key: "sales", label: "Sales", render: (r) => fmtRs(Number(r.sales)) },
+          { key: "orders", label: "Orders" },
+        ]}
+        rows={tableRows}
+      />
+    </TabsContent>
   );
 }
