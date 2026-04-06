@@ -19,6 +19,7 @@ const baseRules = (overrides: Partial<PortalChildRulesResponse> = {}): PortalChi
     spending_limit_weekly: 0,
     spending_limit_monthly: 0,
   },
+  member_spent: null,
   product_restrictions: [],
   auto_approval_rules: [] as PortalFamilyAutoApprovalRuleRow[],
   approved_purchase_product_ids: [],

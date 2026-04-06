@@ -292,16 +292,26 @@ const ChildPortal = () => {
   );
 
   const ml = childRulesQuery.data?.member_limits;
+  const ms = childRulesQuery.data?.member_spent;
   const spendingLimits = useMemo(
     () => ({
       daily: ml?.spending_limit_daily ?? 0,
-      dailyUsed: 0,
+      dailyUsed:
+        childSummaryQuery.data?.spentToday ?? ms?.daily ?? 0,
       weekly: ml?.spending_limit_weekly ?? 0,
-      weeklyUsed: 0,
+      weeklyUsed:
+        childSummaryQuery.data?.spentThisWeek ?? ms?.weekly ?? 0,
       monthly: ml?.spending_limit_monthly || walletData.spendingLimit || 0,
       monthlyUsed: walletData.spentThisMonth,
     }),
-    [ml, walletData.spendingLimit, walletData.spentThisMonth],
+    [
+      ml,
+      ms,
+      childSummaryQuery.data?.spentToday,
+      childSummaryQuery.data?.spentThisWeek,
+      walletData.spendingLimit,
+      walletData.spentThisMonth,
+    ],
   );
 
   const spendingProgress =

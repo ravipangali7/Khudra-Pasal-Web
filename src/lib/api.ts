@@ -2178,6 +2178,10 @@ export type PortalChildSummary = {
   totalBalance: number;
   spendingLimit: number;
   spentThisMonth: number;
+  /** Non-personal wallet order spend, current local calendar week (Mon–Sun). */
+  spentThisWeek?: number;
+  /** Non-personal wallet order spend, current local calendar day. */
+  spentToday?: number;
   group_name: string;
 };
 
@@ -2209,6 +2213,13 @@ export type PortalChildMemberLimits = {
   spending_limit_monthly: number;
 };
 
+/** Order totals (PAID, non-personal payment wallet) for limit progress. */
+export type PortalChildMemberSpent = {
+  daily: number;
+  weekly: number;
+  monthly: number;
+};
+
 export type PortalPurchaseApprovalRequestRow = {
   id: number;
   product_id: number;
@@ -2229,6 +2240,7 @@ export type PortalPurchaseApprovalRequestRow = {
 export type PortalChildRulesResponse = {
   group_permissions: PortalChildGroupPermissions | null;
   member_limits: PortalChildMemberLimits | null;
+  member_spent: PortalChildMemberSpent | null;
   product_restrictions: PortalFamilyProductRestrictionRow[];
   auto_approval_rules: PortalFamilyAutoApprovalRuleRow[];
   /** Product PKs with an active parent-approved purchase request (unconsumed). */
