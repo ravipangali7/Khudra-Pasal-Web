@@ -4,7 +4,6 @@ import type { ReactNode } from "react";
 export const FAMILY_PORTAL_VIEW_KEYS = [
   "dashboard",
   "members",
-  "members-add",
   "members-requests",
   "wallets",
   "spending-limits",
@@ -23,7 +22,6 @@ export type FamilyPortalViewKey = (typeof FAMILY_PORTAL_VIEW_KEYS)[number];
 export type FamilyPortalViewRenderFns = {
   dashboard: () => ReactNode;
   members: () => ReactNode;
-  membersAdd: () => ReactNode;
   membersRequests: () => ReactNode;
   wallets: () => ReactNode;
   spendingLimits: () => ReactNode;
@@ -44,7 +42,6 @@ export function createFamilyPortalViewRegistry(
   return {
     dashboard: f.dashboard,
     members: f.members,
-    "members-add": f.membersAdd,
     "members-requests": f.membersRequests,
     wallets: f.wallets,
     "spending-limits": f.spendingLimits,
