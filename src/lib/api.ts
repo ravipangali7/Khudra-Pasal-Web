@@ -451,6 +451,47 @@ export type AdminRecentOrder = {
   created_at: string;
 };
 
+/** GET /admin/dashboard/wallet-series/ */
+export type AdminDashboardWalletSeriesResponse = {
+  series: Array<{ day: string; topup: number; transfer: number; withdrawal: number }>;
+  totals: { inflow: number; outflow: number };
+};
+
+/** GET /admin/dashboard/low-stock/ */
+export type AdminDashboardLowStockResponse = {
+  threshold: number;
+  results: Array<{
+    id: string;
+    name: string;
+    sku: string;
+    stock: number;
+    status: string;
+    seller: string;
+  }>;
+};
+
+/** Row from GET /admin/wallet-transactions/ */
+export type AdminWalletTransactionRow = {
+  id: string;
+  user: string;
+  type: string;
+  item: string;
+  amount: number;
+  time: string;
+  status: string;
+  family: string;
+};
+
+/** Row from GET /admin/flagged/ */
+export type AdminFlaggedActivityRow = {
+  id: string;
+  user: string;
+  type: string;
+  severity: string;
+  status: string;
+  time: string;
+};
+
 const buildQuery = (params?: Record<string, string | number | boolean | undefined>) => {
   const searchParams = new URLSearchParams();
   if (!params) return "";
@@ -1247,6 +1288,21 @@ export const adminApi = {
       undefined,
       true,
     ),
+  walletSeries: (days = 7) =>
+    apiFetch<AdminDashboardWalletSeriesResponse>(
+      `/admin/dashboard/wallet-series/${buildQuery({ days })}`,
+      undefined,
+      true,
+    ),
+  lowStock: (params?: { threshold?: number; limit?: number }) =>
+    apiFetch<AdminDashboardLowStockResponse>(
+      `/admin/dashboard/low-stock/${buildQuery({
+        ...(params?.threshold != null ? { threshold: params.threshold } : {}),
+        ...(params?.limit != null ? { limit: params.limit } : {}),
+      })}`,
+      undefined,
+      true,
+    ),
   reportsSnapshot: (params: {
     date_from: string;
     date_to: string;
@@ -1351,7 +1407,7 @@ export const adminApi = {
   payoutAccounts: (params?: QueryParams) =>
     adminPaged<Record<string, unknown>>("payout-accounts", params),
   wallets: (params?: QueryParams) => adminPaged<Record<string, unknown>>("wallets", params),
-  walletTransactions: (params?: QueryParams) => adminPaged<Record<string, unknown>>("wallet-transactions", params),
+  walletTransactions: (params?: QueryParams) => adminPaged<AdminWalletTransactionRow>("wallet-transactions", params),
   walletBonuses: (params?: QueryParams) => adminPaged<Record<string, unknown>>("wallet-bonuses", params),
   loyaltyRules: (params?: QueryParams) => adminPaged<Record<string, unknown>>("loyalty-rules", params),
   families: (params?: QueryParams) => adminPaged<Record<string, unknown>>("families", params),
@@ -1402,7 +1458,7 @@ export const adminApi = {
       "PATCH",
       payload,
     ),
-  flagged: (params?: QueryParams) => adminPaged<Record<string, unknown>>("flagged", params),
+  flagged: (params?: QueryParams) => adminPaged<AdminFlaggedActivityRow>("flagged", params),
   shippingMethods: (params?: QueryParams) => adminPaged<Record<string, unknown>>("shipping-methods", params),
   shippingZones: (params?: QueryParams) => adminPaged<Record<string, unknown>>("shipping-zones", params),
   weightRules: (params?: QueryParams) => adminPaged<Record<string, unknown>>("weight-rules", params),

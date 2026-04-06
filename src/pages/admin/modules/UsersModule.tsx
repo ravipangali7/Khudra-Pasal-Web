@@ -23,6 +23,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Sheet,
   SheetContent,
@@ -1384,6 +1385,7 @@ function useIsLg() {
 
 function KYCView() {
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
   const isLg = useIsLg();
   const [selected, setSelected] = useState<AdminKycSubmissionRow | null>(null);
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
@@ -1393,6 +1395,13 @@ function KYCView() {
   const [approveConfirm, setApproveConfirm] = useState<AdminKycSubmissionRow | null>(null);
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
+
+  useEffect(() => {
+    const q = searchParams.get('kyc_status');
+    if (q === 'pending' || q === 'review' || q === 'approved' || q === 'rejected' || q === 'all') {
+      setStatusFilter(q);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (isLg) setMobileSheetOpen(false);
@@ -1430,6 +1439,7 @@ function KYCView() {
     }) => adminApi.updateKycSubmission(id, { status, rejection_reason }),
     onSuccess: (data) => {
       void queryClient.invalidateQueries({ queryKey: ['admin', 'kyc-submissions'] });
+      void queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard', 'kyc-queue'] });
       void queryClient.invalidateQueries({ queryKey: ['admin-users-list'] });
       setSelected((prev) => (prev && String(prev.id) === String(data.id) ? data : prev));
       setRejectOpen(false);
