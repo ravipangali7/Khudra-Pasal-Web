@@ -566,7 +566,7 @@ export function FamilyPortal() {
             <CardContent>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { icon: CreditCard, label: 'Load Money', color: 'bg-emerald-500', action: () => goTo('wallets-load') },
+                  { icon: CreditCard, label: 'Load Money', color: 'bg-emerald-500', action: () => goTo('wallets-overview') },
                   { icon: Shield, label: 'Set Rules', color: 'bg-purple-500', action: () => goTo('controls') },
                   { icon: History, label: 'View History', color: 'bg-orange-500', action: () => goTo('history') },
                 ].map((action) => (
