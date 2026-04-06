@@ -6,6 +6,7 @@ import { savePendingCartIntent } from '@/lib/pendingCartIntent';
 import { useCart } from '@/contexts/CartContext';
 import { useChildShoppingRules } from '@/contexts/ChildShoppingRulesContext';
 import { evaluateChildProductCommerce } from '@/lib/childShoppingRules';
+import { useChildPurchaseApprovalRequest } from '@/hooks/useChildPurchaseApprovalRequest';
 import { toast } from 'sonner';
 import type { Reel } from '../types';
 
@@ -41,6 +42,7 @@ export function useReelFeedController(
     isLoadingRules,
     rulesFetchError,
   } = useChildShoppingRules();
+  const purchaseApprovalMut = useChildPurchaseApprovalRequest();
   const [showToast, setShowToast] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
   const [commentDrawerReelId, setCommentDrawerReelId] = useState<number | null>(null);
@@ -121,6 +123,39 @@ export function useReelFeedController(
         addToCart(toCartProduct(reel));
         return;
       }
+      if (isChildShopper) {
+        if (isLoadingProfile || isLoadingRules) {
+          toast.message('Checking your family shopping rules…');
+          return;
+        }
+        if (rulesFetchError || !rules) {
+          toast.error('Could not load family shopping rules. Try again.');
+          return;
+        }
+        const ev = evaluateChildProductCommerce(
+          {
+            id: String(reel.product.id),
+            category: reel.product.categorySlug || 'all',
+            price: reel.product.price,
+            parentCategorySlug: reel.product.parentCategorySlug ?? null,
+          },
+          rules,
+        );
+        if (
+          ev.needsApproval &&
+          !ev.hasPurchaseApproval &&
+          !ev.blocked &&
+          !ev.overMaxPrice &&
+          !ev.purchasesOff
+        ) {
+          purchaseApprovalMut.mutate(reel.product.id);
+          return;
+        }
+        if (ev.commerceDisabled) {
+          toast.message(ev.message);
+          return;
+        }
+      }
       reelCartInteractionMut.mutate({ reelId: reel.id });
       addToCart(toCartProduct(reel));
       patchReel(reel.id, (r) => ({ ...r, hasAddedToCart: true }));
@@ -128,7 +163,17 @@ export function useReelFeedController(
       if (toastTimerRef.current != null) window.clearTimeout(toastTimerRef.current);
       toastTimerRef.current = window.setTimeout(() => setShowToast(false), 3000);
     },
-    [addToCart, reelCartInteractionMut, patchReel],
+    [
+      addToCart,
+      reelCartInteractionMut,
+      patchReel,
+      isChildShopper,
+      rules,
+      isLoadingProfile,
+      isLoadingRules,
+      rulesFetchError,
+      purchaseApprovalMut,
+    ],
   );
 
   const handleBuyNow = useCallback(

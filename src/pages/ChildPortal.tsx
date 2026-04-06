@@ -1642,6 +1642,7 @@ const ChildPortal = () => {
       open={notificationsModalOpen}
       onOpenChange={setNotificationsModalOpen}
       ordersDeepLink={null}
+      surface="child"
     />
     <FloatingCart />
     <LogoutConfirmDialog

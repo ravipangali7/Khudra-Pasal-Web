@@ -172,6 +172,12 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         }
         const ev = evaluateChildProductCommerce(product, rules);
         if (ev.commerceDisabled) {
+          if (ev.needsApproval && !ev.hasPurchaseApproval) {
+            toast.message(
+              'This item needs parent approval. Use “Ask parent” on the product card or request approval on the product page.',
+            );
+            return;
+          }
           toast.error(ev.message);
           return;
         }

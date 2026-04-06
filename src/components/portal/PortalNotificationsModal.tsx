@@ -29,6 +29,11 @@ type PortalNotificationsModalProps = {
   onOpenChange: (open: boolean) => void;
   /** Shown below the list; omit on surfaces that do not host `/portal/orders`. */
   ordersDeepLink?: { to: string; label: string } | null;
+  /**
+   * When `child`, after mark-read/delete also refresh child dashboard data
+   * (pending approvals, merged rules / approved product IDs).
+   */
+  surface?: 'child' | 'default';
 };
 
 function formatNotifTime(iso: string) {
@@ -41,10 +46,22 @@ function formatNotifTime(iso: string) {
 
 const DEFAULT_ORDERS_LINK = { to: '/portal/orders', label: 'View order history' } as const;
 
+function invalidateChildPortalData(qc: ReturnType<typeof useQueryClient>) {
+  void qc.invalidateQueries({ queryKey: ['portal', 'child', 'purchase-approvals'] });
+  void qc.invalidateQueries({
+    predicate: (q) =>
+      Array.isArray(q.queryKey) &&
+      q.queryKey[0] === 'portal' &&
+      q.queryKey[1] === 'child' &&
+      q.queryKey[2] === 'rules',
+  });
+}
+
 export default function PortalNotificationsModal({
   open,
   onOpenChange,
   ordersDeepLink = DEFAULT_ORDERS_LINK,
+  surface = 'default',
 }: PortalNotificationsModalProps) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -63,6 +80,9 @@ export default function PortalNotificationsModal({
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['portal', 'notifications'] });
       void queryClient.invalidateQueries({ queryKey: ['portal', 'summary'] });
+      if (surface === 'child') {
+        invalidateChildPortalData(queryClient);
+      }
     },
     onError: (e: Error) => toast.error(e.message || 'Could not update notifications.'),
   });
@@ -71,6 +91,9 @@ export default function PortalNotificationsModal({
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['portal', 'notifications'] });
       void queryClient.invalidateQueries({ queryKey: ['portal', 'summary'] });
+      if (surface === 'child') {
+        invalidateChildPortalData(queryClient);
+      }
     },
     onError: (e: Error) => toast.error(e.message || 'Could not delete notification.'),
   });

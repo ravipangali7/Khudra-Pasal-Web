@@ -529,7 +529,7 @@ const ProductDetail = () => {
               )}
             </div>
 
-            {/* Add to Cart */}
+            {/* Add to cart or (child) request approval as the primary action */}
             <div className="flex items-center gap-4">
               {isInCart ? (
                 <div className="flex items-center bg-category-fresh rounded-xl overflow-hidden">
@@ -557,6 +557,25 @@ const ProductDetail = () => {
                     <Plus className="w-5 h-5" />
                   </button>
                 </div>
+              ) : showChildPurchaseRequest ? (
+                <Button
+                  type="button"
+                  className="flex-1 md:flex-none flex items-center justify-center gap-2 px-8 py-6 md:py-3 rounded-xl font-semibold bg-indigo-600 hover:bg-indigo-600/90 text-white"
+                  disabled={purchaseApprovalMut.isPending}
+                  onClick={() => {
+                    if (!requireAuth()) return;
+                    purchaseApprovalMut.mutate(Number(product.id));
+                  }}
+                >
+                  {purchaseApprovalMut.isPending ? (
+                    'Sending request…'
+                  ) : (
+                    <>
+                      <ShoppingCart className="w-5 h-5 opacity-90" />
+                      Request purchase approval
+                    </>
+                  )}
+                </Button>
               ) : (
                 <button
                   onClick={() => {
@@ -575,7 +594,7 @@ const ProductDetail = () => {
                   Add to Cart
                 </button>
               )}
-              
+
               <button
                 onClick={() => {
                   if (!requireAuth()) return;
@@ -594,29 +613,18 @@ const ProductDetail = () => {
                     navigate('/checkout', { state: { from: `${location.pathname}${location.search}` } }),
                   );
                 }}
-                disabled={childCommerceDisabled}
+                disabled={childCommerceDisabled || showChildPurchaseRequest}
                 className={cn(
                   'p-3 border border-border rounded-xl transition-colors',
-                  childCommerceDisabled
+                  childCommerceDisabled || showChildPurchaseRequest
                     ? 'opacity-50 cursor-not-allowed'
                     : 'hover:bg-muted',
                 )}
+                aria-label="Go to checkout"
               >
                 <ShoppingCart className="w-5 h-5 text-muted-foreground" />
               </button>
             </div>
-
-            {showChildPurchaseRequest ? (
-              <Button
-                type="button"
-                className="w-full"
-                variant="secondary"
-                disabled={purchaseApprovalMut.isPending}
-                onClick={() => purchaseApprovalMut.mutate(Number(product.id))}
-              >
-                {purchaseApprovalMut.isPending ? 'Sending request…' : 'Request purchase approval from parent'}
-              </Button>
-            ) : null}
 
             {/* WhatsApp Button */}
             <button

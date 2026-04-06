@@ -13,6 +13,7 @@ import { mapApiReelToUi } from '../api/reelMappers';
 import { useCart } from '@/contexts/CartContext';
 import { useChildShoppingRules } from '@/contexts/ChildShoppingRulesContext';
 import { evaluateChildProductCommerce } from '@/lib/childShoppingRules';
+import { useChildPurchaseApprovalRequest } from '@/hooks/useChildPurchaseApprovalRequest';
 import { toast } from 'sonner';
 import type { Reel } from '../types';
 import '../reels-theme.css';
@@ -57,6 +58,7 @@ const VendorReelsViewerOverlay: React.FC<Props> = ({ vendorId, initialReelId, on
     isLoadingRules,
     rulesFetchError,
   } = useChildShoppingRules();
+  const purchaseApprovalMut = useChildPurchaseApprovalRequest();
   const toCartProduct = useCallback(
     (reel: Reel) => ({
       id: String(reel.product.id),
@@ -254,6 +256,39 @@ const VendorReelsViewerOverlay: React.FC<Props> = ({ vendorId, initialReelId, on
         redirectToLogin(reel, 1);
         return;
       }
+      if (isChildShopper) {
+        if (isLoadingProfile || isLoadingRules) {
+          toast.message('Checking your family shopping rules…');
+          return;
+        }
+        if (rulesFetchError || !rules) {
+          toast.error('Could not load family shopping rules. Try again.');
+          return;
+        }
+        const ev = evaluateChildProductCommerce(
+          {
+            id: String(reel.product.id),
+            category: reel.product.categorySlug || 'all',
+            price: reel.product.price,
+            parentCategorySlug: reel.product.parentCategorySlug ?? null,
+          },
+          rules,
+        );
+        if (
+          ev.needsApproval &&
+          !ev.hasPurchaseApproval &&
+          !ev.blocked &&
+          !ev.overMaxPrice &&
+          !ev.purchasesOff
+        ) {
+          purchaseApprovalMut.mutate(reel.product.id);
+          return;
+        }
+        if (ev.commerceDisabled) {
+          toast.message(ev.message);
+          return;
+        }
+      }
       reelCartInteractionMut.mutate({ reelId: reel.id });
       addToCart(toCartProduct(reel));
       patchReel(reel.id, (r) => ({ ...r, hasAddedToCart: true }));
@@ -261,7 +296,19 @@ const VendorReelsViewerOverlay: React.FC<Props> = ({ vendorId, initialReelId, on
       if (toastTimerRef.current != null) window.clearTimeout(toastTimerRef.current);
       toastTimerRef.current = window.setTimeout(() => setShowToast(false), 3000);
     },
-    [addToCart, patchReel, reelCartInteractionMut, redirectToLogin, toCartProduct],
+    [
+      addToCart,
+      patchReel,
+      reelCartInteractionMut,
+      redirectToLogin,
+      toCartProduct,
+      isChildShopper,
+      rules,
+      isLoadingProfile,
+      isLoadingRules,
+      rulesFetchError,
+      purchaseApprovalMut,
+    ],
   );
 
   const handleLike = useCallback(
