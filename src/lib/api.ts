@@ -1281,7 +1281,15 @@ export const adminApi = {
     ),
   navigation: () => apiFetch<{ items: ApiNavNode[] }>("/admin/navigation/", undefined, true),
   summary: () => apiFetch<AdminSummary>("/admin/dashboard/summary/", undefined, true),
-  recentOrders: () => apiFetch<AdminRecentOrder[]>("/admin/dashboard/recent-orders/", undefined, true),
+  recentOrders: (params?: { days?: number; limit?: number }) =>
+    apiFetch<AdminRecentOrder[]>(
+      `/admin/dashboard/recent-orders/${buildQuery({
+        ...(params?.days != null ? { days: params.days } : {}),
+        ...(params?.limit != null ? { limit: params.limit } : {}),
+      })}`,
+      undefined,
+      true,
+    ),
   salesSeries: (days = 7) =>
     apiFetch<Array<{ day: string; sales: number; orders: number }>>(
       `/admin/dashboard/sales-series/${buildQuery({ days })}`,

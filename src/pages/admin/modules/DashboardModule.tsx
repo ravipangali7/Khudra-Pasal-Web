@@ -25,7 +25,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { AdminStatCard } from '@/components/admin/AdminStats';
 import { DashboardSectionCard } from '@/components/admin/dashboard/DashboardSectionCard';
-import { SalesOrdersChart, type SalesChartPeriod } from '@/components/admin/dashboard/SalesOrdersChart';
+import { SalesOrdersSection } from '@/components/admin/dashboard/SalesOrdersSection';
+import type { SalesChartPeriod } from '@/components/admin/dashboard/SalesOrdersChart';
 import { WalletActivitySection } from '@/components/admin/dashboard/WalletActivitySection';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -125,12 +126,14 @@ export default function DashboardModule({ onNavigate }: DashboardModuleProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [freezeAllOpen, setFreezeAllOpen] = useState(false);
-  const [chartPeriod, setChartPeriod] = useState<SalesChartPeriod>('7');
+  const [salesChartPeriod, setSalesChartPeriod] = useState<SalesChartPeriod>('7');
+  const [walletChartPeriod, setWalletChartPeriod] = useState<SalesChartPeriod>('7');
   const [approveKyc, setApproveKyc] = useState<AdminKycSubmissionRow | null>(null);
   const [rejectKycId, setRejectKycId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
 
-  const days = Number(chartPeriod) as 7 | 30 | 90;
+  const salesDays = Number(salesChartPeriod) as 7 | 30 | 90;
+  const walletDays = Number(walletChartPeriod) as 7 | 30 | 90;
 
   const { data: summary, isLoading: summaryLoading } = useQuery({
     queryKey: ['admin', 'dashboard', 'summary'],
@@ -147,8 +150,8 @@ export default function DashboardModule({ onNavigate }: DashboardModuleProps) {
     isError: salesError,
     refetch: refetchSales,
   } = useQuery({
-    queryKey: ['admin', 'dashboard', 'sales', days],
-    queryFn: () => adminApi.salesSeries(days),
+    queryKey: ['admin', 'dashboard', 'sales', salesDays],
+    queryFn: () => adminApi.salesSeries(salesDays),
     staleTime: DASH_STALE,
     refetchInterval: DASH_POLL,
     retry: false,
@@ -160,8 +163,8 @@ export default function DashboardModule({ onNavigate }: DashboardModuleProps) {
     isError: walletSeriesError,
     refetch: refetchWalletSeries,
   } = useQuery({
-    queryKey: ['admin', 'dashboard', 'wallet-series', days],
-    queryFn: () => adminApi.walletSeries(days),
+    queryKey: ['admin', 'dashboard', 'wallet-series', walletDays],
+    queryFn: () => adminApi.walletSeries(walletDays),
     staleTime: DASH_STALE,
     refetchInterval: DASH_POLL,
     retry: false,
@@ -228,6 +231,19 @@ export default function DashboardModule({ onNavigate }: DashboardModuleProps) {
   const { data: recentOrdersApi } = useQuery({
     queryKey: ['admin', 'dashboard', 'recent-orders'],
     queryFn: () => adminApi.recentOrders(),
+    staleTime: DASH_STALE,
+    refetchInterval: DASH_POLL,
+    retry: false,
+  });
+
+  const {
+    data: salesCardRecentOrders,
+    isLoading: salesCardOrdersLoading,
+    isError: salesCardOrdersError,
+    refetch: refetchSalesCardOrders,
+  } = useQuery({
+    queryKey: ['admin', 'dashboard', 'recent-orders-sales-card', salesDays],
+    queryFn: () => adminApi.recentOrders({ days: salesDays, limit: 8 }),
     staleTime: DASH_STALE,
     refetchInterval: DASH_POLL,
     retry: false,
@@ -378,13 +394,17 @@ export default function DashboardModule({ onNavigate }: DashboardModuleProps) {
             </Button>
           }
         >
-          <SalesOrdersChart
+          <SalesOrdersSection
             rows={salesChartRows}
-            period={chartPeriod}
-            onPeriodChange={setChartPeriod}
+            period={salesChartPeriod}
+            onPeriodChange={setSalesChartPeriod}
             isLoading={salesLoading}
             isError={salesError}
             onRetry={() => void refetchSales()}
+            recentOrders={salesCardRecentOrders}
+            ordersLoading={salesCardOrdersLoading}
+            ordersError={salesCardOrdersError}
+            onRetryOrders={() => void refetchSalesCardOrders()}
           />
         </DashboardSectionCard>
 
@@ -396,8 +416,8 @@ export default function DashboardModule({ onNavigate }: DashboardModuleProps) {
         >
           <WalletActivitySection
             chartRows={walletChartRows}
-            period={chartPeriod}
-            onPeriodChange={setChartPeriod}
+            period={walletChartPeriod}
+            onPeriodChange={setWalletChartPeriod}
             chartLoading={walletSeriesLoading}
             chartError={walletSeriesError}
             onRetryChart={() => void refetchWalletSeries()}
