@@ -183,3 +183,47 @@ export function isChildCatalogProductBlocked(
   );
   return rows.some((r) => r.is_blocked);
 }
+
+/** Matches server `validate_child_spending_limits` for non-personal wallets. */
+export function childOrderWouldExceedSpendingLimits(
+  orderTotal: number,
+  rules: PortalChildRulesResponse,
+): boolean {
+  const ml = rules.member_limits;
+  const ms = rules.member_spent;
+  const limD = ml.spending_limit_daily ?? 0;
+  const limW = ml.spending_limit_weekly ?? 0;
+  const limM = ml.spending_limit_monthly ?? 0;
+  const sd = ms.daily ?? 0;
+  const sw = ms.weekly ?? 0;
+  const sm = ms.monthly ?? 0;
+  if (limD > 0 && sd + orderTotal > limD) return true;
+  if (limW > 0 && sw + orderTotal > limW) return true;
+  if (limM > 0 && sm + orderTotal > limM) return true;
+  return false;
+}
+
+/** Short label for checkout when a limit-gated wallet cannot be used. */
+export function childSpendingLimitBlockReason(
+  orderTotal: number,
+  rules: PortalChildRulesResponse,
+): string | null {
+  const ml = rules.member_limits;
+  const ms = rules.member_spent;
+  const limD = ml.spending_limit_daily ?? 0;
+  const limW = ml.spending_limit_weekly ?? 0;
+  const limM = ml.spending_limit_monthly ?? 0;
+  const sd = ms.daily ?? 0;
+  const sw = ms.weekly ?? 0;
+  const sm = ms.monthly ?? 0;
+  if (limD > 0 && sd + orderTotal > limD) {
+    return 'Daily family spending limit would be exceeded.';
+  }
+  if (limW > 0 && sw + orderTotal > limW) {
+    return 'Weekly family spending limit would be exceeded.';
+  }
+  if (limM > 0 && sm + orderTotal > limM) {
+    return 'Monthly family spending limit would be exceeded.';
+  }
+  return null;
+}

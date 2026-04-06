@@ -844,6 +844,10 @@ const ChildPortal = () => {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Your Limits</CardTitle>
+            <p className="text-xs text-muted-foreground font-normal pt-1">
+              These caps apply to orders paid from family-linked wallets. Paying from your Personal wallet at
+              checkout is not counted against these limits.
+            </p>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>

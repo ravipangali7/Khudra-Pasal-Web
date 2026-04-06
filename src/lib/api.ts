@@ -1944,10 +1944,17 @@ export type PortalCheckoutWalletOption = {
   fund_source: string;
   balance: number;
   is_default: boolean;
+  /** False for Personal wallet only; family/shared/child wallets use spending caps. */
+  child_spending_limits_apply: boolean;
 };
 
 export type PortalCheckoutWalletContext = {
-  default: { id: number; fund_source: string; balance: number } | null;
+  default: {
+    id: number;
+    fund_source: string;
+    balance: number;
+    child_spending_limits_apply?: boolean;
+  } | null;
   payable_wallets: PortalCheckoutWalletOption[];
 };
 

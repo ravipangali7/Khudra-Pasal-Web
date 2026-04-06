@@ -43,7 +43,11 @@ import {
   PortalApiError,
 } from '@/lib/api';
 import { useChildShoppingRules } from '@/contexts/ChildShoppingRulesContext';
-import { evaluateChildProductCommerce } from '@/lib/childShoppingRules';
+import {
+  childOrderWouldExceedSpendingLimits,
+  childSpendingLimitBlockReason,
+  evaluateChildProductCommerce,
+} from '@/lib/childShoppingRules';
 import { toast } from 'sonner';
 
 type CheckoutStep = 'cart' | 'delivery' | 'payment';
@@ -277,12 +281,44 @@ const Checkout = () => {
     return list.reduce((sum, w) => sum + w.balance, 0);
   }, [walletCheckoutCtx]);
 
+  const childNonPersonalLimitBlockMsg = useMemo(() => {
+    if (!isChildShopper || !rules || !childOrderWouldExceedSpendingLimits(totalAmount, rules)) {
+      return null;
+    }
+    return childSpendingLimitBlockReason(totalAmount, rules);
+  }, [isChildShopper, rules, totalAmount]);
+
   useEffect(() => {
-    if (step !== 'payment' || walletCtxLoading || !walletCheckoutCtx) return;
-    setPayWalletId((prev) =>
-      pickCheckoutPayWalletId(walletCheckoutCtx, totalAmount, prev),
-    );
-  }, [step, walletCtxLoading, walletCheckoutCtx, totalAmount]);
+    if (step !== 'payment' || walletCtxLoading || !walletCheckoutCtx?.default) return;
+    setPayWalletId((prev) => {
+      const picked = pickCheckoutPayWalletId(walletCheckoutCtx, totalAmount, prev);
+      const effectiveId = picked ?? walletCheckoutCtx.default.id;
+      const wallet = walletCheckoutCtx.payable_wallets.find((x) => x.id === effectiveId);
+      if (
+        isChildShopper &&
+        rules &&
+        wallet &&
+        wallet.child_spending_limits_apply !== false &&
+        childOrderWouldExceedSpendingLimits(totalAmount, rules)
+      ) {
+        const personal = walletCheckoutCtx.payable_wallets.find(
+          (w) =>
+            w.child_spending_limits_apply === false && w.balance >= totalAmount,
+        );
+        if (personal) {
+          return personal.id === walletCheckoutCtx.default.id ? null : personal.id;
+        }
+      }
+      return picked;
+    });
+  }, [
+    step,
+    walletCtxLoading,
+    walletCheckoutCtx,
+    totalAmount,
+    isChildShopper,
+    rules,
+  ]);
 
   const effectivePayWallet = useMemo(() => {
     if (!walletCheckoutCtx?.default) return null;
@@ -292,12 +328,33 @@ const Checkout = () => {
     );
   }, [walletCheckoutCtx, payWalletId]);
 
+  const effectiveWalletOverChildSpendingLimit =
+    Boolean(
+      isChildShopper &&
+        rules &&
+        effectivePayWallet &&
+        effectivePayWallet.child_spending_limits_apply !== false &&
+        childOrderWouldExceedSpendingLimits(totalAmount, rules),
+    );
+
+  const childSpendingLimitNoPersonalOutlet = useMemo(() => {
+    if (!isChildShopper || !rules || !walletCheckoutCtx?.payable_wallets.length) {
+      return false;
+    }
+    if (!childOrderWouldExceedSpendingLimits(totalAmount, rules)) return false;
+    return !walletCheckoutCtx.payable_wallets.some(
+      (w) => w.child_spending_limits_apply === false && w.balance >= totalAmount,
+    );
+  }, [isChildShopper, rules, walletCheckoutCtx, totalAmount]);
+
   const walletPayBlocked =
     walletCtxLoading ||
     !hasStorefrontSession ||
     !walletCheckoutCtx?.default ||
     (wantDelivery && !deliveryPricingReady) ||
-    (effectivePayWallet != null && totalAmount > effectivePayWallet.balance);
+    (effectivePayWallet != null && totalAmount > effectivePayWallet.balance) ||
+    effectiveWalletOverChildSpendingLimit ||
+    childSpendingLimitNoPersonalOutlet;
 
   const steps: { key: CheckoutStep; label: string; icon: typeof Truck }[] = [
     { key: 'cart', label: 'Cart', icon: Truck },
@@ -460,6 +517,19 @@ const Checkout = () => {
           }
         }
       }
+    }
+
+    if (
+      isChildShopper &&
+      rules &&
+      effectivePayWallet &&
+      effectivePayWallet.child_spending_limits_apply !== false &&
+      childOrderWouldExceedSpendingLimits(totalAmount, rules)
+    ) {
+      toast.error(
+        childSpendingLimitBlockReason(totalAmount, rules) ?? 'Spending limit exceeded.',
+      );
+      return;
     }
 
     const payload: Record<string, unknown> = {
@@ -987,6 +1057,19 @@ const Checkout = () => {
                             </Card>
 
                             <div className="space-y-3">
+                              {childSpendingLimitNoPersonalOutlet ? (
+                                <div className="rounded-xl border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
+                                  Family spending limits are full for this period and no Personal wallet has
+                                  enough balance for this order. Ask a parent for help or add money to your
+                                  Personal wallet in the portal.
+                                </div>
+                              ) : null}
+                              {childNonPersonalLimitBlockMsg && !childSpendingLimitNoPersonalOutlet ? (
+                                <p className="text-xs text-muted-foreground">
+                                  Family-linked wallets are capped by daily / weekly / monthly limits. Use your
+                                  Personal wallet below to pay from balance that is not subject to those caps.
+                                </p>
+                              ) : null}
                               <div>
                                 <h3 className="text-sm font-bold text-foreground">Wallet categories</h3>
                                 <p className="text-xs text-muted-foreground mt-0.5">
@@ -996,35 +1079,49 @@ const Checkout = () => {
                               {walletCheckoutCtx.payable_wallets.map((w) => {
                                 const selectedId = payWalletId ?? walletCheckoutCtx.default.id;
                                 const isSelected = selectedId === w.id;
+                                const walletLimitGated =
+                                  Boolean(
+                                    childNonPersonalLimitBlockMsg &&
+                                      w.child_spending_limits_apply !== false,
+                                  );
                                 return (
                                   <label
                                     key={w.id}
                                     className={cn(
-                                      'flex items-center gap-3 p-4 rounded-xl border-2 cursor-pointer transition-colors bg-card',
-                                      isSelected
+                                      'flex flex-col gap-1 p-4 rounded-xl border-2 transition-colors bg-card',
+                                      walletLimitGated
+                                        ? 'border-border opacity-60 cursor-not-allowed pointer-events-none'
+                                        : 'cursor-pointer',
+                                      !walletLimitGated && isSelected
                                         ? 'border-category-fresh shadow-sm ring-1 ring-category-fresh/20'
-                                        : 'border-border hover:bg-muted/40',
+                                        : !walletLimitGated && 'border-border hover:bg-muted/40',
                                     )}
                                   >
-                                    <input
-                                      type="radio"
-                                      name="pay_wallet"
-                                      className="w-4 h-4 shrink-0 accent-category-fresh"
-                                      checked={isSelected}
-                                      onChange={() =>
-                                        setPayWalletId(
-                                          w.id === walletCheckoutCtx.default.id ? null : w.id,
-                                        )
-                                      }
-                                    />
-                                    <div className="flex-1 min-w-0 flex items-center justify-between gap-3">
-                                      <span className="font-semibold text-foreground text-sm md:text-base leading-snug">
-                                        {w.fund_source}
-                                      </span>
-                                      <span className="font-bold text-foreground tabular-nums shrink-0">
-                                        {formatPrice(w.balance)}
-                                      </span>
+                                    <div className="flex items-center gap-3 w-full">
+                                      <input
+                                        type="radio"
+                                        name="pay_wallet"
+                                        className="w-4 h-4 shrink-0 accent-category-fresh"
+                                        checked={isSelected}
+                                        disabled={walletLimitGated}
+                                        onChange={() =>
+                                          setPayWalletId(
+                                            w.id === walletCheckoutCtx.default.id ? null : w.id,
+                                          )
+                                        }
+                                      />
+                                      <div className="flex-1 min-w-0 flex items-center justify-between gap-3">
+                                        <span className="font-semibold text-foreground text-sm md:text-base leading-snug">
+                                          {w.fund_source}
+                                        </span>
+                                        <span className="font-bold text-foreground tabular-nums shrink-0">
+                                          {formatPrice(w.balance)}
+                                        </span>
+                                      </div>
                                     </div>
+                                    {walletLimitGated && childNonPersonalLimitBlockMsg ? (
+                                      <p className="text-xs text-destructive pl-7">{childNonPersonalLimitBlockMsg}</p>
+                                    ) : null}
                                   </label>
                                 );
                               })}
