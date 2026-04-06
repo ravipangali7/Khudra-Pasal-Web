@@ -197,6 +197,8 @@ export type WebsiteProduct = {
   category_name: string;
   parent_category_slug?: string | null;
   parent_category_name?: string | null;
+  /** Leaf first, then each parent up to root — matches storefront child-rule ancestor matching. */
+  category_ancestor_slugs?: string[];
   unit_short_name?: string;
   stock: number;
   rating: string;
@@ -691,6 +693,9 @@ export const mapWebsiteProductToUi = (item: WebsiteProduct): Product => {
     category: item.category_slug || "all",
     parentCategorySlug: item.parent_category_slug ?? undefined,
     parentCategoryName: item.parent_category_name ?? undefined,
+    categoryAncestorSlugs: item.category_ancestor_slugs?.length
+      ? item.category_ancestor_slugs
+      : undefined,
     categoryName: item.category_name,
     rating: Number(item.rating || 0),
     reviewCount: item.review_count,

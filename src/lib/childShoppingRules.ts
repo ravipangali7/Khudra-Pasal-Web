@@ -22,15 +22,28 @@ const allowed = (): ChildProductCommerceEval => ({
   hasPurchaseApproval: false,
 });
 
+function categorySlugsForRuleMatch(
+  leafSlug: string,
+  parentSlug: string | null | undefined,
+  categoryAncestorSlugs?: string[] | null,
+): Set<string> {
+  if (categoryAncestorSlugs?.length) {
+    return new Set(categoryAncestorSlugs.filter(Boolean));
+  }
+  const slugs = new Set<string>();
+  if (leafSlug && leafSlug !== 'all') slugs.add(leafSlug);
+  if (parentSlug) slugs.add(parentSlug);
+  return slugs;
+}
+
 function restrictionRowsForCategorySlugs(
   restrictions: PortalFamilyProductRestrictionRow[] | undefined,
   leafSlug: string,
   parentSlug?: string | null,
+  categoryAncestorSlugs?: string[] | null,
 ): PortalFamilyProductRestrictionRow[] {
   if (!restrictions?.length) return [];
-  const slugs = new Set<string>();
-  if (leafSlug && leafSlug !== 'all') slugs.add(leafSlug);
-  if (parentSlug) slugs.add(parentSlug);
+  const slugs = categorySlugsForRuleMatch(leafSlug, parentSlug, categoryAncestorSlugs);
   return restrictions.filter((x) => Boolean(x.category_slug) && slugs.has(x.category_slug));
 }
 
@@ -60,16 +73,27 @@ function productHasApprovedPurchase(
   return rules.approved_purchase_product_ids.includes(pid);
 }
 
-export type ChildProductCommerceProductArg = Pick<Product, 'category' | 'price' | 'parentCategorySlug'> & {
+export type ChildProductCommerceProductArg = Pick<
+  Product,
+  'category' | 'price' | 'parentCategorySlug' | 'categoryAncestorSlugs'
+> & {
   id?: string;
 };
 
 /**
  * Apply the same family rules as the child portal catalog / backend guard
- * (group_permissions + product_restrictions merged along leaf + parent category slugs).
+ * (group_permissions + product_restrictions merged along full category ancestor slugs when provided).
  */
 export function evaluateChildProductCommerce(
-  product: ChildProductCommerceProductArg | { category: string; price: number; parentCategorySlug?: string | null; id?: string },
+  product:
+    | ChildProductCommerceProductArg
+    | {
+        category: string;
+        price: number;
+        parentCategorySlug?: string | null;
+        categoryAncestorSlugs?: string[] | null;
+        id?: string;
+      },
   rules: PortalChildRulesResponse | null | undefined,
 ): ChildProductCommerceEval {
   if (!rules?.group_permissions) return allowed();
@@ -90,7 +114,14 @@ export function evaluateChildProductCommerce(
   const leaf = product.category;
   const parentSlug =
     'parentCategorySlug' in product ? (product.parentCategorySlug ?? null) : null;
-  const rows = restrictionRowsForCategorySlugs(rules.product_restrictions, leaf, parentSlug);
+  const categoryAncestorSlugs =
+    'categoryAncestorSlugs' in product ? (product.categoryAncestorSlugs ?? undefined) : undefined;
+  const rows = restrictionRowsForCategorySlugs(
+    rules.product_restrictions,
+    leaf,
+    parentSlug,
+    categoryAncestorSlugs,
+  );
   const merged = mergeRestrictionRows(rows);
   if (!merged) {
     return allowed();
@@ -141,8 +172,14 @@ export function isChildCatalogProductBlocked(
   leafSlug: string | undefined,
   parentSlug: string | null | undefined,
   rules: PortalChildRulesResponse | null | undefined,
+  categoryAncestorSlugs?: string[] | null,
 ): boolean {
   if (!rules?.product_restrictions?.length) return false;
-  const rows = restrictionRowsForCategorySlugs(rules.product_restrictions, leafSlug || 'all', parentSlug);
+  const rows = restrictionRowsForCategorySlugs(
+    rules.product_restrictions,
+    leafSlug || 'all',
+    parentSlug,
+    categoryAncestorSlugs,
+  );
   return rows.some((r) => r.is_blocked);
 }

@@ -82,6 +82,7 @@ export function mapApiReelToUi(row: ApiReelPublicRow): Reel {
           reviews: p.reviews,
           categorySlug: p.category_slug || undefined,
           parentCategorySlug: p.parent_category_slug ?? undefined,
+          categoryAncestorSlugs: p.category_ancestor_slugs,
         }
       : {
           id: 0,

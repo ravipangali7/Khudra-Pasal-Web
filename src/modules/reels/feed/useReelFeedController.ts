@@ -20,6 +20,7 @@ function toCartProduct(reel: Reel) {
     image: reel.product.image,
     category: reel.product.categorySlug || 'all',
     parentCategorySlug: reel.product.parentCategorySlug ?? undefined,
+    categoryAncestorSlugs: reel.product.categoryAncestorSlugs,
     rating: reel.product.rating,
     reviewCount: reel.product.reviews,
     inStock: reel.product.inStock,
@@ -138,6 +139,7 @@ export function useReelFeedController(
             category: reel.product.categorySlug || 'all',
             price: reel.product.price,
             parentCategorySlug: reel.product.parentCategorySlug ?? null,
+            categoryAncestorSlugs: reel.product.categoryAncestorSlugs,
           },
           rules,
         );
@@ -201,6 +203,7 @@ export function useReelFeedController(
             category: reel.product.categorySlug || 'all',
             price: reel.product.price,
             parentCategorySlug: reel.product.parentCategorySlug ?? null,
+            categoryAncestorSlugs: reel.product.categoryAncestorSlugs,
           },
           rules,
         );
@@ -221,6 +224,7 @@ export function useReelFeedController(
             reelId: reel.id,
             categorySlug: reel.product.categorySlug,
             parentCategorySlug: reel.product.parentCategorySlug ?? undefined,
+            categoryAncestorSlugs: reel.product.categoryAncestorSlugs,
           },
         },
       });

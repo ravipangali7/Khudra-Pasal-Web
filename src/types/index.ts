@@ -23,6 +23,8 @@ export interface Product {
   category: string;
   /** Parent category slug when product is under a child category. */
   parentCategorySlug?: string | null;
+  /** Leaf first, then ancestors to root; used for family product rules. */
+  categoryAncestorSlugs?: string[];
   /** Display name of the parent category when present. */
   parentCategoryName?: string | null;
   /** Display name of the leaf category. */

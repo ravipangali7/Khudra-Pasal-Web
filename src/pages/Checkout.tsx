@@ -58,6 +58,7 @@ type BuyNowState = {
   sellerId?: number;
   categorySlug?: string;
   parentCategorySlug?: string;
+  categoryAncestorSlugs?: string[];
 };
 
 type CheckoutLocationState = {
@@ -442,6 +443,7 @@ const Checkout = () => {
             category: buyNow.categorySlug || 'all',
             price: buyNow.price,
             parentCategorySlug: buyNow.parentCategorySlug ?? null,
+            categoryAncestorSlugs: buyNow.categoryAncestorSlugs,
           },
           rules,
         );

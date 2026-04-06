@@ -675,6 +675,7 @@ const ChildPortal = () => {
                             category: product.category_slug || 'all',
                             price: Number(product.price || 0),
                             parentCategorySlug: product.parent_category_slug ?? null,
+                            categoryAncestorSlugs: product.category_ancestor_slugs,
                           },
                           rules,
                         )

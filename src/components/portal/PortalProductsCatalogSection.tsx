@@ -132,6 +132,7 @@ function PortalCatalogProductCard({
           quantity: 1,
           categorySlug: product.category_slug,
           parentCategorySlug: product.parent_category_slug ?? undefined,
+          categoryAncestorSlugs: product.category_ancestor_slugs,
           ...(sellerId != null && Number.isFinite(sellerId) ? { sellerId } : {}),
         },
       },
@@ -314,6 +315,7 @@ export default function PortalProductsCatalogSection({
           p.category_slug,
           p.parent_category_slug ?? null,
           childRules,
+          p.category_ancestor_slugs,
         ),
     );
   }, [data, variant, childRules]);
@@ -438,6 +440,7 @@ export default function PortalProductsCatalogSection({
                         category: product.category_slug || "all",
                         price: Number(product.price || 0),
                         parentCategorySlug: product.parent_category_slug ?? null,
+                        categoryAncestorSlugs: product.category_ancestor_slugs,
                       },
                       childRules,
                     );

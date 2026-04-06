@@ -371,6 +371,7 @@ const CustomerPortal = () => {
             sellerId: product.seller?.id,
             categorySlug: product.category_slug,
             parentCategorySlug: product.parent_category_slug ?? undefined,
+            categoryAncestorSlugs: product.category_ancestor_slugs,
           },
         },
       });
