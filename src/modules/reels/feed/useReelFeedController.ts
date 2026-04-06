@@ -9,6 +9,15 @@ import { evaluateChildProductCommerce } from '@/lib/childShoppingRules';
 import { useChildPurchaseApprovalRequest } from '@/hooks/useChildPurchaseApprovalRequest';
 import { toast } from 'sonner';
 import type { Reel } from '../types';
+import { useReelsMutePreference } from './useReelsMutePreference';
+
+function snapshotReel(r: Reel): Reel {
+  return {
+    ...r,
+    product: { ...r.product },
+    vendor: { ...r.vendor },
+  };
+}
 
 function toCartProduct(reel: Reel) {
   return {
@@ -45,7 +54,7 @@ export function useReelFeedController(
   } = useChildShoppingRules();
   const purchaseApprovalMut = useChildPurchaseApprovalRequest();
   const [showToast, setShowToast] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
+  const [isMuted, toggleMutePreference] = useReelsMutePreference();
   const [commentDrawerReelId, setCommentDrawerReelId] = useState<number | null>(null);
   const viewedReelIdsRef = useRef<Set<number>>(new Set());
   const viewTimerRef = useRef<number | null>(null);
@@ -89,6 +98,7 @@ export function useReelFeedController(
       reelId: number;
       type: 'like' | 'bookmark' | 'share';
       enabled?: boolean;
+      previousReel?: Reel;
     }) => {
       if (type === 'share') {
         return websiteApi.reelInteraction(reelId, 'share');
@@ -103,8 +113,11 @@ export function useReelFeedController(
         void queryClient.invalidateQueries({ queryKey: ['portal', 'reels-favourites'] });
       }
     },
-    onError: (error: Error) => {
+    onError: (error: Error, vars) => {
       toast.error(error.message || 'Action failed');
+      if (vars.previousReel) {
+        patchReel(vars.reelId, () => snapshotReel(vars.previousReel!));
+      }
     },
   });
 
@@ -246,8 +259,9 @@ export function useReelFeedController(
     (reel: Reel) => {
       if (!requireCustomerForEngagement()) return;
       const next = !reel.liked;
+      const previousReel = snapshotReel(reel);
       patchReel(reel.id, (r) => ({ ...r, liked: next, likes: next ? r.likes + 1 : Math.max(0, r.likes - 1) }));
-      interactionMut.mutate({ reelId: reel.id, type: 'like', enabled: next });
+      interactionMut.mutate({ reelId: reel.id, type: 'like', enabled: next, previousReel });
     },
     [interactionMut, patchReel, requireCustomerForEngagement],
   );
@@ -256,8 +270,9 @@ export function useReelFeedController(
     (reel: Reel) => {
       if (!requireCustomerForEngagement()) return;
       const next = !reel.bookmarked;
+      const previousReel = snapshotReel(reel);
       patchReel(reel.id, (r) => ({ ...r, bookmarked: next }));
-      interactionMut.mutate({ reelId: reel.id, type: 'bookmark', enabled: next });
+      interactionMut.mutate({ reelId: reel.id, type: 'bookmark', enabled: next, previousReel });
     },
     [interactionMut, patchReel, requireCustomerForEngagement],
   );
@@ -266,13 +281,14 @@ export function useReelFeedController(
     (reel: Reel) => {
       if (!requireCustomerForEngagement()) return;
       const shareUrl = `${window.location.origin}/reels?reel=${reel.id}`;
+      const previousReel = snapshotReel(reel);
       patchReel(reel.id, (r) => ({ ...r, shares: (r.shares ?? 0) + 1 }));
       if (navigator.share) {
         void navigator
           .share({ title: 'KhudraPasal Reel', text: reel.caption || 'Check out this reel', url: shareUrl })
           .catch(() => {});
       }
-      interactionMut.mutate({ reelId: reel.id, type: 'share' });
+      interactionMut.mutate({ reelId: reel.id, type: 'share', previousReel });
     },
     [interactionMut, patchReel, requireCustomerForEngagement],
   );
@@ -282,8 +298,8 @@ export function useReelFeedController(
   }, []);
 
   const handleToggleMute = useCallback(() => {
-    setIsMuted((prev) => !prev);
-  }, []);
+    toggleMutePreference();
+  }, [toggleMutePreference]);
 
   useEffect(() => {
     return () => {

@@ -91,17 +91,17 @@ const ReelsVerticalFeed: React.FC<ReelsVerticalFeedProps> = ({
         onAddToCart={ctl.handleAddToCart}
         onBuyNow={ctl.handleBuyNow}
         progress={
-          playbackProgress && !immersive
+          playbackProgress
             ? index === activeIndex
               ? playbackProgress.activeProgress
               : 0
             : undefined
         }
         onProgress={
-          playbackProgress && !immersive && index === activeIndex ? playbackProgress.onProgress : undefined
+          playbackProgress && index === activeIndex ? playbackProgress.onProgress : undefined
         }
         onProgressComplete={
-          playbackProgress && !immersive && index === activeIndex ? playbackProgress.onComplete : undefined
+          playbackProgress && index === activeIndex ? playbackProgress.onComplete : undefined
         }
       />
     );
@@ -110,8 +110,26 @@ const ReelsVerticalFeed: React.FC<ReelsVerticalFeedProps> = ({
   return (
     <>
       {immersive ? (
-        <div ref={containerRef} className={scrollClassImmersive} onScroll={onScroll}>
-          {reelCards}
+        <div className="relative h-full w-full min-h-0">
+          <div ref={containerRef} className={scrollClassImmersive} onScroll={onScroll}>
+            {reelCards}
+          </div>
+          {activeReel ? (
+            <ReelActionsSidebar
+              layout="floating"
+              className="absolute z-[45] right-1 top-[40%] -translate-y-1/2 sm:right-2"
+              disabled={railDisabled}
+              views={activeReel.views}
+              likes={activeReel.likes}
+              commentsCount={activeReel.commentsCount}
+              liked={activeReel.liked}
+              saved={activeReel.bookmarked}
+              onLike={() => ctl.handleLike(activeReel)}
+              onSave={() => ctl.handleBookmark(activeReel)}
+              onShare={() => ctl.handleShare(activeReel)}
+              onComment={() => ctl.handleComment(activeReel)}
+            />
+          ) : null}
         </div>
       ) : (
         <div className={shellClass}>
@@ -135,24 +153,22 @@ const ReelsVerticalFeed: React.FC<ReelsVerticalFeedProps> = ({
           ) : null}
         </div>
       )}
-      {showCartToast && !immersive && (
+      {showCartToast && (
         <AddedToCartToast
           isVisible={ctl.showToast}
           onViewCart={onViewCart ?? (() => ctl.navigate('/checkout'))}
           onDismiss={() => ctl.setShowToast(false)}
         />
       )}
-      {!immersive && (
-        <ReelCommentDrawer
-          reelId={ctl.commentDrawerReelId}
-          open={ctl.commentDrawerReelId != null}
-          onClose={() => ctl.setCommentDrawerReelId(null)}
-          onCommentAdded={() => {
-            if (ctl.commentDrawerReelId == null) return;
-            ctl.patchReel(ctl.commentDrawerReelId, (r) => ({ ...r, commentsCount: (r.commentsCount ?? 0) + 1 }));
-          }}
-        />
-      )}
+      <ReelCommentDrawer
+        reelId={ctl.commentDrawerReelId}
+        open={ctl.commentDrawerReelId != null}
+        onClose={() => ctl.setCommentDrawerReelId(null)}
+        onCommentAdded={() => {
+          if (ctl.commentDrawerReelId == null) return;
+          ctl.patchReel(ctl.commentDrawerReelId, (r) => ({ ...r, commentsCount: (r.commentsCount ?? 0) + 1 }));
+        }}
+      />
     </>
   );
 };

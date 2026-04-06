@@ -1,22 +1,26 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery } from '@tanstack/react-query';
 import ReelsFeedSkeleton from './ReelsFeedSkeleton';
 import ReelsVerticalFeed from './ReelsVerticalFeed';
 import ReelsMobileFooter from '../navigation/ReelsMobileFooter';
-import { extractResults, websiteApiReelsPreferDirectMp4 } from '@/lib/api';
+import { extractResults, websiteApi } from '@/lib/api';
 import { mapApiReelToUi } from '../api/reelMappers';
 import { useReelFeedController, useReelViewRecording } from './useReelFeedController';
 import { useReelsQueryAuthRev } from './useReelsQueryAuthRev';
 import type { Reel } from '../types';
 import '../reels-theme.css';
 
+const PAGE_SIZE = 12;
+/** Main feed includes TikTok/YouTube/Instagram embeds (not prefer-direct-MP4-only). */
+
 const ReelsFeedPage: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   const [activeIndex, setActiveIndex] = useState(0);
+  const [activePlaybackProgress, setActivePlaybackProgress] = useState(0);
   const [displayReels, setDisplayReels] = useState<Reel[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
   const lastDeepLinkScrollKeyRef = useRef<string | null>(null);
@@ -24,17 +28,28 @@ const ReelsFeedPage: React.FC = () => {
   const ctl = useReelFeedController(displayReels, setDisplayReels);
   const reelsAuthRev = useReelsQueryAuthRev();
 
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ['website', 'reels', 'trending', 'immersive', reelsAuthRev],
-    queryFn: () =>
-      websiteApiReelsPreferDirectMp4({
+  const {
+    data,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isPending,
+    isError,
+  } = useInfiniteQuery({
+    queryKey: ['website', 'reels', 'trending', 'immersive', 'all-platforms', reelsAuthRev],
+    queryFn: ({ pageParam }) =>
+      websiteApi.reels({
         tab: 'trending',
-        page_size: 80,
+        page_size: PAGE_SIZE,
+        page: pageParam as number,
       }),
+    initialPageParam: 1,
+    getNextPageParam: (lastPage, allPages) => (lastPage.next ? allPages.length + 1 : undefined),
   });
 
   useEffect(() => {
-    setDisplayReels(extractResults(data).map(mapApiReelToUi));
+    const flat = data?.pages.flatMap((p) => extractResults(p).map(mapApiReelToUi)) ?? [];
+    setDisplayReels(flat);
   }, [data]);
 
   useEffect(() => {
@@ -60,6 +75,29 @@ const ReelsFeedPage: React.FC = () => {
       });
     });
   }, [displayReels, searchParams]);
+
+  useEffect(() => {
+    setActivePlaybackProgress(0);
+  }, [activeIndex]);
+
+  useEffect(() => {
+    if (displayReels.length === 0) return;
+    if (!hasNextPage || isFetchingNextPage) return;
+    if (activeIndex >= displayReels.length - 4) {
+      void fetchNextPage();
+    }
+  }, [activeIndex, displayReels.length, hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  const scrollToNextReel = useCallback(() => {
+    const container = containerRef.current;
+    if (!container || displayReels.length === 0) return;
+    const h = container.clientHeight;
+    if (!h) return;
+    const next = Math.min(activeIndex + 1, displayReels.length - 1);
+    if (next === activeIndex) return;
+    container.scrollTo({ top: next * h, behavior: 'smooth' });
+    setActiveIndex(next);
+  }, [activeIndex, displayReels.length]);
 
   const handleScroll = useCallback(() => {
     const container = containerRef.current;
@@ -91,7 +129,7 @@ const ReelsFeedPage: React.FC = () => {
     ctl.viewTimerRef,
   );
 
-  if (isLoading) return <ReelsFeedSkeleton />;
+  if (isPending) return <ReelsFeedSkeleton />;
 
   if (isError) {
     return (
@@ -138,9 +176,24 @@ const ReelsFeedPage: React.FC = () => {
             containerRef={containerRef}
             onScroll={handleScroll}
             ctl={ctl}
-            showCartToast={false}
+            showCartToast
+            onViewCart={() => navigate('/checkout')}
+            playbackProgress={{
+              activeProgress: activePlaybackProgress,
+              onProgress: setActivePlaybackProgress,
+              onComplete: scrollToNextReel,
+            }}
             className="reels-snap-container--with-mobile-nav"
           />
+
+          {isFetchingNextPage ? (
+            <div
+              className="absolute bottom-20 left-1/2 z-[46] -translate-x-1/2 rounded-full px-3 py-1 reels-font-body text-[10px] text-white/80"
+              style={{ background: 'var(--reels-glass)', border: '1px solid var(--reels-glass-border)' }}
+            >
+              Loading more…
+            </div>
+          ) : null}
         </div>
       </div>
 

@@ -2,6 +2,7 @@ import React, { useMemo, useState, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useQueryClient } from '@tanstack/react-query';
 import { extractResults, vendorApi, websiteApi } from '@/lib/api';
+import { detectApiPlatformFromVideoUrl } from '../api/reelMappers';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Search, X, ChevronDown } from 'lucide-react';
 import VideoPreviewCard from './VideoPreviewCard';
@@ -82,7 +83,8 @@ const ReelUploadForm: React.FC<ReelUploadFormProps> = ({ vendorId, onPublished }
         if (videoFile) fd.append('video', videoFile);
         if (videoUrl.trim()) fd.append('video_url', videoUrl.trim());
         fd.append('caption', caption);
-        fd.append('platform', 'direct_mp4');
+        const platform = videoFile ? 'direct_mp4' : detectApiPlatformFromVideoUrl(videoUrl);
+        fd.append('platform', platform);
         fd.append('status', 'active');
         if (tags.length) fd.append('tags', tags.join(','));
         if (selectedProduct) fd.append('product_id', String(selectedProduct));

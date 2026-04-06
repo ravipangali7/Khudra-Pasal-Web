@@ -29,6 +29,7 @@ import VendorPortal from "./pages/vendor/VendorPortal";
 import NotFound from "./pages/NotFound";
 import ReelsFeedPage from "./modules/reels/feed/ReelsFeedPage";
 import VendorReelsPage from "./modules/reels/vendor/VendorReelsPage";
+import VendorStorePage from "./pages/VendorStorePage";
 import { getApiErrorHttpStatus } from "@/lib/api";
 
 const queryClient = new QueryClient({
@@ -127,6 +128,7 @@ const App = () => (
               <Route path="/vendor/*" element={<VendorPortal />} />
               <Route path="/join-family/:token" element={<JoinFamilyPage />} />
               <Route path="/reels" element={<ReelsFeedPage />} />
+              <Route path="/store/:slug" element={<VendorStorePage />} />
               <Route path="/vendor/reels" element={<VendorReelsPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>

@@ -223,6 +223,7 @@ const ReelVideoPlayer: React.FC<ReelVideoPlayerProps> = ({
       const postId = extractTikTokPostId(url);
       return postId ? buildTikTokPlayerUrl(postId) : '';
     }
+    // Instagram: standard embed only — no postMessage API for mute/loop/hiding Meta chrome.
     if (plat === 'instagram') {
       const reelId = url.match(/reel\/([^/?]+)/)?.[1];
       return `https://www.instagram.com/reel/${reelId}/embed`;

@@ -12,6 +12,18 @@ function mapPlatform(p: string): "mp4" | "youtube" | "tiktok" | "instagram" {
   return "mp4";
 }
 
+/** Infer Django `Reel.platform` from a pasted video URL (vendor upload). */
+export function detectApiPlatformFromVideoUrl(url: string): string {
+  const t = url.trim();
+  const lower = t.toLowerCase();
+  if (!t) return "direct_mp4";
+  if (lower.includes("tiktok.com") && /video\/\d+/.test(t)) return "tiktok";
+  if (lower.includes("youtube.com/shorts/") || lower.includes("/shorts/")) return "youtube_shorts";
+  if (lower.includes("youtube.com/watch") || lower.includes("youtu.be/")) return "youtube_shorts";
+  if (lower.includes("instagram.com") && /\/reel\//i.test(t)) return "instagram";
+  return "direct_mp4";
+}
+
 /** Maps UI platform to Django `Reel.platform` enum values. */
 export function mapUiPlatformToApi(
   p: Reel["platform"] | string | undefined,
@@ -98,6 +110,7 @@ export function mapApiReelToUi(row: ApiReelPublicRow): Reel {
     vendor: {
       id: String(row.vendor.id),
       name: row.vendor.store_name,
+      storeSlug: row.vendor.store_slug || undefined,
       verified: row.vendor.is_verified,
       avatar: row.vendor.logo_url || undefined,
     },

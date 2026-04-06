@@ -42,6 +42,8 @@ export interface Product {
 export interface Vendor {
   id: string;
   name: string;
+  /** Public storefront path: `/store/:storeSlug` */
+  storeSlug?: string;
   logo?: string;
   rating?: number;
   isVerified?: boolean;

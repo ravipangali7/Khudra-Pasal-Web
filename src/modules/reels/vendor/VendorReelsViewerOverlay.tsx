@@ -16,10 +16,10 @@ import { evaluateChildProductCommerce } from '@/lib/childShoppingRules';
 import { useChildPurchaseApprovalRequest } from '@/hooks/useChildPurchaseApprovalRequest';
 import { toast } from 'sonner';
 import type { Reel } from '../types';
+import { useReelsMutePreference } from '../feed/useReelsMutePreference';
 import '../reels-theme.css';
 
 const PAGE_SIZE = 12;
-const REELS_SOUND_SESSION_KEY = 'vendor.reels.sound.enabled';
 
 const tabs = [
   { id: 'trending' as const, icon: Flame, label: 'Trending' },
@@ -40,7 +40,7 @@ const VendorReelsViewerOverlay: React.FC<Props> = ({ vendorId, initialReelId, on
   const [activeIndex, setActiveIndex] = useState(0);
   const [showToast, setShowToast] = useState(false);
   const [displayReels, setDisplayReels] = useState<Reel[]>([]);
-  const [isMuted, setIsMuted] = useState(true);
+  const [isMuted, toggleMutePreference] = useReelsMutePreference();
   const [activeProgress, setActiveProgress] = useState(0);
   const [commentDrawerReelId, setCommentDrawerReelId] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -90,27 +90,9 @@ const VendorReelsViewerOverlay: React.FC<Props> = ({ vendorId, initialReelId, on
     navigate(`/login?next=${encodeURIComponent(nextPath)}&shop=1`);
   }, [location.pathname, location.search, navigate, toCartProduct]);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const saved = window.sessionStorage.getItem(REELS_SOUND_SESSION_KEY);
-    if (saved === 'on') {
-      setIsMuted(false);
-      return;
-    }
-    if (saved === 'off') {
-      setIsMuted(true);
-    }
-  }, []);
-
   const handleToggleMute = useCallback(() => {
-    setIsMuted((prev) => {
-      const next = !prev;
-      if (typeof window !== 'undefined') {
-        window.sessionStorage.setItem(REELS_SOUND_SESSION_KEY, next ? 'off' : 'on');
-      }
-      return next;
-    });
-  }, []);
+    toggleMutePreference();
+  }, [toggleMutePreference]);
 
   const {
     data,

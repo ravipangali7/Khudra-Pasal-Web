@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import ReelsPriceTag from '../shared/ReelsPriceTag';
 import ReelsAvatar from '../shared/ReelsAvatar';
 import ReelsButton from '../shared/ReelsButton';
@@ -7,6 +8,8 @@ import type { Reel } from '../types';
 
 interface ReelProductOverlayProps {
   reel: Reel;
+  /** Full-screen /reels: extra padding for floating action rail + mobile tab bar. */
+  immersive?: boolean;
   onProductTap: () => void;
   onAddToCart: () => void;
   onBuyNow: () => void;
@@ -15,14 +18,26 @@ interface ReelProductOverlayProps {
 }
 
 const ReelProductOverlay: React.FC<ReelProductOverlayProps> = ({
-  reel, onProductTap, onAddToCart, onBuyNow, expanded, onToggleCaption
+  reel,
+  immersive = false,
+  onProductTap,
+  onAddToCart,
+  onBuyNow,
+  expanded,
+  onToggleCaption,
 }) => {
+  const navigate = useNavigate();
+  const storeSlug = reel.vendor.storeSlug;
   const { product, vendor, caption } = reel;
   const productLinked = Boolean(reel.product?.id);
 
+  const padClass = immersive
+    ? 'p-4 pr-16 pb-28 max-md:pb-32 md:pb-8 md:pr-4'
+    : 'p-4 pb-20 md:pb-6';
+
   return (
     <motion.div
-      className="absolute bottom-0 left-0 right-0 p-4 pb-20 md:pb-6 z-[4]"
+      className={`absolute bottom-0 left-0 right-0 z-[4] ${padClass}`}
       style={{ background: 'var(--reels-overlay-gradient)' }}
       initial={{ y: 20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
@@ -63,7 +78,20 @@ const ReelProductOverlay: React.FC<ReelProductOverlayProps> = ({
 
       {/* Vendor */}
       <div className="mb-3">
-        <ReelsAvatar name={vendor.name} verified={vendor.verified} avatar={vendor.avatar} />
+        {storeSlug ? (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              navigate(`/store/${encodeURIComponent(storeSlug)}`);
+            }}
+            className="flex w-full text-left rounded-lg p-1 -m-1 hover:bg-white/5 transition-colors"
+          >
+            <ReelsAvatar name={vendor.name} verified={vendor.verified} avatar={vendor.avatar} />
+          </button>
+        ) : (
+          <ReelsAvatar name={vendor.name} verified={vendor.verified} avatar={vendor.avatar} />
+        )}
       </div>
 
       {/* Action buttons */}

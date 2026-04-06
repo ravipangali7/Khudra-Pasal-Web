@@ -60,8 +60,8 @@ const ReelCard: React.FC<ReelCardProps> = ({
       animate={{ opacity: 1, scale: 1 }}
       transition={immersive ? { duration: 0 } : { duration: 0.2 }}
     >
-      {!immersive && (
-        <ReelProgressBar isActive={isActive} progress={progress} onComplete={onProgressComplete} />
+      {(progress !== undefined || !immersive) && (
+        <ReelProgressBar isActive={isActive} progress={progress ?? 0} onComplete={onProgressComplete} />
       )}
 
       {mountVideo ? (
@@ -70,7 +70,7 @@ const ReelCard: React.FC<ReelCardProps> = ({
           platform={reel.platform}
           isActive={isActive}
           isMuted={isMuted}
-          onProgress={immersive ? undefined : onProgress}
+          onProgress={onProgress}
           thumbnail={reel.thumbnail}
           minimalChrome={immersive}
           preload={videoPreload}
@@ -83,22 +83,18 @@ const ReelCard: React.FC<ReelCardProps> = ({
         </div>
       )}
 
-      {!immersive && (
-        <>
-          <div
-            className="absolute top-0 left-0 right-0 h-[15%] z-[3]"
-            style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 100%)' }}
-          />
+      <div
+        className="absolute top-0 left-0 right-0 h-[15%] z-[3] pointer-events-none"
+        style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.6) 0%, transparent 100%)' }}
+      />
 
-          {reel.status === 'active' && reel.id % 2 === 0 && <SponsoredLabel />}
-        </>
-      )}
+      {reel.status === 'active' && reel.id % 2 === 0 && <SponsoredLabel />}
 
       <button
         type="button"
         onClick={handleToggleMute}
         className={`absolute z-[30] w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md ${
-          immersive ? 'bottom-6 left-4' : 'bottom-28 left-4'
+          immersive ? 'bottom-28 left-4 max-md:bottom-36' : 'bottom-28 left-4'
         }`}
         style={{ background: 'var(--reels-glass)', border: '1px solid var(--reels-glass-border)' }}
         aria-label={isMuted ? 'Enable sound' : 'Mute sound'}
@@ -107,33 +103,30 @@ const ReelCard: React.FC<ReelCardProps> = ({
         <span className="text-sm">{isMuted ? '🔇' : '🔊'}</span>
       </button>
 
-      {!immersive && (
-        <>
-          <ReelProductOverlay
-            reel={reel}
-            onProductTap={() => setSheetOpen(true)}
-            onAddToCart={() => onAddToCart(reel)}
-            onBuyNow={() => onBuyNow?.(reel, 1)}
-            expanded={captionExpanded}
-            onToggleCaption={() => setCaptionExpanded(!captionExpanded)}
-          />
+      <ReelProductOverlay
+        reel={reel}
+        immersive={immersive}
+        onProductTap={() => setSheetOpen(true)}
+        onAddToCart={() => onAddToCart(reel)}
+        onBuyNow={() => onBuyNow?.(reel, 1)}
+        expanded={captionExpanded}
+        onToggleCaption={() => setCaptionExpanded(!captionExpanded)}
+      />
 
-          <ProductQuickSheet
-            product={reel.product}
-            hasLinkedProduct={Boolean(reel.product?.id)}
-            isOpen={sheetOpen}
-            onClose={() => setSheetOpen(false)}
-            onAddToCart={() => {
-              onAddToCart(reel);
-              setSheetOpen(false);
-            }}
-            onBuyNow={(quantity) => {
-              onBuyNow?.(reel, quantity);
-              setSheetOpen(false);
-            }}
-          />
-        </>
-      )}
+      <ProductQuickSheet
+        product={reel.product}
+        hasLinkedProduct={Boolean(reel.product?.id)}
+        isOpen={sheetOpen}
+        onClose={() => setSheetOpen(false)}
+        onAddToCart={() => {
+          onAddToCart(reel);
+          setSheetOpen(false);
+        }}
+        onBuyNow={(quantity) => {
+          onBuyNow?.(reel, quantity);
+          setSheetOpen(false);
+        }}
+      />
     </motion.div>
   );
 };

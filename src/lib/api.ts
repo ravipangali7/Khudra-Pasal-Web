@@ -707,6 +707,7 @@ export const mapWebsiteProductToUi = (item: WebsiteProduct): Product => {
       ? {
           id: String(item.seller.id),
           name: item.seller.store_name,
+          storeSlug: item.seller.store_slug,
           logo: item.seller.logo_url,
           isVerified: item.seller.is_verified,
         }

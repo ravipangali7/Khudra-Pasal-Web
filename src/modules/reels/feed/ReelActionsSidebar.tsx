@@ -12,6 +12,8 @@ export interface ReelActionsSidebarProps {
   onShare: () => void;
   onComment: () => void;
   onSave?: () => void;
+  /** `sidebar`: right column in a row layout. `floating`: transparent overlay rail (full-screen /reels). */
+  layout?: 'sidebar' | 'floating';
   /** Extra classes for the outer rail (e.g. width, border). */
   className?: string;
   /** When false, rail is inert (empty list / no active reel). */
@@ -87,16 +89,26 @@ const ReelActionsSidebar: React.FC<ReelActionsSidebarProps> = ({
   onShare,
   onComment,
   onSave,
+  layout = 'sidebar',
   className = '',
   disabled = false,
 }) => {
+  const floating = layout === 'floating';
   return (
     <aside
-      className={`flex h-full min-h-0 flex-col items-center justify-center gap-3 sm:gap-4 border-l py-4 sm:py-6 shrink-0 w-14 sm:w-16 ${className}`.trim()}
-      style={{
-        background: 'var(--reels-surface)',
-        borderColor: 'var(--reels-border)',
-      }}
+      className={
+        floating
+          ? `pointer-events-auto flex flex-col items-center justify-center gap-3 sm:gap-4 py-0 shrink-0 w-14 sm:w-16 ${className}`.trim()
+          : `flex h-full min-h-0 flex-col items-center justify-center gap-3 sm:gap-4 border-l py-4 sm:py-6 shrink-0 w-14 sm:w-16 ${className}`.trim()
+      }
+      style={
+        floating
+          ? undefined
+          : {
+              background: 'var(--reels-surface)',
+              borderColor: 'var(--reels-border)',
+            }
+      }
       aria-label="Reel actions"
     >
       <ActionButton

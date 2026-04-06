@@ -19,6 +19,8 @@ export interface ReelProduct {
 export interface ReelVendor {
   id: string;
   name: string;
+  /** Links to `/store/:storeSlug` */
+  storeSlug?: string;
   verified: boolean;
   avatar?: string;
   coverImage?: string;
