@@ -6,7 +6,8 @@ import {
   ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import type { Reel } from '../types';
-import { adminApi, extractResults } from '@/lib/api';
+import { adminApi, extractResults, type AdminAuditLogRow } from '@/lib/api';
+import { formatDistanceToNow } from 'date-fns';
 import {
   boostStatusFromReel,
   mapApiReelToUi,
@@ -43,6 +44,19 @@ import {
 import { formatApiError } from '@/pages/admin/hooks/adminFormUtils';
 
 const formatCount = (n: number) => n >= 1000 ? (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k' : n.toString();
+
+function parseCreatedMs(iso: string | undefined): number {
+  if (!iso) return 0;
+  const t = Date.parse(iso);
+  return Number.isNaN(t) ? 0 : t;
+}
+
+function formatReelRelative(iso: string | undefined): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return formatDistanceToNow(d, { addSuffix: true });
+}
 
 const statusColors: Record<string, string> = {
   active: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
@@ -156,6 +170,39 @@ const AdminReelsModule: React.FC = () => {
   useEffect(() => {
     setReelsData(baseRows);
   }, [baseRows]);
+
+  const { data: adminProfile } = useQuery({
+    queryKey: ['admin', 'profile'],
+    queryFn: () => adminApi.profile(),
+    staleTime: 60_000,
+  });
+
+  const canAuditReels =
+    Boolean(adminProfile?.is_superuser) || adminProfile?.role === 'super_admin';
+
+  const { data: reelsAuditResp } = useQuery({
+    queryKey: ['admin', 'reels-activity-audit'],
+    queryFn: () =>
+      adminApi.auditLogs({
+        module: 'reels-admin',
+        page_size: 8,
+        ordering: '-created_at',
+      }),
+    enabled: canAuditReels,
+    staleTime: 30_000,
+    retry: false,
+  });
+
+  const reelsAuditRows: AdminAuditLogRow[] = useMemo(
+    () => extractResults<AdminAuditLogRow>(reelsAuditResp),
+    [reelsAuditResp],
+  );
+
+  const recentReels = useMemo(() => {
+    return [...reelsData]
+      .sort((a, b) => parseCreatedMs(b.createdAt) - parseCreatedMs(a.createdAt))
+      .slice(0, 12);
+  }, [reelsData]);
 
   const categories = [...new Set(reelsData.map(r => r.category).filter(Boolean))];
 
@@ -442,9 +489,46 @@ const AdminReelsModule: React.FC = () => {
               ))}
             </div>
           </div>
-          <div className="rounded-xl border bg-card p-6">
+          <div className="rounded-xl border bg-card p-6 flex flex-col min-h-0">
             <h3 className="font-semibold text-foreground mb-4">Activity</h3>
-            <p className="text-sm text-muted-foreground">Use Security → Audit Trail for platform events. Reel metrics above are live from the API.</p>
+            {canAuditReels && reelsAuditRows.length > 0 ? (
+              <div className="space-y-3 flex-1 min-h-0">
+                <p className="text-xs text-muted-foreground -mt-1 mb-2">Recent API changes (reels)</p>
+                {reelsAuditRows.map((row) => (
+                  <div key={row.id} className="flex items-start gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground line-clamp-2">{row.description || row.action}</p>
+                      <p className="text-xs text-muted-foreground truncate">{row.user}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-sm text-foreground whitespace-nowrap">{formatReelRelative(row.created_at)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : recentReels.length > 0 ? (
+              <div className="space-y-3 flex-1 min-h-0">
+                <p className="text-xs text-muted-foreground -mt-1 mb-2">Recently added reels</p>
+                {recentReels.map((r) => (
+                  <div key={r.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 transition-colors">
+                    <img src={r.product.image} alt="" className="w-10 h-10 rounded-lg object-cover" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{r.product.name}</p>
+                      <p className="text-xs text-muted-foreground">{r.vendor.name}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-sm text-foreground whitespace-nowrap">{formatReelRelative(r.createdAt)}</p>
+                      <p className="text-[10px] text-muted-foreground">created</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No reels yet. Create one above or check back later.</p>
+            )}
+            <p className="text-xs text-muted-foreground mt-4 pt-3 border-t border-border">
+              Full platform audit history: Security → Audit Trail (super admin). Reel metrics above are live from the API.
+            </p>
           </div>
         </div>
       ) : (
