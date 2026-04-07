@@ -27,14 +27,6 @@ function formatPrice(amount: number) {
   return `Rs. ${amount.toLocaleString("en-NP")}`;
 }
 
-/** Match server Decimal 2dp: 3% fee on gross, net = gross − fee */
-function refundBreakdownDisplay(gross: number) {
-  const g = Math.round(gross * 100) / 100;
-  const fee = Math.round(g * 0.03 * 100) / 100;
-  const net = Math.round((g - fee) * 100) / 100;
-  return { gross: g, fee, net };
-}
-
 function remainingRefundGross(o: PortalOrderRow): number {
   const refunded =
     o.refunds
@@ -219,7 +211,7 @@ export default function PortalMyOrdersSection({ surface, sessionTick, authed }: 
                                             {r.platform_fee != null ? (
                                               <span className="text-muted-foreground font-normal">
                                                 {" "}
-                                                (gross {formatPrice(r.gross_amount ?? r.amount)}, fee{" "}
+                                                (gross {formatPrice(r.gross_amount ?? r.amount)}, retention{" "}
                                                 {formatPrice(r.platform_fee)})
                                               </span>
                                             ) : null}
@@ -307,19 +299,22 @@ export default function PortalMyOrdersSection({ surface, sessionTick, authed }: 
                 </p>
                 {(() => {
                   const g = remainingRefundGross(refundOrder);
-                  const { fee, net } = refundBreakdownDisplay(g);
+                  const est = refundOrder.refund_estimate;
+                  const gross = est?.gross ?? g;
+                  const fee = est?.platform_fee ?? 0;
+                  const net = est?.net_credit ?? g;
                   return (
                     <>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Original amount (gross)</span>
-                        <span className="font-mono font-medium">{formatPrice(g)}</span>
+                        <span className="text-muted-foreground">Gross (remaining)</span>
+                        <span className="font-mono font-medium">{formatPrice(gross)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">3% platform fee</span>
+                        <span className="text-muted-foreground">Platform retention (3% of commission)</span>
                         <span className="font-mono">−{formatPrice(fee)}</span>
                       </div>
                       <div className="flex justify-between pt-1 border-t border-border font-medium">
-                        <span>Final refund to wallet</span>
+                        <span>Credit to your wallet</span>
                         <span className="font-mono text-primary">{formatPrice(net)}</span>
                       </div>
                     </>

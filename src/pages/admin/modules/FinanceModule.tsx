@@ -576,7 +576,7 @@ function RefundsView() {
   return (
     <div className="p-4 lg:p-6">
       <FilterBar filters={filters} onChange={setFilter} />
-      <AdminTable title="Refund Requests" subtitle="Super Admin approves or rejects; 3% platform fee applies on payout"
+      <AdminTable title="Refund Requests" subtitle="Super Admin approves or rejects; 3% applies to the commission portion only"
         data={filtered}
         columns={[
           { key: 'id', label: 'Refund ID' },
@@ -600,22 +600,19 @@ function RefundsView() {
           },
           {
             key: 'fee',
-            label: '3% fee',
+            label: 'Commission retention',
             render: (r) => (
               <span className="font-mono text-xs text-muted-foreground">
-                Rs. {Number(r.platform_fee ?? Math.round(Number(r.amount) * 0.03 * 100) / 100).toLocaleString()}
+                Rs. {Number(r.platform_fee ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             ),
           },
           {
             key: 'net',
-            label: 'Net refund',
+            label: 'Customer credit',
             render: (r) => (
               <span className="font-mono text-xs font-medium text-primary">
-                Rs. {Number(
-                  r.net_credit ??
-                    Math.round((Number(r.amount) - Math.round(Number(r.amount) * 0.03 * 100) / 100) * 100) / 100,
-                ).toLocaleString()}
+                Rs. {Number(r.net_credit ?? r.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             ),
           },
@@ -680,7 +677,7 @@ function RefundsView() {
               <div className="text-sm text-muted-foreground space-y-2 pt-2">
                 {approveTarget ? (
                   <>
-                    <p>This credits the customer wallet (net) and debits vendor/platform per settlement rules.</p>
+                    <p>This credits the customer wallet and debits vendor plus platform commission per settlement (3% of commission slice retained).</p>
                     <div className="rounded-md border bg-muted/40 p-3 space-y-1 text-foreground">
                       <div className="flex justify-between text-xs">
                         <span>Gross</span>
@@ -689,21 +686,15 @@ function RefundsView() {
                         </span>
                       </div>
                       <div className="flex justify-between text-xs">
-                        <span>3% platform fee (retained)</span>
+                        <span>Platform retention (3% of commission)</span>
                         <span className="font-mono">
-                          Rs. {Number(approveTarget.platform_fee ?? Math.round(Number(approveTarget.amount) * 0.03 * 100) / 100).toLocaleString()}
+                          Rs. {Number(approveTarget.platform_fee ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       </div>
                       <div className="flex justify-between text-xs font-medium pt-1 border-t">
-                        <span>Net to customer</span>
+                        <span>Credit to customer</span>
                         <span className="font-mono text-primary">
-                          Rs. {Number(
-                            approveTarget.net_credit ??
-                              Math.round(
-                                (Number(approveTarget.amount) - Math.round(Number(approveTarget.amount) * 0.03 * 100) / 100) *
-                                  100,
-                              ) / 100,
-                          ).toLocaleString()}
+                          Rs. {Number(approveTarget.net_credit ?? approveTarget.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                         </span>
                       </div>
                       <p className="text-[10px] text-muted-foreground pt-1">

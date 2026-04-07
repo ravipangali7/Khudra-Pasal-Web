@@ -436,6 +436,7 @@ function AllOrdersView() {
             <DialogTitle>Request refund</DialogTitle>
             <p className="text-sm text-muted-foreground">
               Submits a pending request for Super Admin approval. Gross refund uses the full remaining order total.
+              The platform keeps 3% of the commission portion only (not 3% of the full refund).
             </p>
           </DialogHeader>
           <div className="space-y-3">
@@ -446,15 +447,30 @@ function AllOrdersView() {
                   <span className="font-mono font-medium">Rs. {refundRemaining.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">3% platform fee</span>
-                  <span className="font-mono">Rs. {(Math.round(refundRemaining * 0.03 * 100) / 100).toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between font-medium pt-1 border-t">
-                  <span>Net to customer</span>
-                  <span className="font-mono text-primary">
-                    Rs. {(Math.round((refundRemaining - Math.round(refundRemaining * 0.03 * 100) / 100) * 100) / 100).toLocaleString()}
+                  <span className="text-muted-foreground">Platform retention (3% of commission slice)</span>
+                  <span className="font-mono">
+                    Rs.{' '}
+                    {(order.refund_preview?.platform_fee ?? 0).toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
                   </span>
                 </div>
+                <div className="flex justify-between font-medium pt-1 border-t">
+                  <span>Credit to customer</span>
+                  <span className="font-mono text-primary">
+                    Rs.{' '}
+                    {(order.refund_preview?.net_credit ?? refundRemaining).toLocaleString(undefined, {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </span>
+                </div>
+                {!order.refund_preview ? (
+                  <p className="text-[10px] text-muted-foreground pt-1">
+                    Preview unavailable for this order state; amounts follow commission rules at submit time.
+                  </p>
+                ) : null}
               </div>
             ) : null}
             <div>

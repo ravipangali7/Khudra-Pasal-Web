@@ -280,6 +280,19 @@ export type AdminOrderListRow = {
   address: string;
 };
 
+export type AdminRefundPreview = {
+  gross: number;
+  platform_fee: number;
+  net_credit: number;
+};
+
+export type AdminCommissionSettlement = {
+  total_amount: number;
+  vendor_amount: number;
+  commission_amount: number;
+  commission_percent: number;
+};
+
 export type AdminOrderDetail = AdminOrderListRow & {
   item_lines: {
     name: string;
@@ -297,6 +310,8 @@ export type AdminOrderDetail = AdminOrderListRow & {
   tracking_number?: string;
   carrier?: string;
   refunded_total?: number;
+  refund_preview?: AdminRefundPreview | null;
+  commission_settlement?: AdminCommissionSettlement | null;
 };
 
 export type AdminProductDetail = {
@@ -2063,6 +2078,12 @@ export type PortalOrderRefundRow = {
   created_at: string;
 };
 
+export type PortalRefundEstimate = {
+  gross: number;
+  platform_fee: number;
+  net_credit: number;
+};
+
 export type PortalOrderRow = {
   id: string;
   pk: number;
@@ -2075,6 +2096,7 @@ export type PortalOrderRow = {
   seller_id: number | null;
   lines: PortalOrderLineRow[];
   refunds?: PortalOrderRefundRow[];
+  refund_estimate?: PortalRefundEstimate | null;
 };
 
 export type PortalWalletTxnRow = {
