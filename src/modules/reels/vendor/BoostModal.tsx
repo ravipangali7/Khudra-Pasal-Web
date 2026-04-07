@@ -119,14 +119,19 @@ const BoostModal: React.FC<BoostModalProps> = ({
                 style={{ background: 'var(--reels-surface)', border: '1px solid var(--reels-glass-border)' }}
                 onClick={e => e.stopPropagation()}
               >
-                <button type="button" onClick={handleClose} className="absolute top-4 right-4 p-1 rounded-full hover:bg-white/10">
-                  <X className="w-4 h-4 text-white" />
+                <button
+                  type="button"
+                  onClick={handleClose}
+                  className="absolute top-4 right-4 p-1 rounded-full hover:bg-black/10 dark:hover:bg-white/10"
+                  aria-label="Close"
+                >
+                  <X className="w-4 h-4" style={{ color: 'var(--reels-text-secondary)' }} />
                 </button>
 
-                <h2 className="reels-font-display font-bold text-xl text-white mb-1">Boost Reel</h2>
+                <h2 className="reels-font-display font-bold text-xl reels-ui-text mb-1">Boost Reel</h2>
                 <p className="reels-font-body text-xs mb-5" style={{ color: 'var(--reels-text-muted)' }}>{reelName}</p>
 
-                <label className="reels-font-body text-xs font-semibold text-white mb-2 block">Boost Type</label>
+                <label className="reels-font-body text-xs font-semibold reels-ui-text mb-2 block">Boost Type</label>
                 <div className="grid grid-cols-3 gap-2 mb-5">
                   {boostTypes.map(bt => {
                     const Icon = bt.icon;
@@ -143,30 +148,30 @@ const BoostModal: React.FC<BoostModalProps> = ({
                         }}
                       >
                         <Icon className="w-5 h-5 mx-auto mb-1" style={{ color: bt.color }} />
-                        <p className="reels-font-body text-xs font-semibold text-white">{bt.label}</p>
+                        <p className="reels-font-body text-xs font-semibold reels-ui-text">{bt.label}</p>
                         <p className="reels-font-mono text-[10px]" style={{ color: 'var(--reels-text-muted)' }}>{bt.multiplier} reach</p>
                       </button>
                     );
                   })}
                 </div>
 
-                <label className="reels-font-body text-xs font-semibold text-white mb-1.5 block">Daily Budget (NPR)</label>
+                <label className="reels-font-body text-xs font-semibold reels-ui-text mb-1.5 block">Daily Budget (NPR)</label>
                 <input
                   type="number"
                   value={budget}
                   onChange={e => setBudget(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl reels-font-mono text-sm text-white mb-4"
+                  className="w-full px-4 py-2.5 rounded-xl reels-font-mono text-sm reels-ui-text mb-4 placeholder:text-[color:var(--reels-text-muted)]"
                   style={{ background: 'var(--reels-glass)', border: '1px solid var(--reels-glass-border)', outline: 'none' }}
                   min="100"
                   placeholder="500"
                 />
 
-                <label className="reels-font-body text-xs font-semibold text-white mb-1.5 block">Duration (Days)</label>
+                <label className="reels-font-body text-xs font-semibold reels-ui-text mb-1.5 block">Duration (Days)</label>
                 <input
                   type="number"
                   value={duration}
                   onChange={e => setDuration(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-xl reels-font-mono text-sm text-white mb-4"
+                  className="w-full px-4 py-2.5 rounded-xl reels-font-mono text-sm reels-ui-text mb-4 placeholder:text-[color:var(--reels-text-muted)]"
                   style={{ background: 'var(--reels-glass)', border: '1px solid var(--reels-glass-border)', outline: 'none' }}
                   min="1"
                   max="30"
@@ -182,7 +187,7 @@ const BoostModal: React.FC<BoostModalProps> = ({
                   </div>
                   <div className="flex justify-between reels-font-body text-xs">
                     <span style={{ color: 'var(--reels-text-muted)' }}>Est. Reach</span>
-                    <span className="reels-font-mono font-bold text-white">{estimatedReach().toLocaleString()} views</span>
+                    <span className="reels-font-mono font-bold reels-ui-text">{estimatedReach().toLocaleString()} views</span>
                   </div>
                 </div>
 
@@ -194,10 +199,11 @@ const BoostModal: React.FC<BoostModalProps> = ({
                   type="button"
                   onClick={openConfirm}
                   disabled={boostMut.isPending}
-                  className="w-full py-3 rounded-xl reels-font-body text-sm font-bold text-white transition-all"
+                  className="w-full py-3 rounded-xl reels-font-body text-sm font-bold transition-all"
                   style={{
                     background: boostMut.isPending ? 'var(--reels-text-muted)' : 'var(--reels-accent)',
                     boxShadow: boostMut.isPending ? 'none' : '0 0 20px var(--reels-accent-glow)',
+                    color: 'var(--reels-on-accent)',
                   }}
                 >
                   {boostMut.isPending ? '⏳ Processing...' : '🚀 Start Boost'}

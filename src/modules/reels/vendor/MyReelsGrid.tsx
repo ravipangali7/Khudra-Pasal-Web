@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Play, MoreVertical, Edit, Pause, Trash2, Eye, Heart, MessageCircle, Zap } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import ReelStatusBadge from './ReelStatusBadge';
 import BoostModal from './BoostModal';
 import type { Reel } from '../types';
@@ -10,12 +11,32 @@ import { mapApiReelToUi } from '../api/reelMappers';
 import { useReelsQueryAuthRev } from '../feed/useReelsQueryAuthRev';
 import { useVendorReelViewer } from './VendorReelViewerContext';
 import { cn } from '@/lib/utils';
+import { formatApiError } from '@/pages/admin/hooks/adminFormUtils';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
 import '../reels-theme.css';
 
 const formatCount = (n: number) => n >= 1000 ? (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k' : n.toString();
@@ -60,13 +81,58 @@ const MyReelsGrid: React.FC<MyReelsGridProps> = ({ onNewReel, vendorId, vendorSl
   const wrapPortal = (node: React.ReactNode) =>
     useVendorPortal ? <div className="vendor-reels-light">{node}</div> : node;
 
+  const invalidateReelQueries = () => {
+    void queryClient.invalidateQueries({ queryKey: ['vendor', 'reels'] });
+    void queryClient.invalidateQueries({ queryKey: ['website', 'my-reels'] });
+  };
+
   const delMut = useMutation({
     mutationFn: (reelPk: string) => vendorApi.deleteReel(reelPk),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['vendor', 'reels'] });
-      void queryClient.invalidateQueries({ queryKey: ['website', 'my-reels'] });
+      invalidateReelQueries();
+      setDeleteConfirmOpen(false);
+      setDeleteReel(null);
     },
+    onError: (e: Error) => toast.error(formatApiError(e)),
   });
+
+  const editCaptionMut = useMutation({
+    mutationFn: ({ id, caption }: { id: string; caption: string }) =>
+      vendorApi.updateReel(id, { caption }),
+    onSuccess: () => {
+      invalidateReelQueries();
+      setEditOpen(false);
+      setEditReel(null);
+    },
+    onError: (e: Error) => toast.error(formatApiError(e)),
+  });
+
+  const pauseResumeMut = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      vendorApi.updateReel(id, { status }),
+    onSuccess: () => {
+      invalidateReelQueries();
+      setPauseConfirmOpen(false);
+      setPauseReel(null);
+    },
+    onError: (e: Error) => toast.error(formatApiError(e)),
+  });
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [editReel, setEditReel] = useState<Reel | null>(null);
+  const [editCaptionDraft, setEditCaptionDraft] = useState('');
+  const [pauseConfirmOpen, setPauseConfirmOpen] = useState(false);
+  const [pauseReel, setPauseReel] = useState<Reel | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteReel, setDeleteReel] = useState<Reel | null>(null);
+
+  const requireVendorPortal = () => {
+    if (!useVendorPortal) {
+      toast.info('Open the vendor portal to manage reels.');
+      return false;
+    }
+    return true;
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ['website', 'my-reels', slug, id, useVendorPortal, reelsAuthRev],
@@ -208,7 +274,7 @@ const MyReelsGrid: React.FC<MyReelsGridProps> = ({ onNewReel, vendorId, vendorSl
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <ReelStatusBadge status="active" />
+                <ReelStatusBadge status={reel.status ?? 'active'} />
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <button
@@ -225,45 +291,69 @@ const MyReelsGrid: React.FC<MyReelsGridProps> = ({ onNewReel, vendorId, vendorSl
                     align="end"
                     sideOffset={6}
                     className={cn(
-                      'min-w-[140px] p-1 z-[100]',
+                      'min-w-[160px] p-1 z-[100]',
                       useVendorPortal &&
                         'border border-[hsl(214_32%_91%)] bg-[hsl(0_0%_100%)] text-[hsl(222_47%_11%)] [&_[role=menuitem]]:focus:bg-[hsl(210_40%_96%)]',
                     )}
                     onClick={(e) => e.stopPropagation()}
                     onPointerDown={(e) => e.stopPropagation()}
                   >
-                    {[
-                      { icon: Edit, label: 'Edit Caption', danger: false },
-                      { icon: Pause, label: 'Pause Reel', danger: false },
-                      ...(canBoost ? [{ icon: Zap, label: 'Boost Reel' as const, danger: false as const }] : []),
-                      { icon: Trash2, label: 'Delete', danger: true as const },
-                    ].map((action) => (
-                      <DropdownMenuItem
-                        key={action.label}
-                        className={cn(
-                          'reels-dropdown-item reels-font-body text-xs gap-2 cursor-pointer',
-                          action.danger
-                            ? 'text-[#E63946] focus:text-[#E63946] focus:bg-[hsl(0_84%_60%_/_0.08)]'
-                            : useVendorPortal
-                              ? 'text-[hsl(215_16%_47%)] focus:text-[hsl(222_47%_11%)]'
-                              : 'text-popover-foreground',
-                        )}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (action.label === 'Boost Reel') {
-                            setBoostReel(reel);
-                            setBoostOpen(true);
-                          } else if (action.label === 'Delete' && useVendorPortal && confirm('Delete this reel?')) {
-                            delMut.mutate(String(reel.id));
-                          } else if (action.label !== 'Delete') {
-                            console.log(action.label, reel.id);
-                          }
-                        }}
-                      >
-                        <action.icon className="w-3.5 h-3.5 shrink-0" />
-                        {action.label}
-                      </DropdownMenuItem>
-                    ))}
+                    {(() => {
+                      const isPaused = reel.status === 'paused';
+                      const actions = [
+                        { key: 'edit' as const, icon: Edit, label: 'Edit Caption', danger: false },
+                        {
+                          key: isPaused ? ('resume' as const) : ('pause' as const),
+                          icon: isPaused ? Play : Pause,
+                          label: isPaused ? 'Resume Reel' : 'Pause Reel',
+                          danger: false,
+                        },
+                        ...(canBoost
+                          ? [{ key: 'boost' as const, icon: Zap, label: 'Boost Reel' as const, danger: false as const }]
+                          : []),
+                        { key: 'delete' as const, icon: Trash2, label: 'Delete', danger: true as const },
+                      ];
+                      return actions.map((action) => (
+                        <DropdownMenuItem
+                          key={action.key}
+                          className={cn(
+                            'reels-dropdown-item reels-font-body text-xs gap-2 cursor-pointer',
+                            action.danger
+                              ? 'text-[#E63946] focus:text-[#E63946] focus:bg-[hsl(0_84%_60%_/_0.08)]'
+                              : useVendorPortal
+                                ? 'text-[hsl(215_16%_47%)] focus:text-[hsl(222_47%_11%)]'
+                                : 'text-popover-foreground',
+                          )}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!requireVendorPortal()) return;
+                            if (action.key === 'boost') {
+                              setBoostReel(reel);
+                              setBoostOpen(true);
+                              return;
+                            }
+                            if (action.key === 'edit') {
+                              setEditReel(reel);
+                              setEditCaptionDraft(reel.caption || '');
+                              setEditOpen(true);
+                              return;
+                            }
+                            if (action.key === 'pause' || action.key === 'resume') {
+                              setPauseReel(reel);
+                              setPauseConfirmOpen(true);
+                              return;
+                            }
+                            if (action.key === 'delete') {
+                              setDeleteReel(reel);
+                              setDeleteConfirmOpen(true);
+                            }
+                          }}
+                        >
+                          <action.icon className="w-3.5 h-3.5 shrink-0" />
+                          {action.label}
+                        </DropdownMenuItem>
+                      ));
+                    })()}
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -282,6 +372,130 @@ const MyReelsGrid: React.FC<MyReelsGridProps> = ({ onNewReel, vendorId, vendorSl
           invalidateQueryKeys={[['vendor', 'reels'], ['website', 'my-reels']]}
         />
       )}
+
+      <Dialog
+        open={editOpen}
+        onOpenChange={(o) => {
+          setEditOpen(o);
+          if (!o) {
+            setEditReel(null);
+            setEditCaptionDraft('');
+          }
+        }}
+      >
+        <DialogContent className="z-[100] sm:max-w-md" onClick={e => e.stopPropagation()}>
+          <DialogHeader>
+            <DialogTitle>Edit caption</DialogTitle>
+          </DialogHeader>
+          <Textarea
+            value={editCaptionDraft}
+            onChange={e => setEditCaptionDraft(e.target.value.slice(0, 200))}
+            rows={4}
+            placeholder="Caption"
+            className="resize-none"
+            disabled={editCaptionMut.isPending}
+          />
+          <p className="text-xs text-muted-foreground">{editCaptionDraft.length}/200</p>
+          {editReel ? (
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setEditOpen(false);
+                  setEditReel(null);
+                }}
+                disabled={editCaptionMut.isPending}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={() => {
+                  void editCaptionMut.mutateAsync({
+                    id: String(editReel.id),
+                    caption: editCaptionDraft,
+                  });
+                }}
+                disabled={editCaptionMut.isPending}
+              >
+                {editCaptionMut.isPending ? 'Saving…' : 'Save'}
+              </Button>
+            </DialogFooter>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog
+        open={pauseConfirmOpen}
+        onOpenChange={(o) => {
+          setPauseConfirmOpen(o);
+          if (!o) setPauseReel(null);
+        }}
+      >
+        <AlertDialogContent className="z-[100]">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pauseReel?.status === 'paused' ? 'Resume this reel?' : 'Pause this reel?'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pauseReel?.status === 'paused'
+                ? 'This reel will be eligible to appear in public feeds again.'
+                : 'This reel will be hidden from public feeds until you resume it.'}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={pauseResumeMut.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={pauseResumeMut.isPending || !pauseReel}
+              onClick={(e) => {
+                e.preventDefault();
+                if (!pauseReel) return;
+                const resume = pauseReel.status === 'paused';
+                void pauseResumeMut.mutateAsync({
+                  id: String(pauseReel.id),
+                  status: resume ? 'active' : 'draft',
+                });
+              }}
+            >
+              {pauseResumeMut.isPending ? 'Saving…' : pauseReel?.status === 'paused' ? 'Resume' : 'Pause'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={deleteConfirmOpen}
+        onOpenChange={(o) => {
+          setDeleteConfirmOpen(o);
+          if (!o) setDeleteReel(null);
+        }}
+      >
+        <AlertDialogContent className="z-[100]">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this reel?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteReel
+                ? `This will permanently remove “${deleteReel.product.name}”. This cannot be undone.`
+                : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={delMut.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={delMut.isPending || !deleteReel}
+              onClick={(e) => {
+                e.preventDefault();
+                if (!deleteReel) return;
+                void delMut.mutateAsync(String(deleteReel.id));
+              }}
+            >
+              {delMut.isPending ? 'Deleting…' : 'Delete'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>,
   );
 };
