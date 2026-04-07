@@ -10,6 +10,12 @@ import { mapApiReelToUi } from '../api/reelMappers';
 import { useReelsQueryAuthRev } from '../feed/useReelsQueryAuthRev';
 import { useVendorReelViewer } from './VendorReelViewerContext';
 import { cn } from '@/lib/utils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import '../reels-theme.css';
 
 const formatCount = (n: number) => n >= 1000 ? (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k' : n.toString();
@@ -41,7 +47,6 @@ type MyReelsGridProps = {
 const MyReelsGrid: React.FC<MyReelsGridProps> = ({ onNewReel, vendorId, vendorSlug, useVendorPortal }) => {
   const reelViewer = useVendorReelViewer();
   const queryClient = useQueryClient();
-  const [menuOpen, setMenuOpen] = useState<number | null>(null);
   const [boostOpen, setBoostOpen] = useState(false);
   const [boostReel, setBoostReel] = useState<Reel | null>(null);
   const { role } = useUserRole();
@@ -204,49 +209,63 @@ const MyReelsGrid: React.FC<MyReelsGridProps> = ({ onNewReel, vendorId, vendorSl
               </div>
               <div className="flex items-center justify-between">
                 <ReelStatusBadge status="active" />
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setMenuOpen(menuOpen === reel.id ? null : reel.id);
-                    }}
-                  >
-                    <MoreVertical className="w-4 h-4" style={{ color: 'var(--reels-text-muted)' }} />
-                  </button>
-                  {menuOpen === reel.id && (
-                    <div
-                      className="absolute right-0 top-6 z-20 rounded-lg py-1 min-w-[140px] shadow-md"
-                      style={{ background: 'var(--reels-surface)', border: '1px solid var(--reels-glass-border)' }}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      className="rounded-md border border-[var(--reels-glass-border)] p-1 hover:bg-[var(--reels-glass)] focus:outline-none focus:ring-2 focus:ring-[var(--reels-accent)]/30"
+                      aria-label="Reel actions"
+                      onClick={(e) => e.stopPropagation()}
+                      onPointerDown={(e) => e.stopPropagation()}
                     >
-                      {[
-                        { icon: Edit, label: 'Edit Caption' },
-                        { icon: Pause, label: 'Pause Reel' },
-                        ...(canBoost ? [{ icon: Zap, label: 'Boost Reel' }] : []),
-                        { icon: Trash2, label: 'Delete', danger: true }
-                      ].map(action => (
-                        <button
-                          type="button"
-                          key={action.label}
-                          className="reels-dropdown-item w-full flex items-center gap-2 px-3 py-2 reels-font-body text-xs"
-                          style={{ color: action.danger ? '#E63946' : 'var(--reels-text-secondary)' }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (action.label === 'Boost Reel') {
-                              setBoostReel(reel);
-                              setBoostOpen(true);
-                            } else if (action.label === 'Delete' && useVendorPortal && confirm('Delete this reel?')) {
-                              delMut.mutate(String(reel.id));
-                            } else console.log(action.label, reel.id);
-                            setMenuOpen(null);
-                          }}
-                        >
-                          <action.icon className="w-3.5 h-3.5" /> {action.label}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                      <MoreVertical className="w-4 h-4" style={{ color: 'var(--reels-text-muted)' }} />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    sideOffset={6}
+                    className={cn(
+                      'min-w-[140px] p-1 z-[100]',
+                      useVendorPortal &&
+                        'border border-[hsl(214_32%_91%)] bg-[hsl(0_0%_100%)] text-[hsl(222_47%_11%)] [&_[role=menuitem]]:focus:bg-[hsl(210_40%_96%)]',
+                    )}
+                    onClick={(e) => e.stopPropagation()}
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
+                    {[
+                      { icon: Edit, label: 'Edit Caption', danger: false },
+                      { icon: Pause, label: 'Pause Reel', danger: false },
+                      ...(canBoost ? [{ icon: Zap, label: 'Boost Reel' as const, danger: false as const }] : []),
+                      { icon: Trash2, label: 'Delete', danger: true as const },
+                    ].map((action) => (
+                      <DropdownMenuItem
+                        key={action.label}
+                        className={cn(
+                          'reels-dropdown-item reels-font-body text-xs gap-2 cursor-pointer',
+                          action.danger
+                            ? 'text-[#E63946] focus:text-[#E63946] focus:bg-[hsl(0_84%_60%_/_0.08)]'
+                            : useVendorPortal
+                              ? 'text-[hsl(215_16%_47%)] focus:text-[hsl(222_47%_11%)]'
+                              : 'text-popover-foreground',
+                        )}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (action.label === 'Boost Reel') {
+                            setBoostReel(reel);
+                            setBoostOpen(true);
+                          } else if (action.label === 'Delete' && useVendorPortal && confirm('Delete this reel?')) {
+                            delMut.mutate(String(reel.id));
+                          } else if (action.label !== 'Delete') {
+                            console.log(action.label, reel.id);
+                          }
+                        }}
+                      >
+                        <action.icon className="w-3.5 h-3.5 shrink-0" />
+                        {action.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           </motion.div>

@@ -16,7 +16,7 @@ export default function VendorAllReelsModule() {
   const vendorId = vMe?.id != null ? String(vMe.id) : null;
 
   return (
-    <div className="p-4 lg:p-6 space-y-6">
+    <div className="p-4 lg:p-6 space-y-6 vendor-reels-light">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">All Reels</h1>
         <p className="text-muted-foreground text-sm mt-1">

@@ -12,7 +12,7 @@ export default function VendorReelsModule({ activeSection }: { activeSection: st
 
   if (activeSection === 'upload-reel') {
     return (
-      <div className="p-4 lg:p-6">
+      <div className="p-4 lg:p-6 vendor-reels-light">
         <ReelUploadForm
           vendorId={vendorId}
           variant="portal"
@@ -23,7 +23,7 @@ export default function VendorReelsModule({ activeSection }: { activeSection: st
   }
 
   return (
-    <div className="p-4 lg:p-6">
+    <div className="p-4 lg:p-6 vendor-reels-light">
       <MyReelsGrid
         useVendorPortal
         vendorId={vendorId}

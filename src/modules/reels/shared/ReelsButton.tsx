@@ -16,14 +16,18 @@ const ReelsButton: React.FC<ReelsButtonProps> = ({ variant, children, onClick, c
   
   const variantClasses = {
     cart: 'border border-white/80 bg-transparent text-white hover:bg-white hover:text-black h-11',
-    buy: 'text-white h-11',
-    primary: 'text-white h-11 rounded-xl',
+    buy: 'h-11 text-[color:var(--reels-on-accent)]',
+    primary: 'h-11 rounded-xl text-[color:var(--reels-on-accent)]',
     outline: 'border text-white hover:bg-white/10 h-10 rounded-xl'
   };
 
   const variantStyles: Record<string, React.CSSProperties> = {
-    buy: { background: 'var(--reels-accent)', boxShadow: '0 0 20px var(--reels-accent-glow)' },
-    primary: { background: 'var(--reels-accent)' },
+    buy: {
+      background: 'var(--reels-accent)',
+      boxShadow: '0 0 20px var(--reels-accent-glow)',
+      color: 'var(--reels-on-accent)',
+    },
+    primary: { background: 'var(--reels-accent)', color: 'var(--reels-on-accent)' },
     outline: { borderColor: 'var(--reels-glass-border)' },
     cart: {}
   };
@@ -38,7 +42,10 @@ const ReelsButton: React.FC<ReelsButtonProps> = ({ variant, children, onClick, c
       disabled={disabled || loading}
     >
       {loading ? (
-        <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+        <div
+          className="w-5 h-5 border-2 rounded-full animate-spin border-[color:var(--reels-on-accent)] border-t-transparent opacity-80"
+          aria-hidden
+        />
       ) : children}
     </motion.button>
   );

@@ -24,27 +24,30 @@
   --reels-step-on-accent: #ffffff;
 }
 
-/* Vendor portal: match app light theme (scoped; descendants inherit variables) */
+/*
+ * Vendor portal: fixed light palette (matches index.css :root), independent of html.dark.
+ * Values mirror --background, --muted, --card, --primary, etc. from the design system.
+ */
 .vendor-reels-light {
-  --reels-bg: hsl(var(--background));
-  --reels-surface: hsl(var(--muted));
-  --reels-card: hsl(var(--card));
-  --reels-accent: hsl(var(--primary));
-  --reels-accent-glow: hsl(var(--primary) / 0.25);
-  --reels-gold: hsl(var(--primary));
-  --reels-text-primary: hsl(var(--foreground));
-  --reels-text-secondary: hsl(var(--muted-foreground));
-  --reels-text-muted: hsl(var(--muted-foreground) / 0.9);
-  --reels-border: hsl(var(--border));
+  --reels-bg: hsl(0 0% 98%);
+  --reels-surface: hsl(210 40% 96%);
+  --reels-card: hsl(0 0% 100%);
+  --reels-accent: hsl(38 92% 50%);
+  --reels-accent-glow: hsl(38 92% 50% / 0.25);
+  --reels-gold: hsl(38 92% 50%);
+  --reels-text-primary: hsl(222 47% 11%);
+  --reels-text-secondary: hsl(215 16% 47%);
+  --reels-text-muted: hsl(215 16% 47% / 0.9);
+  --reels-border: hsl(214 32% 91%);
   --reels-overlay-gradient: linear-gradient(
     to top,
-    hsl(var(--foreground) / 0.06) 0%,
+    hsl(222 47% 11% / 0.06) 0%,
     transparent 100%
   );
-  --reels-glass: hsl(var(--muted) / 0.5);
-  --reels-glass-border: hsl(var(--border));
-  --reels-on-accent: hsl(var(--primary-foreground));
-  --reels-step-on-accent: hsl(var(--primary-foreground));
+  --reels-glass: hsl(210 40% 96% / 0.5);
+  --reels-glass-border: hsl(214 32% 91%);
+  --reels-on-accent: hsl(28 30% 10%);
+  --reels-step-on-accent: hsl(28 30% 10%);
 }
 
 .reels-ui-text {
@@ -55,7 +58,7 @@
   background: rgba(255, 255, 255, 0.05);
 }
 .vendor-reels-light .reels-dropdown-item:hover {
-  background: hsl(var(--muted) / 0.55);
+  background: hsl(210 40% 96% / 0.55);
 }
 
 /* Snap scroll container */

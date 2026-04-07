@@ -138,30 +138,37 @@ const ReelUploadForm: React.FC<ReelUploadFormProps> = ({ vendorId, onPublished, 
 
   return (
     <motion.div
-      className={cn('rounded-2xl p-6 space-y-6 relative overflow-hidden', variant === 'portal' && 'vendor-reels-light')}
+      className={cn(
+        'rounded-2xl p-6 relative',
+        variant === 'portal' && 'vendor-reels-light',
+        variant === 'portal' ? 'overflow-visible' : 'overflow-hidden',
+      )}
       style={{ background: 'var(--reels-card)' }}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
     >
-      {/* Confetti burst */}
-      <AnimatePresence>
-        {showConfetti && (
-          <>
-            {[0, 1, 2].map(i => (
-              <motion.div
-                key={i}
-                className="absolute w-3 h-3 rounded-full z-50"
-                style={{ background: ['var(--reels-accent)', 'var(--reels-gold)', '#4CAF50'][i], left: `${30 + i * 20}%`, top: '30%' }}
-                initial={{ y: 0, opacity: 1, scale: 1 }}
-                animate={{ y: [0, -80, 40], x: [(i - 1) * 20, (i - 1) * 60], opacity: [1, 1, 0], scale: [1, 1.5, 0.5], rotate: [0, 360] }}
-                exit={{ opacity: 0 }}
-                transition={{ duration: 1.2, ease: 'easeOut' }}
-              />
-            ))}
-          </>
-        )}
-      </AnimatePresence>
+      {/* Confetti — clipped here so portal variant can use overflow-visible for dropdowns */}
+      <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden rounded-2xl" aria-hidden>
+        <AnimatePresence>
+          {showConfetti && (
+            <>
+              {[0, 1, 2].map(i => (
+                <motion.div
+                  key={i}
+                  className="absolute w-3 h-3 rounded-full z-50"
+                  style={{ background: ['var(--reels-accent)', 'var(--reels-gold)', '#4CAF50'][i], left: `${30 + i * 20}%`, top: '30%' }}
+                  initial={{ y: 0, opacity: 1, scale: 1 }}
+                  animate={{ y: [0, -80, 40], x: [(i - 1) * 20, (i - 1) * 60], opacity: [1, 1, 0], scale: [1, 1.5, 0.5], rotate: [0, 360] }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 1.2, ease: 'easeOut' }}
+                />
+              ))}
+            </>
+          )}
+        </AnimatePresence>
+      </div>
 
+      <div className="relative z-10 space-y-6">
       <h3 className="reels-font-display font-bold text-xl reels-ui-text">Upload New Reel</h3>
 
       {/* Step 1: Video URL */}
@@ -259,7 +266,7 @@ const ReelUploadForm: React.FC<ReelUploadFormProps> = ({ vendorId, onPublished, 
           <AnimatePresence>
             {productDropdownOpen && (
               <motion.div
-                className="absolute top-full left-0 right-0 mt-1 rounded-xl overflow-hidden z-10 max-h-[200px] overflow-y-auto"
+                className="absolute top-full left-0 right-0 mt-1 rounded-xl overflow-hidden z-30 max-h-[200px] overflow-y-auto"
                 style={{ background: 'var(--reels-surface)', border: '1px solid var(--reels-glass-border)' }}
                 initial={{ opacity: 0, y: -5 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -410,6 +417,7 @@ const ReelUploadForm: React.FC<ReelUploadFormProps> = ({ vendorId, onPublished, 
       >
         {published ? '✅ Reel Published!' : publishing ? 'Publishing...' : '🚀 Publish Reel'}
       </ReelsButton>
+      </div>
     </motion.div>
   );
 };
