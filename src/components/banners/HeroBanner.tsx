@@ -138,9 +138,6 @@ const HeroBanner = ({ categoryFilter, placement }: HeroBannerProps) => {
       </a>
     ));
 
-  const orderNowTarget = href && href.length > 0 ? href : '/products';
-  const orderNowIsInternal = isInternalAppPath(orderNowTarget);
-
   const inner = (
     <>
       <img
@@ -176,29 +173,6 @@ const HeroBanner = ({ categoryFilter, placement }: HeroBannerProps) => {
           </div>
         </div>
         <div className="hidden md:block" aria-hidden />
-        <div className="flex flex-wrap items-center justify-center gap-3 border-t border-white/10 px-6 py-5 md:col-span-2 md:border-t-0 md:px-10 md:pb-10 md:pt-0">
-          {orderNowIsInternal ? (
-            <Link
-              to={orderNowTarget}
-              className="inline-flex items-center justify-center rounded-full bg-white px-8 py-2.5 text-sm font-semibold text-gray-900 shadow-md transition-opacity hover:opacity-90"
-            >
-              Order now
-            </Link>
-          ) : (
-            <a
-              href={orderNowTarget}
-              className="inline-flex items-center justify-center rounded-full bg-white px-8 py-2.5 text-sm font-semibold text-gray-900 shadow-md transition-opacity hover:opacity-90"
-            >
-              Order now
-            </a>
-          )}
-          <Link
-            to="/portal/dashboard"
-            className="inline-flex items-center justify-center rounded-full border-2 border-white bg-white/10 px-8 py-2.5 text-sm font-semibold text-white backdrop-blur-[2px] transition-colors hover:bg-white/20"
-          >
-            Buy again
-          </Link>
-        </div>
       </div>
       {slides.length > 1 && (
         <>
