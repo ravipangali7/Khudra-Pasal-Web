@@ -404,6 +404,8 @@ const ChildPortal = () => {
     switch (activeSection) {
       case 'dashboard':
         return <DashboardContent />;
+      case 'wallet-menu':
+        return <Navigate to="/child-portal/wallet" replace />;
       case 'wallet':
         return <WalletContent />;
       case 'products':
