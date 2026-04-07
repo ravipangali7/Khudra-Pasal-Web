@@ -1702,6 +1702,36 @@ export type VendorSummary = {
   pending_payout: number;
 };
 
+export type VendorReportsDailyRow = { day: string; sales: number; orders: number };
+export type VendorReportsNameValue = { name: string; value: number };
+export type VendorReportsPortalRow = { key: string; label: string; orders: number; revenue: number };
+export type VendorReportsChannelRow = { channel: string; label: string; orders: number; revenue: number };
+export type VendorReportsPaymentRow = { method: string; label: string; orders: number; revenue: number };
+export type VendorReportsTopProductRow = {
+  product_id: number;
+  name: string;
+  quantity: number;
+  revenue: number;
+};
+export type VendorReportsSummaryCounts = { order_count: number; avg_order_value: number; items_sold: number };
+
+/** GET /api/vendor/reports/summary/ */
+export type VendorReportsSummary = {
+  daily: VendorReportsDailyRow[];
+  category_breakdown: VendorReportsNameValue[];
+  order_status: VendorReportsNameValue[];
+  gross_sales: number;
+  earnings_estimate: number;
+  wallet_settled_total: number;
+  from: string;
+  to: string;
+  summary_counts: VendorReportsSummaryCounts;
+  by_placed_portal: VendorReportsPortalRow[];
+  by_channel: VendorReportsChannelRow[];
+  by_payment_method: VendorReportsPaymentRow[];
+  top_products: VendorReportsTopProductRow[];
+};
+
 export type PortalPayoutAccountRow = {
   id: string;
   type: string;
@@ -1809,7 +1839,7 @@ export const vendorApi = {
     vendorFetch<{ ok: boolean }>(`/vendor/payout-accounts/${encodeURIComponent(id)}/`, { method: "DELETE" }, true),
   customers: (params?: QueryParams) => vendorPaged<Record<string, unknown>>("customers", params),
   reportsSummary: (params?: { from?: string; to?: string }) =>
-    vendorFetch<Record<string, unknown>>(`/vendor/reports/summary/${buildQuery(params)}`, undefined, true),
+    vendorFetch<VendorReportsSummary>(`/vendor/reports/summary/${buildQuery(params)}`, undefined, true),
   reportsExportCsv: (params?: { from?: string; to?: string }) =>
     vendorFetchBlob(`/vendor/reports/export.csv${buildQuery(params)}`),
   supportTickets: (params?: QueryParams) => vendorPaged<Record<string, unknown>>("support/tickets", params),
