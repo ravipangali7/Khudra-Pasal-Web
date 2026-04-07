@@ -5,6 +5,7 @@ export const FAMILY_PORTAL_VIEW_KEYS = [
   "dashboard",
   "members",
   "members-requests",
+  "product-approval-requests",
   "wallets",
   "spending-limits",
   "product-restrictions",
@@ -22,6 +23,7 @@ export type FamilyPortalViewRenderFns = {
   dashboard: () => ReactNode;
   members: () => ReactNode;
   membersRequests: () => ReactNode;
+  productApprovalRequests: () => ReactNode;
   wallets: () => ReactNode;
   spendingLimits: () => ReactNode;
   productRestrictions: () => ReactNode;
@@ -41,6 +43,7 @@ export function createFamilyPortalViewRegistry(
     dashboard: f.dashboard,
     members: f.members,
     "members-requests": f.membersRequests,
+    "product-approval-requests": f.productApprovalRequests,
     wallets: f.wallets,
     "spending-limits": f.spendingLimits,
     "product-restrictions": f.productRestrictions,

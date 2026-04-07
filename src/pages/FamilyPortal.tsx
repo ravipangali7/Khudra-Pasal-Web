@@ -87,6 +87,7 @@ import {
   type PortalFamilyProductRestrictionRow,
   type PortalFamilyWalletTxnRow,
   type PortalWithdrawalRow,
+  type PortalPurchaseApprovalRequestRow,
   type WebsiteCategory,
   type WebsiteProduct,
 } from '@/lib/api';
@@ -156,6 +157,7 @@ function validateFamilySpendingLimits(d: number, w: number, m: number): string |
 const FAMILY_PRODUCT_RESTRICTIONS_QUERY_KEY = ['portal', 'family', 'product-restrictions'] as const;
 const FAMILY_AUTO_APPROVAL_QUERY_KEY = ['portal', 'family', 'auto-approval'] as const;
 const FAMILY_JOIN_SHARE_LINK_QUERY_KEY = ['portal', 'family', 'join-share-link'] as const;
+const FAMILY_PURCHASE_APPROVALS_QUERY_KEY = ['portal', 'family', 'purchase-approval-requests'] as const;
 
 export function FamilyPortal() {
   const navigate = useNavigate();
@@ -266,6 +268,7 @@ export function FamilyPortal() {
     void queryClient.invalidateQueries({ queryKey: ['portal', 'family', 'overview'] });
     void queryClient.invalidateQueries({ queryKey: ['portal', 'family', 'txns'] });
     void queryClient.invalidateQueries({ queryKey: ['portal', 'family', 'join-requests-list'] });
+    void queryClient.invalidateQueries({ queryKey: FAMILY_PURCHASE_APPROVALS_QUERY_KEY });
   };
 
   const joinRequestActionMutation = useMutation({
@@ -283,6 +286,7 @@ export function FamilyPortal() {
       portalApi.familyPurchaseApprovalRequestPatch(args.id, { status: args.status }),
     onSuccess: (_, vars) => {
       invalidateFamilyPortalData();
+      void queryClient.invalidateQueries({ queryKey: ['portal', 'navigation', 'family'] });
       toast.success(vars.status === 'approved' ? 'Purchase approved.' : 'Purchase request declined.');
     },
     onError: (e: Error) => toast.error(e.message || 'Could not update request.'),
@@ -343,6 +347,7 @@ export function FamilyPortal() {
       dashboard: () => <DashboardContent />,
       members: () => <MembersContent />,
       membersRequests: () => <JoinRequestsContent />,
+      productApprovalRequests: () => <ProductApprovalRequestsContent />,
       wallets: () => <WalletsContent />,
       spendingLimits: () => <SpendingLimitsContent />,
       productRestrictions: () => <ProductRestrictionsContent />,
@@ -1373,6 +1378,251 @@ export function FamilyPortal() {
             </div>
           </div>
         )}
+      </div>
+    );
+  }
+
+  function ProductApprovalRequestsContent() {
+    const [listFilter, setListFilter] = useState<'pending' | 'all'>('pending');
+    const [detailPar, setDetailPar] = useState<PortalPurchaseApprovalRequestRow | null>(null);
+
+    const {
+      data: parListData,
+      isLoading: parListLoading,
+      isError: parListIsError,
+      error: parListErr,
+    } = useQuery({
+      queryKey: [...FAMILY_PURCHASE_APPROVALS_QUERY_KEY, listFilter, sessionTick],
+      queryFn: () =>
+        portalApi.familyPurchaseApprovalRequests(
+          listFilter === 'pending' ? { status: 'pending' } : { status: 'all' },
+        ),
+      enabled: authed,
+    });
+
+    const rows = parListData?.results ?? [];
+
+    const formatDt = (iso: string | null | undefined) => {
+      if (!iso) return '—';
+      try {
+        return new Date(iso).toLocaleString();
+      } catch {
+        return iso;
+      }
+    };
+
+    const statusBadgePar = (s: string) => {
+      const v = (s || '').toLowerCase();
+      if (v === 'pending') return <Badge variant="outline">Pending</Badge>;
+      if (v === 'approved') return <Badge className="bg-emerald-600 hover:bg-emerald-600">Approved</Badge>;
+      if (v === 'rejected') return <Badge variant="destructive">Rejected</Badge>;
+      return <Badge variant="secondary">{s}</Badge>;
+    };
+
+    const d = detailPar;
+
+    if (parListLoading) {
+      return (
+        <div className="p-4 lg:p-6 flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="w-5 h-5 animate-spin" />
+          <span>Loading requests…</span>
+        </div>
+      );
+    }
+
+    if (parListIsError) {
+      return (
+        <div className="p-4 lg:p-6">
+          <Card className="border-destructive/50">
+            <CardContent className="p-4 text-sm text-destructive">
+              {parListErr instanceof Error ? parListErr.message : 'Could not load purchase approval requests.'}
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
+    return (
+      <div className="p-4 lg:p-6 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold text-foreground">Product approval requests</h2>
+            <p className="text-sm text-muted-foreground">
+              When a child asks to buy a product that needs your approval, requests appear here.
+            </p>
+          </div>
+          <Select value={listFilter} onValueChange={(v) => setListFilter(v as 'pending' | 'all')}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="pending">Pending only</SelectItem>
+              <SelectItem value="all">All recent</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {rows.length === 0 ? (
+          <EmptyState
+            icon={Clock}
+            title={listFilter === 'pending' ? 'No pending requests' : 'No requests yet'}
+            description={
+              listFilter === 'pending'
+                ? 'Pending purchase approvals from children will show up here.'
+                : 'Recent approval history will appear here.'
+            }
+          />
+        ) : (
+          <Card>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Child</TableHead>
+                  <TableHead>Product</TableHead>
+                  <TableHead>Amount</TableHead>
+                  <TableHead>Requested</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {rows.map((row) => (
+                  <TableRow key={row.id}>
+                    <TableCell className="font-medium text-foreground">{row.child_name}</TableCell>
+                    <TableCell>
+                      <div className="text-sm text-foreground max-w-[200px] truncate">{row.product_name}</div>
+                    </TableCell>
+                    <TableCell className="tabular-nums">Rs. {row.amount.toLocaleString()}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                      {formatDt(row.created_at)}
+                    </TableCell>
+                    <TableCell>{statusBadgePar(row.status)}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end flex-wrap gap-2">
+                        <Button size="sm" variant="outline" onClick={() => setDetailPar(row)}>
+                          View detail
+                        </Button>
+                        {row.status.toLowerCase() === 'pending' ? (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-emerald-600"
+                              disabled={purchaseApprovalMutation.isPending}
+                              onClick={() =>
+                                purchaseApprovalMutation.mutate({ id: row.id, status: 'approved' })
+                              }
+                            >
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="text-destructive"
+                              disabled={purchaseApprovalMutation.isPending}
+                              onClick={() =>
+                                purchaseApprovalMutation.mutate({ id: row.id, status: 'rejected' })
+                              }
+                            >
+                              Decline
+                            </Button>
+                          </>
+                        ) : null}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+        )}
+
+        <Dialog open={!!d} onOpenChange={(o) => !o && setDetailPar(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Request detail</DialogTitle>
+              <DialogDescription>Purchase approval request #{d?.id}</DialogDescription>
+            </DialogHeader>
+            {d ? (
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Child</span>
+                  <span className="font-medium text-right">{d.child_name}</span>
+                </div>
+                <div className="flex justify-between gap-2 items-start">
+                  <span className="text-muted-foreground shrink-0">Product</span>
+                  <span className="font-medium text-right">
+                    <Link
+                      to={`/product/${encodeURIComponent(d.product_slug)}`}
+                      className="text-primary hover:underline"
+                      onClick={() => setDetailPar(null)}
+                    >
+                      {d.product_name}
+                    </Link>
+                  </span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Amount</span>
+                  <span className="font-medium tabular-nums">Rs. {d.amount.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between gap-2 items-center">
+                  <span className="text-muted-foreground">Status</span>
+                  {statusBadgePar(d.status)}
+                </div>
+                <div className="flex justify-between gap-2 items-start">
+                  <span className="text-muted-foreground shrink-0">Child note</span>
+                  <span className="text-right">{d.note?.trim() ? d.note : '—'}</span>
+                </div>
+                <div className="flex justify-between gap-2 items-start">
+                  <span className="text-muted-foreground shrink-0">Parent note</span>
+                  <span className="text-right">{d.parent_note?.trim() ? d.parent_note : '—'}</span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Requested</span>
+                  <span>{formatDt(d.created_at)}</span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Responded</span>
+                  <span>{formatDt(d.responded_at)}</span>
+                </div>
+                <div className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">Consumed</span>
+                  <span>{formatDt(d.consumed_at)}</span>
+                </div>
+              </div>
+            ) : null}
+            {d && d.status.toLowerCase() === 'pending' ? (
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="text-destructive"
+                  disabled={purchaseApprovalMutation.isPending}
+                  onClick={() =>
+                    purchaseApprovalMutation.mutate(
+                      { id: d.id, status: 'rejected' },
+                      { onSuccess: () => setDetailPar(null) },
+                    )
+                  }
+                >
+                  Decline
+                </Button>
+                <Button
+                  type="button"
+                  disabled={purchaseApprovalMutation.isPending}
+                  onClick={() =>
+                    purchaseApprovalMutation.mutate(
+                      { id: d.id, status: 'approved' },
+                      { onSuccess: () => setDetailPar(null) },
+                    )
+                  }
+                >
+                  Approve
+                </Button>
+              </DialogFooter>
+            ) : null}
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
