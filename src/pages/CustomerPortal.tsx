@@ -72,6 +72,7 @@ import PortalProductsCatalogSection from '@/components/portal/PortalProductsCata
 import PortalWishlistSection from '@/components/portal/PortalWishlistSection';
 import PortalNotificationsModal from '@/components/portal/PortalNotificationsModal';
 import { mapPortalNotificationUiType } from '@/lib/portalNotifications';
+import { useSessionHomeRedirect } from '@/lib/sessionHomeRedirect';
 
 type UserRole = 'normal' | 'parent' | 'child';
 
@@ -138,6 +139,7 @@ const CustomerPortal = () => {
   }, [navigate]);
 
   const authed = Boolean(portalToken);
+  const sessionHome = useSessionHomeRedirect(authed);
 
   useEffect(() => {
     setCheckoutPlacedPortal('portal_main');
@@ -469,6 +471,17 @@ const CustomerPortal = () => {
         }}
       />
     );
+  }
+
+  if (sessionHome.isPending) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-muted-foreground">
+        Loading portal…
+      </div>
+    );
+  }
+  if (sessionHome.redirectTarget) {
+    return <Navigate to={sessionHome.redirectTarget} replace />;
   }
 
   if (navError) {

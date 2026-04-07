@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { PORTAL_LOGIN_PATH, navigateToPortalLogin, setPostLogoutLoginPath } from '@/lib/portalLoginPaths';
+import { useSessionHomeRedirect } from '@/lib/sessionHomeRedirect';
 import { usePortalSectionPath } from '@/lib/portalNavigation';
 import PortalMyOrdersSection from '@/components/portal/PortalMyOrdersSection';
 import PortalLayout from '@/components/portal/PortalLayout';
@@ -173,6 +174,7 @@ const ChildPortal = () => {
   const [notificationsModalOpen, setNotificationsModalOpen] = useState(false);
 
   const authed = Boolean(portalToken);
+  const sessionHome = useSessionHomeRedirect(authed);
 
   useEffect(() => {
     setCheckoutPlacedPortal('portal_child');
@@ -1665,6 +1667,17 @@ const ChildPortal = () => {
         }}
       />
     );
+  }
+
+  if (sessionHome.isPending) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-muted-foreground">
+        Loading child portal…
+      </div>
+    );
+  }
+  if (sessionHome.redirectTarget) {
+    return <Navigate to={sessionHome.redirectTarget} replace />;
   }
 
   if (navError) {

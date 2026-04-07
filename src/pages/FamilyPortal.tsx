@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { PORTAL_LOGIN_PATH, navigateToPortalLogin, setPostLogoutLoginPath } from '@/lib/portalLoginPaths';
+import { useSessionHomeRedirect } from '@/lib/sessionHomeRedirect';
 import { findSidebarNodeById, resolvePortalNavViewKey, usePortalSectionPath } from '@/lib/portalNavigation';
 import { createFamilyPortalViewRegistry } from '@/portal/family/familyPortalViewRegistry';
 import { toast } from 'sonner';
@@ -170,6 +171,7 @@ export function FamilyPortal() {
   const [notificationsModalOpen, setNotificationsModalOpen] = useState(false);
 
   const authed = Boolean(portalToken);
+  const sessionHome = useSessionHomeRedirect(authed);
 
   useEffect(() => {
     setCheckoutPlacedPortal('portal_family');
@@ -3441,6 +3443,17 @@ export function FamilyPortal() {
         }}
       />
     );
+  }
+
+  if (sessionHome.isPending) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-muted-foreground">
+        Loading family portal…
+      </div>
+    );
+  }
+  if (sessionHome.redirectTarget) {
+    return <Navigate to={sessionHome.redirectTarget} replace />;
   }
 
   if (navError) {

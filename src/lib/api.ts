@@ -1083,6 +1083,8 @@ export const authApi = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+  /** GET — canonical SPA home for the authenticated user (role-ordered shell guard). */
+  sessionHome: () => apiFetch<{ redirect: string }>("/auth/session-home/", undefined, true),
   loginWithGoogleCredential: (access_token: string) =>
     apiFetch<GoogleJwtAuthSuccess>("/auth/google/", {
       method: "POST",

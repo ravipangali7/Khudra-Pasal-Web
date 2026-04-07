@@ -14,6 +14,7 @@ import AdminSidebar from '@/components/admin/AdminSidebar';
 import UnifiedAuthLoginPage from '@/components/auth/UnifiedAuthLoginPage';
 import { vendorApi, getAuthToken, clearAllAuthTokens, getLoginSurface, setLoginSurface } from '@/lib/api';
 import { PORTAL_LOGIN_PATH, navigateToPortalLogin, setPostLogoutLoginPath } from '@/lib/portalLoginPaths';
+import { useSessionHomeRedirect } from '@/lib/sessionHomeRedirect';
 import { mapApiNavToAdminItems } from '@/lib/navIcons';
 import LogoutConfirmDialog from '@/components/auth/LogoutConfirmDialog';
 import { Button } from '@/components/ui/button';
@@ -34,6 +35,7 @@ export default function VendorPortal() {
   const navigate = useNavigate();
   const [sessionTick, setSessionTick] = useState(0);
   const hasToken = Boolean(getAuthToken());
+  const sessionHome = useSessionHomeRedirect(hasToken);
   const surface = getLoginSurface();
   const legacyProbe = hasToken && surface === null;
   const vendorQueriesEnabled = surface === 'vendor';
@@ -185,6 +187,17 @@ export default function VendorPortal() {
         }}
       />
     );
+  }
+
+  if (sessionHome.isPending) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-muted-foreground">
+        Loading vendor portal…
+      </div>
+    );
+  }
+  if (sessionHome.redirectTarget) {
+    return <Navigate to={sessionHome.redirectTarget} replace />;
   }
 
   if (legacyProbe && surfaceProbeQuery.isPending) {
