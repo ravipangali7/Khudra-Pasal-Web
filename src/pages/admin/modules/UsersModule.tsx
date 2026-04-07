@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -48,7 +48,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { adminApi, type AdminKycSubmissionRow } from '@/lib/api';
+import { adminApi, type AdminKycSubmissionRow, type PagedResponse } from '@/lib/api';
 import { useAdminList } from '../hooks/useAdminList';
 import { useAdminRouteContext } from '../adminRouteContext';
 import { useAdminMutation } from '../hooks/useAdminMutation';
@@ -1383,9 +1383,58 @@ function useIsLg() {
   return lg;
 }
 
+const KYC_NEW_SUBMISSION_MS = 48 * 60 * 60 * 1000;
+
+function kycTabFromSearchParam(q: string | null): 'pending' | 'approved' | 'rejected' {
+  if (q === 'approved') return 'approved';
+  if (q === 'rejected') return 'rejected';
+  return 'pending';
+}
+
+function submissionMatchesKycTab(k: AdminKycSubmissionRow, tab: 'pending' | 'approved' | 'rejected') {
+  if (tab === 'pending') return k.status === 'pending' || k.status === 'review';
+  return k.status === tab;
+}
+
+function isKycSubmissionNew(k: AdminKycSubmissionRow) {
+  if (k.status !== 'pending' && k.status !== 'review') return false;
+  const t = Date.parse(k.submitted_at);
+  if (Number.isNaN(t)) return false;
+  return Date.now() - t < KYC_NEW_SUBMISSION_MS;
+}
+
+function KycRowStatusBadge({ status }: { status: string }) {
+  if (status === 'approved') {
+    return (
+      <Badge className="gap-1 bg-emerald-600 hover:bg-emerald-600 capitalize shrink-0 text-white border-0">
+        <CheckCircle className="h-3 w-3" aria-hidden />
+        Approved
+      </Badge>
+    );
+  }
+  if (status === 'rejected') {
+    return (
+      <Badge variant="destructive" className="gap-1 capitalize shrink-0">
+        <XCircle className="h-3 w-3" aria-hidden />
+        Rejected
+      </Badge>
+    );
+  }
+  const label = status === 'review' ? 'Review' : 'Pending';
+  return (
+    <Badge
+      variant="secondary"
+      className="gap-1 capitalize shrink-0 border-amber-400/50 bg-amber-500/15 text-amber-950 dark:text-amber-100"
+    >
+      <Clock className="h-3 w-3" aria-hidden />
+      {label}
+    </Badge>
+  );
+}
+
 function KYCView() {
   const queryClient = useQueryClient();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const isLg = useIsLg();
   const [selected, setSelected] = useState<AdminKycSubmissionRow | null>(null);
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
@@ -1393,15 +1442,28 @@ function KYCView() {
   const [rejectReason, setRejectReason] = useState('');
   const [rejectTargetId, setRejectTargetId] = useState<string | null>(null);
   const [approveConfirm, setApproveConfirm] = useState<AdminKycSubmissionRow | null>(null);
-  const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
+
+  const activeTab = kycTabFromSearchParam(searchParams.get('kyc_status'));
 
   useEffect(() => {
     const q = searchParams.get('kyc_status');
-    if (q === 'pending' || q === 'review' || q === 'approved' || q === 'rejected' || q === 'all') {
-      setStatusFilter(q);
+    const valid =
+      q === 'pending' ||
+      q === 'review' ||
+      q === 'approved' ||
+      q === 'rejected';
+    if (q === null || q === 'all' || !valid) {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set('kyc_status', 'pending');
+          return next;
+        },
+        { replace: true },
+      );
     }
-  }, [searchParams]);
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     if (isLg) setMobileSheetOpen(false);
@@ -1420,12 +1482,18 @@ function KYCView() {
   const kycData = useMemo(() => kycResp?.results ?? [], [kycResp]);
 
   const filtered = useMemo(() => {
-    return kycData.filter((k) => {
-      if (statusFilter !== 'all' && k.status !== statusFilter) return false;
+    const rows = kycData.filter((k) => {
+      if (!submissionMatchesKycTab(k, activeTab)) return false;
       if (typeFilter !== 'all' && k.document_type !== typeFilter) return false;
       return true;
     });
-  }, [kycData, statusFilter, typeFilter]);
+    return [...rows].sort((a, b) => {
+      const ta = Date.parse(a.submitted_at);
+      const tb = Date.parse(b.submitted_at);
+      if (tb !== ta) return tb - ta;
+      return Number(b.id) - Number(a.id);
+    });
+  }, [kycData, activeTab, typeFilter]);
 
   const reviewMut = useMutation({
     mutationFn: async ({
@@ -1438,10 +1506,29 @@ function KYCView() {
       rejection_reason?: string;
     }) => adminApi.updateKycSubmission(id, { status, rejection_reason }),
     onSuccess: (data) => {
-      void queryClient.invalidateQueries({ queryKey: ['admin', 'kyc-submissions'] });
+      queryClient.setQueryData<PagedResponse<AdminKycSubmissionRow> | undefined>(
+        ['admin', 'kyc-submissions'],
+        (old) => {
+          if (!old?.results) return old;
+          const idx = old.results.findIndex((r) => String(r.id) === String(data.id));
+          const nextResults =
+            idx >= 0
+              ? old.results.map((r, i) => (i === idx ? data : r))
+              : [data, ...old.results];
+          return { ...old, results: nextResults };
+        },
+      );
       void queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard', 'kyc-queue'] });
       void queryClient.invalidateQueries({ queryKey: ['admin-users-list'] });
-      setSelected((prev) => (prev && String(prev.id) === String(data.id) ? data : prev));
+      setSelected(data);
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set('kyc_status', data.status);
+          return next;
+        },
+        { replace: true },
+      );
       setRejectOpen(false);
       setRejectReason('');
       setRejectTargetId(null);
@@ -1544,8 +1631,7 @@ function KYCView() {
   if (isLoading) return <div className="p-4 lg:p-6 text-sm text-muted-foreground">Loading KYC queue…</div>;
   if (isError) return <div className="p-4 lg:p-6 text-sm text-destructive">Could not load KYC submissions.</div>;
 
-  const pendingN = kycData.filter((k) => k.status === 'pending').length;
-  const reviewN = kycData.filter((k) => k.status === 'review').length;
+  const pendingQueueN = kycData.filter((k) => k.status === 'pending' || k.status === 'review').length;
   const approvedN = kycData.filter((k) => k.status === 'approved').length;
   const rejectedN = kycData.filter((k) => k.status === 'rejected').length;
 
@@ -1596,18 +1682,9 @@ function KYCView() {
             </div>
             <div className="p-3 bg-muted/50 rounded-lg">
               <p className="text-xs text-muted-foreground">Document status</p>
-              <Badge
-                variant={
-                  selected.status === 'approved'
-                    ? 'default'
-                    : selected.status === 'rejected'
-                      ? 'destructive'
-                      : 'secondary'
-                }
-                className={cn('capitalize mt-1', selected.status === 'approved' && 'bg-emerald-500')}
-              >
-                {selected.status}
-              </Badge>
+              <div className="mt-1">
+                <KycRowStatusBadge status={selected.status} />
+              </div>
             </div>
             <div className="p-3 bg-muted/50 rounded-lg">
               <p className="text-xs text-muted-foreground">ID number</p>
@@ -1666,30 +1743,18 @@ function KYCView() {
 
   return (
     <div className="p-4 lg:p-6 space-y-4">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-lg font-bold text-foreground">KYC verification</h2>
-          <p className="text-sm text-muted-foreground">
-            {pendingN} pending · {approvedN} approved · {rejectedN} rejected — use Preview or a row to open details;
-            change status from the table with confirmation.
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Select value={statusFilter} onValueChange={setStatusFilter}>
-            <SelectTrigger className="h-8 w-36 text-xs">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All status</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="review">Review</SelectItem>
-              <SelectItem value="approved">Approved</SelectItem>
-              <SelectItem value="rejected">Rejected</SelectItem>
-            </SelectContent>
-          </Select>
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold text-foreground">KYC verification</h2>
+            <p className="text-sm text-muted-foreground">
+              Newest first. {pendingQueueN} in queue · {approvedN} approved · {rejectedN} rejected — open a row for
+              documents; approve or reject from the row menu or detail panel.
+            </p>
+          </div>
           <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="h-8 w-40 text-xs">
-              <SelectValue />
+            <SelectTrigger className="h-9 w-full sm:w-44 text-xs shrink-0">
+              <SelectValue placeholder="Document type" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All types</SelectItem>
@@ -1699,33 +1764,45 @@ function KYCView() {
             </SelectContent>
           </Select>
         </div>
-      </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Card>
-          <CardContent className="p-3 text-center">
-            <p className="text-2xl font-bold text-yellow-500">{pendingN}</p>
-            <p className="text-xs text-muted-foreground">Pending</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-3 text-center">
-            <p className="text-2xl font-bold text-blue-500">{reviewN}</p>
-            <p className="text-xs text-muted-foreground">Review</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-3 text-center">
-            <p className="text-2xl font-bold text-emerald-500">{approvedN}</p>
-            <p className="text-xs text-muted-foreground">Approved</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-3 text-center">
-            <p className="text-2xl font-bold text-destructive">{rejectedN}</p>
-            <p className="text-xs text-muted-foreground">Rejected</p>
-          </CardContent>
-        </Card>
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => {
+            setSearchParams(
+              (prev) => {
+                const next = new URLSearchParams(prev);
+                next.set('kyc_status', v);
+                return next;
+              },
+              { replace: true },
+            );
+          }}
+          className="w-full"
+        >
+          <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1 bg-muted p-1 sm:inline-flex sm:w-auto">
+            <TabsTrigger value="pending" className="gap-2 text-xs shrink-0">
+              Pending
+              <Badge
+                variant="secondary"
+                className="h-5 min-w-5 px-1.5 tabular-nums border-amber-400/40 bg-amber-500/20 text-amber-950 dark:text-amber-50"
+              >
+                {pendingQueueN}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="approved" className="gap-2 text-xs shrink-0">
+              Approved
+              <Badge variant="secondary" className="h-5 min-w-5 px-1.5 tabular-nums">
+                {approvedN}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="rejected" className="gap-2 text-xs shrink-0">
+              Rejected
+              <Badge variant="secondary" className="h-5 min-w-5 px-1.5 tabular-nums">
+                {rejectedN}
+              </Badge>
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       </div>
 
       <p className="text-xs text-muted-foreground lg:hidden">
@@ -1733,108 +1810,133 @@ function KYCView() {
       </p>
 
       <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(340px,44%)] lg:gap-4 lg:items-start">
-        <div className="rounded-md border bg-card overflow-hidden min-w-0">
+        <div className="rounded-md border bg-card overflow-x-auto min-w-0">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>User</TableHead>
+                <TableHead className="min-w-[140px]">User</TableHead>
+                <TableHead className="hidden sm:table-cell min-w-[160px]">Email / phone</TableHead>
                 <TableHead className="hidden sm:table-cell">Type</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="hidden md:table-cell w-[140px]">Submitted</TableHead>
-                <TableHead className="w-[100px] text-right">Preview</TableHead>
+                <TableHead className="hidden md:table-cell whitespace-nowrap">Submitted</TableHead>
+                <TableHead className="min-w-[200px]">Status</TableHead>
+                <TableHead className="w-[108px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((kyc) => (
-                <TableRow
-                  key={kyc.id}
-                  data-state={selected?.id === kyc.id ? 'selected' : undefined}
-                  className={cn(
-                    'cursor-pointer',
-                    selected?.id === kyc.id && 'bg-muted/80 hover:bg-muted/80',
-                  )}
-                  onClick={() => pickRow(kyc)}
-                >
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Avatar className="h-8 w-8 shrink-0">
-                        <AvatarFallback className="text-xs">{kyc.user.name[0]}</AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0">
-                        <p className="font-medium text-foreground truncate">{kyc.user.name}</p>
-                        <p className="text-xs text-muted-foreground truncate">{kyc.user.phone}</p>
-                        <p className="text-[10px] text-muted-foreground capitalize sm:hidden mt-0.5">
-                          {kyc.document_type.replace(/_/g, ' ')}
-                        </p>
+              {filtered.map((kyc) => {
+                const isNew = isKycSubmissionNew(kyc);
+                return (
+                  <TableRow
+                    key={kyc.id}
+                    data-state={selected?.id === kyc.id ? 'selected' : undefined}
+                    className={cn(
+                      'cursor-pointer',
+                      selected?.id === kyc.id && 'bg-muted/80 hover:bg-muted/80',
+                    )}
+                    onClick={() => pickRow(kyc)}
+                  >
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <span className="relative shrink-0">
+                          <Avatar className="h-8 w-8">
+                            <AvatarFallback className="text-xs">{kyc.user.name[0]}</AvatarFallback>
+                          </Avatar>
+                          {isNew ? (
+                            <span
+                              className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-card"
+                              title="New submission"
+                              aria-hidden
+                            />
+                          ) : null}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="font-medium text-foreground truncate">{kyc.user.name}</p>
+                            {isNew ? (
+                              <Badge className="h-5 px-1.5 text-[10px] shrink-0 bg-red-600 hover:bg-red-600 text-white border-0">
+                                New
+                              </Badge>
+                            ) : null}
+                          </div>
+                          <p className="text-xs text-muted-foreground truncate sm:hidden">{kyc.user.phone}</p>
+                          <p className="text-[10px] text-muted-foreground capitalize sm:hidden mt-0.5">
+                            {kyc.document_type.replace(/_/g, ' ')}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell capitalize text-muted-foreground text-xs">
-                    {kyc.document_type.replace(/_/g, ' ')}
-                  </TableCell>
-                  <TableCell onClick={(e) => e.stopPropagation()}>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className={cn(
-                            'h-7 gap-1 px-2 text-[10px] capitalize',
-                            kyc.status === 'approved' && 'border-emerald-500/50 bg-emerald-500/10',
-                            kyc.status === 'rejected' && 'border-destructive/50',
-                          )}
-                          aria-label={`KYC status: ${kyc.status}, open actions`}
-                        >
-                          {kyc.status}
-                          <ChevronDown className="h-3 w-3 opacity-60" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start" onClick={(e) => e.stopPropagation()}>
-                        {(kyc.status === 'pending' ||
-                          kyc.status === 'review' ||
-                          kyc.status === 'rejected') && (
-                          <DropdownMenuItem
-                            onClick={() => {
-                              reviewMut.reset();
-                              setApproveConfirm(kyc);
-                            }}
-                            className="text-emerald-600"
-                          >
-                            <CheckCircle className="w-4 h-4 mr-2" />
-                            Approve…
-                          </DropdownMenuItem>
-                        )}
-                        {(kyc.status === 'pending' ||
-                          kyc.status === 'review' ||
-                          kyc.status === 'approved') && (
-                          <DropdownMenuItem
-                            onClick={() => openReject(kyc.id)}
-                            className="text-destructive"
-                          >
-                            <XCircle className="w-4 h-4 mr-2" />
-                            Reject…
-                          </DropdownMenuItem>
-                        )}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell text-xs text-muted-foreground whitespace-nowrap">
-                    {kyc.submitted_at.slice(0, 16).replace('T', ' ')}
-                  </TableCell>
-                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      className="h-8 text-xs"
-                      onClick={() => pickRow(kyc)}
-                    >
-                      <Eye className="w-3.5 h-3.5 mr-1.5" />
-                      Preview
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell align-top">
+                      <p className="text-xs break-all">{kyc.user.email?.trim() || '—'}</p>
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">{kyc.user.phone}</p>
+                      {(kyc.status === 'approved' || kyc.status === 'rejected') && kyc.reviewed_at ? (
+                        <p className="text-[10px] text-muted-foreground mt-1.5 leading-snug">
+                          <span className="font-medium text-foreground/80">Reviewed</span>{' '}
+                          {kyc.reviewed_at.slice(0, 16).replace('T', ' ')}
+                          {kyc.reviewer?.name ? ` · ${kyc.reviewer.name}` : ''}
+                        </p>
+                      ) : null}
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell capitalize text-muted-foreground text-xs align-top">
+                      {kyc.document_type.replace(/_/g, ' ')}
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell text-xs text-muted-foreground whitespace-nowrap align-top">
+                      {kyc.submitted_at.slice(0, 16).replace('T', ' ')}
+                    </TableCell>
+                    <TableCell className="align-top" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex flex-col gap-2 items-start">
+                        <KycRowStatusBadge status={kyc.status} />
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="sm" className="h-7 gap-1 px-2 text-[10px]">
+                              Actions
+                              <ChevronDown className="h-3 w-3 opacity-60" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="start" onClick={(e) => e.stopPropagation()}>
+                            {(kyc.status === 'pending' ||
+                              kyc.status === 'review' ||
+                              kyc.status === 'rejected') && (
+                              <DropdownMenuItem
+                                onClick={() => {
+                                  reviewMut.reset();
+                                  setApproveConfirm(kyc);
+                                }}
+                                className="text-emerald-600"
+                              >
+                                <CheckCircle className="w-4 h-4 mr-2" />
+                                Approve…
+                              </DropdownMenuItem>
+                            )}
+                            {(kyc.status === 'pending' ||
+                              kyc.status === 'review' ||
+                              kyc.status === 'approved') && (
+                              <DropdownMenuItem
+                                onClick={() => openReject(kyc.id)}
+                                className="text-destructive"
+                              >
+                                <XCircle className="w-4 h-4 mr-2" />
+                                Reject…
+                              </DropdownMenuItem>
+                            )}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right align-top" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        className="h-8 text-xs"
+                        onClick={() => pickRow(kyc)}
+                      >
+                        <Eye className="w-3.5 h-3.5 mr-1.5" />
+                        Preview
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
           {filtered.length === 0 ? (
