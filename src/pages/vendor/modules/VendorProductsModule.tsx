@@ -74,6 +74,8 @@ export default function VendorProductsModule({ activeSection }: { activeSection:
   const [productStatus, setProductStatus] = useState('draft');
   const [desc, setDesc] = useState('');
   const [colorHex, setColorHex] = useState('#000000');
+  const [discountType, setDiscountType] = useState('');
+  const [discountValue, setDiscountValue] = useState('');
 
   const loadProduct = async (id: string) => {
     const p = await vendorApi.productDetail(id);
@@ -90,6 +92,10 @@ export default function VendorProductsModule({ activeSection }: { activeSection:
     setDesc(String(p.description ?? ''));
     const attrs = (p.attributes as Record<string, unknown>) || {};
     setColorHex(String(attrs.color ?? '#000000'));
+    const row = p as Record<string, unknown>;
+    setDiscountType(String(row.discount_type ?? ''));
+    const dv = row.discount;
+    setDiscountValue(dv != null && dv !== '' ? String(dv) : '');
     setModalOpen(true);
   };
 
@@ -114,6 +120,8 @@ export default function VendorProductsModule({ activeSection }: { activeSection:
       if (brandId) fd.append('brand_id', brandId);
       if (unitId) fd.append('unit_id', unitId);
       fd.append('price', price || '0');
+      fd.append('discount_type', discountType || '');
+      fd.append('discount', discountValue || '');
       fd.append('stock', stock || '0');
       fd.append('status', productStatus);
       fd.append('description', desc);
@@ -183,6 +191,8 @@ export default function VendorProductsModule({ activeSection }: { activeSection:
               setProductStatus('draft');
               setDesc('');
               setColorHex('#000000');
+              setDiscountType('');
+              setDiscountValue('');
               navigate(buildVendorModulePath('add-product-page'));
             }}
           >
@@ -202,6 +212,8 @@ export default function VendorProductsModule({ activeSection }: { activeSection:
               setProductStatus('draft');
               setDesc('');
               setColorHex('#000000');
+              setDiscountType('');
+              setDiscountValue('');
               setModalOpen(true);
             }}
           >
@@ -333,6 +345,27 @@ export default function VendorProductsModule({ activeSection }: { activeSection:
                 <Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} />
               </div>
               <div className="space-y-2">
+                <Label>Discount type</Label>
+                <Select value={discountType || 'none'} onValueChange={(v) => setDiscountType(v === 'none' ? '' : v)}>
+                  <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="flat">Flat (Rs. off)</SelectItem>
+                    <SelectItem value="percentage">Percentage</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Discount {discountType === 'percentage' ? '(%)' : discountType === 'flat' ? '(Rs.)' : ''}</Label>
+                <Input
+                  type="number"
+                  placeholder={discountType ? '0' : '—'}
+                  disabled={!discountType}
+                  value={discountValue}
+                  onChange={(e) => setDiscountValue(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
                 <Label>Stock</Label>
                 <Input type="number" value={stock} onChange={(e) => setStock(e.target.value)} />
               </div>
@@ -441,6 +474,29 @@ export default function VendorProductsModule({ activeSection }: { activeSection:
             <div className="space-y-2">
               <Label>Price</Label>
               <Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Discount type</Label>
+              <Select value={discountType || 'none'} onValueChange={(v) => setDiscountType(v === 'none' ? '' : v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="None" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="flat">Flat (Rs. off)</SelectItem>
+                  <SelectItem value="percentage">Percentage</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Discount {discountType === 'percentage' ? '(%)' : discountType === 'flat' ? '(Rs.)' : ''}</Label>
+              <Input
+                type="number"
+                placeholder={discountType ? '0' : '—'}
+                disabled={!discountType}
+                value={discountValue}
+                onChange={(e) => setDiscountValue(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <Label>Stock</Label>

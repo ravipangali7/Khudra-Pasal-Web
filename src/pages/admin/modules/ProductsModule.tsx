@@ -61,13 +61,32 @@ type AdminProductRow = {
   image_url?: string;
 };
 
+function computeEffectiveSalePrice(
+  listStr: string,
+  discountType: string,
+  discountStr: string,
+): number | null {
+  const list = Number(listStr);
+  const d = Number(discountStr);
+  if (!Number.isFinite(list) || list <= 0) return null;
+  if (discountType !== 'flat' && discountType !== 'percentage') return null;
+  if (!Number.isFinite(d) || d <= 0) return null;
+  if (discountType === 'percentage') {
+    if (d > 100) return null;
+    return Math.round((list * (100 - d)) / 100 * 100) / 100;
+  }
+  if (d >= list) return null;
+  return Math.round((list - d) * 100) / 100;
+}
+
 function mapProductDetailToForm(d: AdminProductDetail) {
   return {
     name: d.name,
     slug: d.slug,
     sku: d.sku,
     price: String(d.price),
-    discountPrice: d.discount_price != null ? String(d.discount_price) : '',
+    discountType: d.discount_type || '',
+    discountValue: d.discount != null ? String(d.discount) : '',
     stock: String(d.stock),
     type: d.type,
     status: d.status,
@@ -246,6 +265,16 @@ function ProductsList({ filterInHouse }: { filterInHouse?: boolean }) {
     if (formErrors[key]) setFormErrors(prev => { const n = { ...prev }; delete n[key]; return n; });
   };
 
+  const effectivePreview = useMemo(
+    () =>
+      computeEffectiveSalePrice(
+        formData.price || '',
+        formData.discountType || '',
+        formData.discountValue || '',
+      ),
+    [formData.price, formData.discountType, formData.discountValue],
+  );
+
   if (isLoading) return <div className="p-4 lg:p-6 text-sm text-muted-foreground">Loading products…</div>;
   if (isError) return <div className="p-4 lg:p-6 text-sm text-destructive">Could not load products.</div>;
 
@@ -351,9 +380,21 @@ function ProductsList({ filterInHouse }: { filterInHouse?: boolean }) {
               <div><span className="text-muted-foreground">Brand</span><p className="font-medium">{productDetail.brand_name || '—'}</p></div>
               <div><span className="text-muted-foreground">Unit</span><p className="font-medium">{productDetail.unit_name || '—'}</p></div>
               <div><span className="text-muted-foreground">Seller</span><p className="font-medium">{productDetail.seller_name || 'In-House'}</p></div>
-              <div><span className="text-muted-foreground">Price</span><p className="font-medium">Rs. {productDetail.price.toLocaleString()}</p></div>
-              {productDetail.discount_price != null ? (
-                <div><span className="text-muted-foreground">Discount price</span><p className="font-medium">Rs. {productDetail.discount_price.toLocaleString()}</p></div>
+              <div><span className="text-muted-foreground">List price</span><p className="font-medium">Rs. {productDetail.price.toLocaleString()}</p></div>
+              {productDetail.discount_type && productDetail.discount != null ? (
+                <>
+                  <div><span className="text-muted-foreground">Discount</span><p className="font-medium capitalize">{productDetail.discount_type} · {productDetail.discount}</p></div>
+                  {(() => {
+                    const sp = computeEffectiveSalePrice(
+                      String(productDetail.price),
+                      productDetail.discount_type,
+                      String(productDetail.discount),
+                    );
+                    return sp != null ? (
+                      <div><span className="text-muted-foreground">Sale price</span><p className="font-medium">Rs. {sp.toLocaleString()}</p></div>
+                    ) : null;
+                  })()}
+                </>
               ) : null}
               <div><span className="text-muted-foreground">Stock</span><p className="font-medium">{productDetail.stock}</p></div>
             </div>
@@ -433,7 +474,8 @@ function ProductsList({ filterInHouse }: { filterInHouse?: boolean }) {
         appendIfDefined(fd, 'slug', formData.slug);
         appendIfDefined(fd, 'sku', formData.sku);
         appendIfDefined(fd, 'price', formData.price);
-        appendIfDefined(fd, 'discount_price', formData.discountPrice);
+        fd.append('discount_type', formData.discountType || '');
+        fd.append('discount', formData.discountValue || '');
         appendIfDefined(fd, 'stock', formData.stock);
         appendIfDefined(fd, 'type', formData.type || 'physical');
         appendIfDefined(fd, 'status', formData.status || 'active');
@@ -593,7 +635,38 @@ function ProductsList({ filterInHouse }: { filterInHouse?: boolean }) {
                 <Input type="number" placeholder="0" value={formData.price || ''} onChange={e => updateField('price', e.target.value)} className={formErrors.price ? 'border-destructive' : ''} />
                 {formErrors.price && <p className="text-xs text-destructive mt-1">{formErrors.price}</p>}
               </div>
-              <div><Label>Discount Price (Rs.)</Label><Input type="number" placeholder="0" value={formData.discountPrice || ''} onChange={e => updateField('discountPrice', e.target.value)} /></div>
+              <div>
+                <Label>Discount type</Label>
+                <Select
+                  value={formData.discountType || 'none'}
+                  onValueChange={(v) => updateField('discountType', v === 'none' ? '' : v)}
+                >
+                  <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="flat">Flat (Rs. off list)</SelectItem>
+                    <SelectItem value="percentage">Percentage off list</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>
+                  Discount {formData.discountType === 'percentage' ? '(%)' : formData.discountType === 'flat' ? '(Rs.)' : ''}
+                </Label>
+                <Input
+                  type="number"
+                  placeholder={formData.discountType ? '0' : '—'}
+                  disabled={!formData.discountType}
+                  value={formData.discountValue || ''}
+                  onChange={(e) => updateField('discountValue', e.target.value)}
+                />
+              </div>
+              {effectivePreview != null ? (
+                <div className="md:col-span-2 rounded-md border bg-muted/40 px-3 py-2 text-sm">
+                  <span className="text-muted-foreground">Effective sale price: </span>
+                  <span className="font-medium">Rs. {effectivePreview.toLocaleString()}</span>
+                </div>
+              ) : null}
               <div>
                 <Label>SKU (unique) <span className="text-destructive">*</span></Label>
                 <Input placeholder="PROD-001" value={formData.sku || ''} onChange={e => updateField('sku', e.target.value)} className={formErrors.sku ? 'border-destructive' : ''} />

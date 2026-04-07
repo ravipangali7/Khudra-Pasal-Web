@@ -187,7 +187,9 @@ const ProductCard = ({
                 className="absolute top-2 left-2 z-10 px-2 py-1 rounded-md text-white text-[11px] md:text-[10px] font-bold shadow-sm"
                 style={{ backgroundColor: DISCOUNT_GREEN }}
               >
-                {discountPct}% OFF
+                {product.discountType === 'flat' && savingsAmount > 0
+                  ? `Rs. ${Math.round(savingsAmount).toLocaleString()} OFF`
+                  : `${discountPct}% OFF`}
               </div>
             )}
 

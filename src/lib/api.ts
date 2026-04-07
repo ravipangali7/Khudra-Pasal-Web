@@ -191,7 +191,9 @@ export type WebsiteProduct = {
   price: string;
   list_price?: string;
   original_price: string;
-  discount_price?: string | null;
+  /** Empty string when no product-level discount. */
+  discount_type?: string;
+  discount?: string | null;
   category_id?: number;
   category_slug: string;
   category_name: string;
@@ -305,7 +307,8 @@ export type AdminProductDetail = {
   description: string;
   short_description: string;
   price: number;
-  discount_price: number | null;
+  discount_type: string;
+  discount: number | null;
   stock: number;
   tax_percent: number;
   type: string;
@@ -753,6 +756,9 @@ export const mapWebsiteProductToUi = (item: WebsiteProduct): Product => {
   const stockPart = item.stock > 0 ? `${item.stock} in stock` : "Out of stock";
   const u = (item.unit_short_name || "").trim();
   const unitLine = u ? `${u} · ${stockPart}` : stockPart;
+  const dtype = item.discount_type;
+  const discountType =
+    dtype === 'flat' || dtype === 'percentage' ? dtype : undefined;
   return {
     id: String(item.id),
     slug: item.slug,
@@ -760,6 +766,7 @@ export const mapWebsiteProductToUi = (item: WebsiteProduct): Product => {
     description: item.short_description || item.description,
     price,
     originalPrice: hasDiscount ? originalPrice : undefined,
+    discountType,
     image,
     category: item.category_slug || "all",
     parentCategorySlug: item.parent_category_slug ?? undefined,

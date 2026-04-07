@@ -32,6 +32,8 @@ export interface Product {
   rating?: number;
   reviewCount?: number;
   discount?: number;
+  /** When set, how `discount` is interpreted for display (flat = Rs off; percentage = % off list). */
+  discountType?: 'flat' | 'percentage';
   vendor?: Vendor;
   inStock?: boolean;
   /** Unit short name and/or stock hint for cards. */
