@@ -14,8 +14,6 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -25,7 +23,13 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
 import { useAdminRouteContext } from '../adminRouteContext';
-import { formatApiError, slugifyText, appendIfDefined, resolveMediaUrl } from '../hooks/adminFormUtils';
+import { formatApiError, slugifyText, resolveMediaUrl } from '../hooks/adminFormUtils';
+import { ProductFormTabs } from '@/components/admin/ProductFormTabs';
+import {
+  buildProductFormData,
+  computeEffectiveSalePrice,
+  mapAdminProductDetailToForm,
+} from '@/components/admin/productFormUtils';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -36,15 +40,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { AdminSearchCombobox } from '@/components/admin/AdminSearchCombobox';
-import {
-  fetchCategoryAdminOptions,
-  fetchBrandAdminOptions,
-  fetchUnitAdminOptions,
-  fetchVendorAdminOptions,
-} from '@/components/admin/adminRelationalPickers';
-
-const MAX_ADMIN_PRODUCT_GALLERY = 15;
 
 type AdminProductRow = {
   id: string;
@@ -61,55 +56,6 @@ type AdminProductRow = {
   image_url?: string;
 };
 
-function computeEffectiveSalePrice(
-  listStr: string,
-  discountType: string,
-  discountStr: string,
-): number | null {
-  const list = Number(listStr);
-  const d = Number(discountStr);
-  if (!Number.isFinite(list) || list <= 0) return null;
-  if (discountType !== 'flat' && discountType !== 'percentage') return null;
-  if (!Number.isFinite(d) || d <= 0) return null;
-  if (discountType === 'percentage') {
-    if (d > 100) return null;
-    return Math.round((list * (100 - d)) / 100 * 100) / 100;
-  }
-  if (d >= list) return null;
-  return Math.round((list - d) * 100) / 100;
-}
-
-function mapProductDetailToForm(d: AdminProductDetail) {
-  return {
-    name: d.name,
-    slug: d.slug,
-    sku: d.sku,
-    price: String(d.price),
-    discountType: d.discount_type || '',
-    discountValue: d.discount != null ? String(d.discount) : '',
-    stock: String(d.stock),
-    type: d.type,
-    status: d.status,
-    shortDescription: d.short_description,
-    description: d.description,
-    seoTitle: d.seo_title,
-    seoDescription: d.seo_description,
-    seoKeywords: d.seo_keywords,
-    categoryId: d.category_id,
-    categoryLabel: d.category_name,
-    brandId: d.brand_id,
-    brandLabel: d.brand_name,
-    unitId: d.unit_id,
-    unitLabel: d.unit_name,
-    hasVariations: d.has_variations,
-    featured: d.is_featured,
-    enableReels: d.enable_reels,
-    enablePos: d.enable_pos,
-    sellerId: d.seller_id || '',
-    sellerLabel: d.seller_name || '',
-    existingImageUrl: d.image_url,
-  };
-}
 type ReviewRow = {
   id: string;
   product: string;
@@ -225,7 +171,7 @@ function ProductsList({ filterInHouse }: { filterInHouse?: boolean }) {
 
     if (hydratedEditProductIdRef.current !== idKey) {
       hydratedEditProductIdRef.current = idKey;
-      setFormData(mapProductDetailToForm(productDetail));
+      setFormData(mapAdminProductDetailToForm(productDetail));
       setSlugEdited(true);
       setPrimaryImage(null);
       setExistingGallery(productDetail.images ?? []);
@@ -264,16 +210,6 @@ function ProductsList({ filterInHouse }: { filterInHouse?: boolean }) {
     });
     if (formErrors[key]) setFormErrors(prev => { const n = { ...prev }; delete n[key]; return n; });
   };
-
-  const effectivePreview = useMemo(
-    () =>
-      computeEffectiveSalePrice(
-        formData.price || '',
-        formData.discountType || '',
-        formData.discountValue || '',
-      ),
-    [formData.price, formData.discountType, formData.discountValue],
-  );
 
   if (isLoading) return <div className="p-4 lg:p-6 text-sm text-muted-foreground">Loading products…</div>;
   if (isError) return <div className="p-4 lg:p-6 text-sm text-destructive">Could not load products.</div>;
@@ -469,37 +405,14 @@ function ProductsList({ filterInHouse }: { filterInHouse?: boolean }) {
           setFormErrors(errors);
           return;
         }
-        const fd = new FormData();
-        appendIfDefined(fd, 'name', formData.name);
-        appendIfDefined(fd, 'slug', formData.slug);
-        appendIfDefined(fd, 'sku', formData.sku);
-        appendIfDefined(fd, 'price', formData.price);
-        fd.append('discount_type', formData.discountType || '');
-        fd.append('discount', formData.discountValue || '');
-        appendIfDefined(fd, 'stock', formData.stock);
-        appendIfDefined(fd, 'type', formData.type || 'physical');
-        appendIfDefined(fd, 'status', formData.status || 'active');
-        appendIfDefined(fd, 'short_description', formData.shortDescription);
-        appendIfDefined(fd, 'description', formData.description);
-        appendIfDefined(fd, 'seo_title', formData.seoTitle);
-        appendIfDefined(fd, 'seo_description', formData.seoDescription);
-        appendIfDefined(fd, 'seo_keywords', formData.seoKeywords);
-        appendIfDefined(fd, 'category_id', formData.categoryId);
-        appendIfDefined(fd, 'brand_id', formData.brandId);
-        appendIfDefined(fd, 'unit_id', formData.unitId);
-        appendIfDefined(fd, 'tax_percent', '0');
-        appendIfDefined(fd, 'has_variations', formData.hasVariations ? 'true' : 'false');
-        appendIfDefined(fd, 'is_featured', formData.featured ? 'true' : 'false');
-        appendIfDefined(fd, 'enable_reels', formData.enableReels ? 'true' : 'false');
-        appendIfDefined(fd, 'enable_pos', formData.enablePos ? 'true' : 'false');
-        if (routeEdit) {
-          fd.append('seller_id', formData.sellerId ? String(formData.sellerId) : '');
-        } else if (formData.sellerId) {
-          fd.append('seller_id', String(formData.sellerId));
-        }
-        if (primaryImage) fd.append('image', primaryImage);
-        galleryFiles.forEach((f) => fd.append('gallery_images', f));
-        removedGalleryIds.forEach((id) => fd.append('delete_gallery_image_ids', id));
+        const fd = buildProductFormData(formData, {
+          isEdit: routeEdit,
+          primaryImage,
+          galleryFiles,
+          removedGalleryIds,
+          includeSeller: true,
+          includeFeatured: true,
+        });
         try {
           if (routeEdit && adminRoute?.itemId) {
             await updateMutation.mutateAsync({ id: adminRoute.itemId, payload: fd });
@@ -522,269 +435,23 @@ function ProductsList({ filterInHouse }: { filterInHouse?: boolean }) {
         setRemovedGalleryIds([]);
       }}
       >
-        <Tabs defaultValue="basic" className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-4">
-            <TabsTrigger value="basic">Basic Info</TabsTrigger>
-            <TabsTrigger value="pricing">Pricing & Stock</TabsTrigger>
-            <TabsTrigger value="media">Media</TabsTrigger>
-            <TabsTrigger value="seo">SEO</TabsTrigger>
-            <TabsTrigger value="vendor">Vendor Settings</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="basic" className="space-y-4">
-            <div>
-              <Label>Seller (leave empty for In-House)</Label>
-              <AdminSearchCombobox
-                queryKeyPrefix="product-vendor"
-                value={formData.sellerId || ''}
-                selectedLabel={formData.sellerLabel}
-                onChange={(v, l) => {
-                  setFormData((prev) => ({
-                    ...prev,
-                    sellerId: v,
-                    sellerLabel: l ?? '',
-                  }));
-                }}
-                fetchOptions={fetchVendorAdminOptions}
-                placeholder="Search vendor…"
-                clearable
-              />
-            </div>
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="md:col-span-2">
-                <Label>Product Name <span className="text-destructive">*</span></Label>
-                <Input placeholder="Enter product name" value={formData.name || ''} onChange={e => updateField('name', e.target.value)} className={formErrors.name ? 'border-destructive' : ''} />
-                {formErrors.name && <p className="text-xs text-destructive mt-1">{formErrors.name}</p>}
-              </div>
-              <div className="md:col-span-2">
-                <Label>Slug</Label>
-                <Input placeholder="product-slug" value={formData.slug || ''} onChange={e => { setSlugEdited(true); updateField('slug', slugifyText(e.target.value)); }} />
-              </div>
-              <div><Label>Product Type</Label>
-                <Select value={formData.type || 'physical'} onValueChange={(v) => updateField('type', v)}><SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent><SelectItem value="physical">Physical</SelectItem><SelectItem value="digital">Digital</SelectItem></SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Category</Label>
-                <AdminSearchCombobox
-                  queryKeyPrefix="product-category"
-                  value={formData.categoryId || ''}
-                  selectedLabel={formData.categoryLabel}
-                  onChange={(v, l) => {
-                    setFormData((prev) => ({
-                      ...prev,
-                      categoryId: v,
-                      categoryLabel: l ?? '',
-                    }));
-                  }}
-                  fetchOptions={fetchCategoryAdminOptions}
-                  placeholder="Search category…"
-                  clearable
-                />
-              </div>
-              <div>
-                <Label>Brand</Label>
-                <AdminSearchCombobox
-                  queryKeyPrefix="product-brand"
-                  value={formData.brandId || ''}
-                  selectedLabel={formData.brandLabel}
-                  onChange={(v, l) => {
-                    setFormData((prev) => ({
-                      ...prev,
-                      brandId: v,
-                      brandLabel: l ?? '',
-                    }));
-                  }}
-                  fetchOptions={fetchBrandAdminOptions}
-                  placeholder="Search brand…"
-                  clearable
-                />
-              </div>
-              <div>
-                <Label>Unit</Label>
-                <AdminSearchCombobox
-                  queryKeyPrefix="product-unit"
-                  value={formData.unitId || ''}
-                  selectedLabel={formData.unitLabel}
-                  onChange={(v, l) => {
-                    setFormData((prev) => ({
-                      ...prev,
-                      unitId: v,
-                      unitLabel: l ?? '',
-                    }));
-                  }}
-                  fetchOptions={fetchUnitAdminOptions}
-                  placeholder="Search unit…"
-                  clearable
-                />
-              </div>
-            </div>
-            <div><Label>Short Description</Label><Input placeholder="Brief product summary" value={formData.shortDescription || ''} onChange={(e) => updateField('shortDescription', e.target.value)} /></div>
-            <div><Label>Full Description</Label><Textarea rows={5} placeholder="Detailed product description..." value={formData.description || ''} onChange={(e) => updateField('description', e.target.value)} /></div>
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2"><Label>Has Variations</Label><Switch checked={!!formData.hasVariations} onCheckedChange={(v) => updateField('hasVariations', v)} /></div>
-              <div className="flex items-center gap-2"><Label>Featured</Label><Switch checked={!!formData.featured} onCheckedChange={(v) => updateField('featured', v)} /></div>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="pricing" className="space-y-4">
-            <div className="grid md:grid-cols-2 gap-4">
-              <div>
-                <Label>Regular Price (Rs.) <span className="text-destructive">*</span></Label>
-                <Input type="number" placeholder="0" value={formData.price || ''} onChange={e => updateField('price', e.target.value)} className={formErrors.price ? 'border-destructive' : ''} />
-                {formErrors.price && <p className="text-xs text-destructive mt-1">{formErrors.price}</p>}
-              </div>
-              <div>
-                <Label>Discount type</Label>
-                <Select
-                  value={formData.discountType || 'none'}
-                  onValueChange={(v) => updateField('discountType', v === 'none' ? '' : v)}
-                >
-                  <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    <SelectItem value="flat">Flat (Rs. off list)</SelectItem>
-                    <SelectItem value="percentage">Percentage off list</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>
-                  Discount {formData.discountType === 'percentage' ? '(%)' : formData.discountType === 'flat' ? '(Rs.)' : ''}
-                </Label>
-                <Input
-                  type="number"
-                  placeholder={formData.discountType ? '0' : '—'}
-                  disabled={!formData.discountType}
-                  value={formData.discountValue || ''}
-                  onChange={(e) => updateField('discountValue', e.target.value)}
-                />
-              </div>
-              {effectivePreview != null ? (
-                <div className="md:col-span-2 rounded-md border bg-muted/40 px-3 py-2 text-sm">
-                  <span className="text-muted-foreground">Effective sale price: </span>
-                  <span className="font-medium">Rs. {effectivePreview.toLocaleString()}</span>
-                </div>
-              ) : null}
-              <div>
-                <Label>SKU (unique) <span className="text-destructive">*</span></Label>
-                <Input placeholder="PROD-001" value={formData.sku || ''} onChange={e => updateField('sku', e.target.value)} className={formErrors.sku ? 'border-destructive' : ''} />
-                {formErrors.sku && <p className="text-xs text-destructive mt-1">{formErrors.sku}</p>}
-              </div>
-              <div><Label>Stock Quantity</Label><Input type="number" placeholder="0" value={formData.stock || ''} onChange={e => updateField('stock', e.target.value)} /></div>
-            </div>
-            <div><Label>Status</Label>
-              <Select value={formData.status || 'active'} onValueChange={(v) => updateField('status', v)}><SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent><SelectItem value="active">Active</SelectItem><SelectItem value="draft">Draft</SelectItem></SelectContent>
-              </Select>
-            </div>
-          </TabsContent>
-
-          <TabsContent value="media" className="space-y-4">
-            {formData.existingImageUrl && !primaryImage ? (
-              <div className="flex items-center gap-3">
-                <img src={resolveMediaUrl(formData.existingImageUrl)} alt="" className="h-24 w-24 rounded-lg object-cover border" />
-                <p className="text-xs text-muted-foreground">Current image. Choose a file below to replace.</p>
-              </div>
-            ) : null}
-            <div>
-              <Label>Primary Thumbnail</Label>
-              <Input type="file" accept="image/*" onChange={(e) => setPrimaryImage(e.target.files?.[0] ?? null)} />
-              {primaryImage ? (
-                <Button type="button" variant="ghost" size="sm" className="mt-1 h-8 text-xs" onClick={() => setPrimaryImage(null)}>
-                  Clear primary
-                </Button>
-              ) : null}
-            </div>
-            {formErrors.image && <p className="text-xs text-destructive mt-1">{formErrors.image}</p>}
-            <div>
-              <Label>Gallery images</Label>
-              <Input
-                type="file"
-                accept="image/*"
-                multiple
-                className="cursor-pointer"
-                onChange={(e) => {
-                  const picked = Array.from(e.target.files ?? []);
-                  const keptExisting = existingGallery.filter((g) => !removedGalleryIds.includes(g.id)).length;
-                  const room = Math.max(0, MAX_ADMIN_PRODUCT_GALLERY - keptExisting - galleryFiles.length);
-                  const next = room > 0 ? [...galleryFiles, ...picked.slice(0, room)] : galleryFiles;
-                  setGalleryFiles(next);
-                  e.target.value = '';
-                }}
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                Select multiple images in one picker, or add more in batches. Up to {MAX_ADMIN_PRODUCT_GALLERY} gallery images total (primary is separate).
-              </p>
-            </div>
-            {(existingGallery.some((g) => !removedGalleryIds.includes(g.id)) || galleryFiles.length > 0) ? (
-              <div className="flex flex-wrap gap-2">
-                {existingGallery
-                  .filter((g) => !removedGalleryIds.includes(g.id))
-                  .map((g) => (
-                    <div key={g.id} className="relative inline-block">
-                      <img
-                        src={resolveMediaUrl(g.image_url)}
-                        alt=""
-                        className="h-20 w-20 rounded-md border object-cover"
-                      />
-                      <button
-                        type="button"
-                        className="absolute -right-1 -top-1 rounded-full bg-destructive p-0.5 text-destructive-foreground shadow"
-                        aria-label="Remove gallery image"
-                        onClick={() => setRemovedGalleryIds((prev) => (prev.includes(g.id) ? prev : [...prev, g.id]))}
-                      >
-                        <X className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                {galleryFiles.map((file, i) => (
-                  <div key={`${file.name}-${file.size}-${i}`} className="relative inline-block">
-                    <img src={galleryPreviews[i]} alt="" className="h-20 w-20 rounded-md border object-cover" />
-                    <button
-                      type="button"
-                      className="absolute -right-1 -top-1 rounded-full bg-destructive p-0.5 text-destructive-foreground shadow"
-                      aria-label="Remove pending image"
-                      onClick={() => setGalleryFiles((prev) => prev.filter((_, j) => j !== i))}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-          </TabsContent>
-
-          <TabsContent value="seo" className="space-y-4">
-            <div><Label>SEO Title</Label><Input placeholder="Page title for search engines" value={formData.seoTitle || ''} onChange={(e) => updateField('seoTitle', e.target.value)} /></div>
-            <div><Label>Meta Description</Label><Textarea rows={2} placeholder="Description for search results" value={formData.seoDescription || ''} onChange={(e) => updateField('seoDescription', e.target.value)} /></div>
-            <div><Label>Meta Keywords</Label><Input placeholder="keyword1, keyword2, ..." value={formData.seoKeywords || ''} onChange={(e) => updateField('seoKeywords', e.target.value)} /></div>
-          </TabsContent>
-
-          <TabsContent value="vendor" className="space-y-4">
-            <Card><CardContent className="p-4 space-y-4">
-              <CardTitle className="text-sm">Vendor Feature Access</CardTitle>
-              <p className="text-xs text-muted-foreground">Control which features are enabled when this product is managed by a vendor.</p>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <div>
-                    <span className="font-medium text-sm">Enable Reels Upload</span>
-                    <p className="text-xs text-muted-foreground">Allow vendor to create reels for this product</p>
-                  </div>
-                  <Switch checked={!!formData.enableReels} onCheckedChange={(v) => updateField('enableReels', v)} />
-                </div>
-                <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <div>
-                    <span className="font-medium text-sm">Enable POS</span>
-                    <p className="text-xs text-muted-foreground">Allow this product in POS system</p>
-                  </div>
-                  <Switch checked={!!formData.enablePos} onCheckedChange={(v) => updateField('enablePos', v)} />
-                </div>
-              </div>
-            </CardContent></Card>
-          </TabsContent>
-        </Tabs>
+        <ProductFormTabs
+          variant="admin"
+          formData={formData}
+          setFormData={setFormData}
+          formErrors={formErrors}
+          updateField={updateField}
+          slugEdited={slugEdited}
+          setSlugEdited={setSlugEdited}
+          primaryImage={primaryImage}
+          setPrimaryImage={setPrimaryImage}
+          existingGallery={existingGallery}
+          galleryFiles={galleryFiles}
+          setGalleryFiles={setGalleryFiles}
+          removedGalleryIds={removedGalleryIds}
+          setRemovedGalleryIds={setRemovedGalleryIds}
+          galleryPreviews={galleryPreviews}
+        />
       </CRUDModal>
     </div>
   );

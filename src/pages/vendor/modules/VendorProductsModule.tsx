@@ -1,20 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Package, MoreVertical, Edit, Trash2 } from 'lucide-react';
 import AdminTable from '@/components/admin/AdminTable';
 import { CRUDModal } from '@/components/admin/CRUDModal';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,23 +12,48 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { extractResults, vendorApi } from '@/lib/api';
 import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
 import { buildVendorModulePath } from '../moduleRegistry';
+import { useVendorRouteContext } from '../vendorRouteContext';
+import { ProductFormTabs } from '@/components/admin/ProductFormTabs';
+import { buildProductFormData, mapVendorProductDetailToForm } from '@/components/admin/productFormUtils';
+import { formatApiError, slugifyText } from '@/pages/admin/hooks/adminFormUtils';
 
 export default function VendorProductsModule({ activeSection }: { activeSection: string }) {
   const qc = useQueryClient();
-  const navigate = useNavigate();
-  const isAdd = activeSection === 'add-product';
-  const isDedicatedAddPage = activeSection === 'add-product-page';
+  const vendorRoute = useVendorRouteContext();
   const [statusFilter, setStatusFilter] = useState<string>('');
-  const [modalOpen, setModalOpen] = useState(isAdd);
-  const [editId, setEditId] = useState<string | null>(null);
 
+  const routeAdd = vendorRoute?.action === 'add';
+  const routeEdit = vendorRoute?.action === 'edit';
+  const resolvedModalOpen = Boolean(routeAdd || routeEdit);
+  const detailId = vendorRoute?.itemId;
+
+  const [formData, setFormData] = useState<Record<string, unknown>>({});
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [slugEdited, setSlugEdited] = useState(false);
+  const [primaryImage, setPrimaryImage] = useState<File | null>(null);
+  const [existingGallery, setExistingGallery] = useState<{ id: string; image_url: string; sort_order: number }[]>(
+    [],
+  );
+  const [galleryFiles, setGalleryFiles] = useState<File[]>([]);
+  const [removedGalleryIds, setRemovedGalleryIds] = useState<string[]>([]);
+  const [saveError, setSaveError] = useState('');
+  const hydratedEditProductIdRef = useRef<string | null>(null);
+  const galleryPreviews = useMemo(() => galleryFiles.map((f) => URL.createObjectURL(f)), [galleryFiles]);
   useEffect(() => {
-    setModalOpen(isAdd);
-  }, [isAdd]);
+    return () => {
+      galleryPreviews.forEach((u) => URL.revokeObjectURL(u));
+    };
+  }, [galleryPreviews]);
 
   const { data: productsResp, refetch } = useQuery({
     queryKey: ['vendor', 'products', statusFilter],
@@ -46,105 +61,110 @@ export default function VendorProductsModule({ activeSection }: { activeSection:
   });
   const products = useMemo(() => extractResults<Record<string, unknown>>(productsResp), [productsResp]);
 
-  const { data: catData } = useQuery({
-    queryKey: ['vendor', 'catalog', 'cat'],
-    queryFn: () => vendorApi.catalogCategories(),
+  const { data: productDetail } = useQuery({
+    queryKey: ['vendor', 'product', detailId],
+    queryFn: () => vendorApi.productDetail(detailId!),
+    enabled: Boolean(detailId && routeEdit),
+    staleTime: 30_000,
   });
-  const { data: brandData } = useQuery({
-    queryKey: ['vendor', 'catalog', 'brand'],
-    queryFn: () => vendorApi.catalogBrands(),
-  });
-  const { data: unitData } = useQuery({
-    queryKey: ['vendor', 'catalog', 'unit'],
-    queryFn: () => vendorApi.catalogUnits(),
-  });
-
-  const categories = catData?.results ?? [];
-  const brands = brandData?.results ?? [];
-  const units = unitData?.results ?? [];
-
-  const [name, setName] = useState('');
-  const [slug, setSlug] = useState('');
-  const [sku, setSku] = useState('');
-  const [categoryId, setCategoryId] = useState('');
-  const [brandId, setBrandId] = useState('');
-  const [unitId, setUnitId] = useState('');
-  const [price, setPrice] = useState('');
-  const [stock, setStock] = useState('0');
-  const [productStatus, setProductStatus] = useState('draft');
-  const [desc, setDesc] = useState('');
-  const [colorHex, setColorHex] = useState('#000000');
-  const [discountType, setDiscountType] = useState('');
-  const [discountValue, setDiscountValue] = useState('');
-
-  const loadProduct = async (id: string) => {
-    const p = await vendorApi.productDetail(id);
-    setEditId(id);
-    setName(String(p.name ?? ''));
-    setSlug(String(p.slug ?? ''));
-    setSku(String(p.sku ?? ''));
-    setCategoryId(String(p.category_id ?? ''));
-    setBrandId(String(p.brand_id ?? ''));
-    setUnitId(String(p.unit_id ?? ''));
-    setPrice(String(p.price ?? ''));
-    setStock(String(p.stock ?? '0'));
-    setProductStatus(String(p.status ?? 'draft'));
-    setDesc(String(p.description ?? ''));
-    const attrs = (p.attributes as Record<string, unknown>) || {};
-    setColorHex(String(attrs.color ?? '#000000'));
-    const row = p as Record<string, unknown>;
-    setDiscountType(String(row.discount_type ?? ''));
-    const dv = row.discount;
-    setDiscountValue(dv != null && dv !== '' ? String(dv) : '');
-    setModalOpen(true);
-  };
 
   useEffect(() => {
-    if (!name.trim() || editId) return;
-    const t = setTimeout(() => {
-      void vendorApi
-        .productSlugPreview(name.trim())
-        .then((r) => setSlug(r.slug))
-        .catch(() => {});
-    }, 400);
-    return () => clearTimeout(t);
-  }, [name, editId]);
+    if (!routeEdit || !resolvedModalOpen) {
+      hydratedEditProductIdRef.current = null;
+    }
+  }, [routeEdit, resolvedModalOpen]);
 
-  const saveMut = useMutation({
-    mutationFn: async () => {
-      const fd = new FormData();
-      fd.append('name', name);
-      if (slug) fd.append('slug', slug);
-      fd.append('sku', sku);
-      fd.append('category_id', categoryId);
-      if (brandId) fd.append('brand_id', brandId);
-      if (unitId) fd.append('unit_id', unitId);
-      fd.append('price', price || '0');
-      fd.append('discount_type', discountType || '');
-      fd.append('discount', discountValue || '');
-      fd.append('stock', stock || '0');
-      fd.append('status', productStatus);
-      fd.append('description', desc);
-      fd.append('attributes', JSON.stringify({ color: colorHex }));
-      const img = (document.getElementById('product-image') as HTMLInputElement | null)?.files?.[0];
-      if (editId) {
-        if (img) fd.append('image', img);
-        return vendorApi.updateProduct(editId, fd);
+  useEffect(() => {
+    if (routeAdd && resolvedModalOpen) {
+      hydratedEditProductIdRef.current = null;
+      setFormData({ status: 'draft' });
+      setSlugEdited(false);
+      setPrimaryImage(null);
+      setExistingGallery([]);
+      setGalleryFiles([]);
+      setRemovedGalleryIds([]);
+      setFormErrors({});
+      setSaveError('');
+    }
+  }, [routeAdd, resolvedModalOpen]);
+
+  useEffect(() => {
+    if (!productDetail || !routeEdit || !detailId) return;
+    const idKey = String(detailId);
+    if (String(productDetail.id) !== idKey) return;
+
+    if (hydratedEditProductIdRef.current !== idKey) {
+      hydratedEditProductIdRef.current = idKey;
+      setFormData(mapVendorProductDetailToForm(productDetail));
+      setSlugEdited(true);
+      setPrimaryImage(null);
+      setExistingGallery(productDetail.images ?? []);
+      setGalleryFiles([]);
+      setRemovedGalleryIds([]);
+      setFormErrors({});
+    } else {
+      setExistingGallery(productDetail.images ?? []);
+    }
+  }, [productDetail, routeEdit, detailId]);
+
+  const keptGalleryCount = useMemo(
+    () => existingGallery.filter((g) => !removedGalleryIds.includes(g.id)).length,
+    [existingGallery, removedGalleryIds],
+  );
+  const hasUsableProductImage = useMemo(() => {
+    if (primaryImage) return true;
+    if (formData.existingImageUrl) return true;
+    if (keptGalleryCount > 0 || galleryFiles.length > 0) return true;
+    return false;
+  }, [primaryImage, formData.existingImageUrl, keptGalleryCount, galleryFiles.length]);
+
+  const updateField = (key: string, value: unknown) => {
+    setFormData((prev) => {
+      if (key === 'name') {
+        return { ...prev, [key]: value, slug: slugEdited ? prev.slug : slugifyText(String(value ?? '')) };
       }
-      if (!img) throw new Error('Image is required for new products');
-      fd.append('image', img);
-      return vendorApi.createProduct(fd);
-    },
+      return { ...prev, [key]: value };
+    });
+    if (formErrors[key]) setFormErrors((prev) => {
+      const n = { ...prev };
+      delete n[key];
+      return n;
+    });
+  };
+
+  const createMut = useMutation({
+    mutationFn: (fd: FormData) => vendorApi.createProduct(fd),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['vendor', 'products'] });
       void qc.invalidateQueries({ queryKey: ['vendor', 'summary'] });
-      toast.success(editId ? 'Product updated' : 'Product created');
-      setModalOpen(false);
-      setEditId(null);
-      navigate(buildVendorModulePath('all-products'));
+      toast.success('Product created');
+      vendorRoute?.navigateToList();
+      resetFormState();
     },
-    onError: (e: Error) => toast.error(e.message),
   });
+
+  const updateMut = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: FormData }) => vendorApi.updateProduct(id, payload),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['vendor', 'products'] });
+      void qc.invalidateQueries({ queryKey: ['vendor', 'product', detailId] });
+      void qc.invalidateQueries({ queryKey: ['vendor', 'summary'] });
+      toast.success('Product updated');
+      vendorRoute?.navigateToList();
+      resetFormState();
+    },
+  });
+
+  function resetFormState() {
+    setFormData({});
+    setFormErrors({});
+    setSaveError('');
+    setPrimaryImage(null);
+    setSlugEdited(false);
+    setExistingGallery([]);
+    setGalleryFiles([]);
+    setRemovedGalleryIds([]);
+  }
 
   const delMut = useMutation({
     mutationFn: (id: string) => vendorApi.deleteProduct(id),
@@ -154,6 +174,41 @@ export default function VendorProductsModule({ activeSection }: { activeSection:
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  const onSaveProduct = async () => {
+    setSaveError('');
+    const errors: Record<string, string> = {};
+    if (!formData.name || !String(formData.name).trim()) errors.name = 'Product name is required';
+    if (!formData.price || Number(formData.price) <= 0) errors.price = 'Valid price is required';
+    if (!formData.sku || !String(formData.sku).trim()) errors.sku = 'SKU is required';
+    if (!routeEdit && !primaryImage) errors.image = 'Primary image is required';
+    if (routeEdit && !hasUsableProductImage) {
+      errors.image = 'Product image is missing; upload a primary image or at least one gallery image';
+    }
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+    const fd = buildProductFormData(formData, {
+      isEdit: Boolean(routeEdit),
+      primaryImage,
+      galleryFiles,
+      removedGalleryIds,
+      includeSeller: false,
+      includeFeatured: false,
+    });
+    try {
+      if (routeEdit && detailId) {
+        await updateMut.mutateAsync({ id: detailId, payload: fd });
+      } else {
+        await createMut.mutateAsync(fd);
+      }
+    } catch (e) {
+      setSaveError(formatApiError(e));
+    }
+  };
+
+  if (activeSection !== 'all-products') return null;
 
   return (
     <div className="p-4 lg:p-6">
@@ -175,51 +230,6 @@ export default function VendorProductsModule({ activeSection }: { activeSection:
           </Select>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto sm:ml-auto">
-          <Button
-            variant="outline"
-            onClick={() => {
-              setEditId(null);
-              setName('');
-              setSlug('');
-              setSku('');
-              setCategoryId('');
-              setBrandId('');
-              setUnitId('');
-              setPrice('');
-              setStock('0');
-              setProductStatus('draft');
-              setDesc('');
-              setColorHex('#000000');
-              setDiscountType('');
-              setDiscountValue('');
-              navigate(buildVendorModulePath('add-product-page'));
-            }}
-          >
-            Open Full Page
-          </Button>
-          <Button
-            onClick={() => {
-              setEditId(null);
-              setName('');
-              setSlug('');
-              setSku('');
-              setCategoryId('');
-              setBrandId('');
-              setUnitId('');
-              setPrice('');
-              setStock('0');
-              setProductStatus('draft');
-              setDesc('');
-              setColorHex('#000000');
-              setDiscountType('');
-              setDiscountValue('');
-              setModalOpen(true);
-            }}
-          >
-            Add Product
-          </Button>
-        </div>
       </div>
 
       <AdminTable
@@ -277,7 +287,7 @@ export default function VendorProductsModule({ activeSection }: { activeSection:
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => void loadProduct(String(p.id))}>
+                  <DropdownMenuItem onClick={() => vendorRoute?.navigateToEdit(String(p.id))}>
                     <Edit className="w-4 h-4 mr-2" /> Edit
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
@@ -294,250 +304,40 @@ export default function VendorProductsModule({ activeSection }: { activeSection:
             ),
           },
         ]}
+        onAdd={() => vendorRoute?.navigateToAdd()}
+        addLabel="Add Product"
         onFilter={() => refetch()}
       />
 
-      {isDedicatedAddPage && !editId ? (
-        <div className="mt-6 rounded-xl border bg-card p-4 sm:p-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-base font-semibold">Create product</h3>
-            <Button variant="ghost" onClick={() => navigate(buildVendorModulePath('all-products'))}>
-              Back to list
-            </Button>
-          </div>
-          <div className="space-y-4 pr-1">
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="md:col-span-2 space-y-2">
-                <Label>Name</Label>
-                <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Product name" />
-              </div>
-              <div className="space-y-2">
-                <Label>Slug</Label>
-                <Input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="auto from name" />
-              </div>
-              <div className="space-y-2">
-                <Label>SKU</Label>
-                <Input value={sku} onChange={(e) => setSku(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Category</Label>
-                <Select value={categoryId} onValueChange={setCategoryId}>
-                  <SelectTrigger><SelectValue placeholder="Select" /></SelectTrigger>
-                  <SelectContent>{categories.map((c) => <SelectItem key={String(c.id)} value={String(c.id)}>{String(c.name)}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Brand</Label>
-                <Select value={brandId || 'none'} onValueChange={(v) => setBrandId(v === 'none' ? '' : v)}>
-                  <SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
-                  <SelectContent><SelectItem value="none">None</SelectItem>{brands.map((b) => <SelectItem key={String(b.id)} value={String(b.id)}>{String(b.name)}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Unit</Label>
-                <Select value={unitId || 'none'} onValueChange={(v) => setUnitId(v === 'none' ? '' : v)}>
-                  <SelectTrigger><SelectValue placeholder="Optional" /></SelectTrigger>
-                  <SelectContent><SelectItem value="none">None</SelectItem>{units.map((u) => <SelectItem key={String(u.id)} value={String(u.id)}>{String(u.name)}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Price</Label>
-                <Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Discount type</Label>
-                <Select value={discountType || 'none'} onValueChange={(v) => setDiscountType(v === 'none' ? '' : v)}>
-                  <SelectTrigger><SelectValue placeholder="None" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None</SelectItem>
-                    <SelectItem value="flat">Flat (Rs. off)</SelectItem>
-                    <SelectItem value="percentage">Percentage</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Discount {discountType === 'percentage' ? '(%)' : discountType === 'flat' ? '(Rs.)' : ''}</Label>
-                <Input
-                  type="number"
-                  placeholder={discountType ? '0' : '—'}
-                  disabled={!discountType}
-                  value={discountValue}
-                  onChange={(e) => setDiscountValue(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Stock</Label>
-                <Input type="number" value={stock} onChange={(e) => setStock(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Status</Label>
-                <Select value={productStatus} onValueChange={setProductStatus}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent><SelectItem value="draft">Draft</SelectItem><SelectItem value="active">Active</SelectItem><SelectItem value="out_of_stock">Out of stock</SelectItem></SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2 flex items-end gap-2">
-                <div className="flex-1">
-                  <Label>Color (saved in attributes)</Label>
-                  <Input value={colorHex} onChange={(e) => setColorHex(e.target.value)} placeholder="#RRGGBB" />
-                </div>
-                <input type="color" aria-label="Color picker" className="h-10 w-14 cursor-pointer rounded border bg-background" value={colorHex.match(/^#[0-9a-fA-F]{6}$/) ? colorHex : '#000000'} onChange={(e) => setColorHex(e.target.value)} />
-              </div>
-              <div className="md:col-span-2 space-y-2">
-                <Label>Image (required)</Label>
-                <Input id="product-image" type="file" accept="image/*" />
-              </div>
-              <div className="md:col-span-2 space-y-2">
-                <Label>Description</Label>
-                <Textarea rows={3} value={desc} onChange={(e) => setDesc(e.target.value)} />
-              </div>
-              <div className="md:col-span-2 flex items-center justify-end gap-2">
-                <Button variant="outline" onClick={() => navigate(buildVendorModulePath('all-products'))}>Cancel</Button>
-                <Button onClick={() => saveMut.mutate()}>Save Product</Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
       <CRUDModal
-        open={modalOpen}
+        open={resolvedModalOpen}
         onClose={() => {
-          setModalOpen(false);
-          navigate(buildVendorModulePath('all-products'));
+          vendorRoute?.navigateToList();
+          resetFormState();
         }}
-        title={editId ? 'Edit product' : 'Add product'}
-        size="lg"
-        onSave={() => saveMut.mutate()}
+        title={routeEdit ? 'Edit Product' : 'Add Product'}
+        size="xl"
+        loading={createMut.isPending || updateMut.isPending}
+        error={saveError || undefined}
+        onSave={() => void onSaveProduct()}
       >
-        <div className="space-y-4 pr-1">
-          <div className="grid md:grid-cols-2 gap-4">
-            <div className="md:col-span-2 space-y-2">
-              <Label>Name</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Product name" />
-            </div>
-            <div className="space-y-2">
-              <Label>Slug</Label>
-              <Input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="auto from name" />
-            </div>
-            <div className="space-y-2">
-              <Label>SKU</Label>
-              <Input value={sku} onChange={(e) => setSku(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Category</Label>
-              <Select value={categoryId} onValueChange={setCategoryId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select" />
-                </SelectTrigger>
-                <SelectContent>
-                  {categories.map((c) => (
-                    <SelectItem key={String(c.id)} value={String(c.id)}>
-                      {String(c.name)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Brand</Label>
-              <Select value={brandId || 'none'} onValueChange={(v) => setBrandId(v === 'none' ? '' : v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Optional" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {brands.map((b) => (
-                    <SelectItem key={String(b.id)} value={String(b.id)}>
-                      {String(b.name)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Unit</Label>
-              <Select value={unitId || 'none'} onValueChange={(v) => setUnitId(v === 'none' ? '' : v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Optional" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {units.map((u) => (
-                    <SelectItem key={String(u.id)} value={String(u.id)}>
-                      {String(u.name)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Price</Label>
-              <Input type="number" value={price} onChange={(e) => setPrice(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Discount type</Label>
-              <Select value={discountType || 'none'} onValueChange={(v) => setDiscountType(v === 'none' ? '' : v)}>
-                <SelectTrigger>
-                  <SelectValue placeholder="None" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  <SelectItem value="flat">Flat (Rs. off)</SelectItem>
-                  <SelectItem value="percentage">Percentage</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Discount {discountType === 'percentage' ? '(%)' : discountType === 'flat' ? '(Rs.)' : ''}</Label>
-              <Input
-                type="number"
-                placeholder={discountType ? '0' : '—'}
-                disabled={!discountType}
-                value={discountValue}
-                onChange={(e) => setDiscountValue(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Stock</Label>
-              <Input type="number" value={stock} onChange={(e) => setStock(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select value={productStatus} onValueChange={setProductStatus}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="draft">Draft</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="out_of_stock">Out of stock</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2 flex items-end gap-2">
-              <div className="flex-1">
-                <Label>Color (saved in attributes)</Label>
-                <Input value={colorHex} onChange={(e) => setColorHex(e.target.value)} placeholder="#RRGGBB" />
-              </div>
-              <input
-                type="color"
-                aria-label="Color picker"
-                className="h-10 w-14 cursor-pointer rounded border bg-background"
-                value={colorHex.match(/^#[0-9a-fA-F]{6}$/) ? colorHex : '#000000'}
-                onChange={(e) => setColorHex(e.target.value)}
-              />
-            </div>
-            <div className="md:col-span-2 space-y-2">
-              <Label>Image {editId ? '(optional replace)' : '(required)'}</Label>
-              <Input id="product-image" type="file" accept="image/*" />
-            </div>
-            <div className="md:col-span-2 space-y-2">
-              <Label>Description</Label>
-              <Textarea rows={3} value={desc} onChange={(e) => setDesc(e.target.value)} />
-            </div>
-          </div>
-        </div>
+        <ProductFormTabs
+          variant="vendor"
+          formData={formData}
+          setFormData={setFormData}
+          formErrors={formErrors}
+          updateField={updateField}
+          slugEdited={slugEdited}
+          setSlugEdited={setSlugEdited}
+          primaryImage={primaryImage}
+          setPrimaryImage={setPrimaryImage}
+          existingGallery={existingGallery}
+          galleryFiles={galleryFiles}
+          setGalleryFiles={setGalleryFiles}
+          removedGalleryIds={removedGalleryIds}
+          setRemovedGalleryIds={setRemovedGalleryIds}
+          galleryPreviews={galleryPreviews}
+        />
       </CRUDModal>
     </div>
   );

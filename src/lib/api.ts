@@ -333,6 +333,11 @@ export type AdminProductDetail = {
   images?: { id: string; image_url: string; sort_order: number }[];
 };
 
+/** Vendor GET /vendor/products/:id/ — aligned with admin detail minus seller fields. */
+export type VendorProductDetail = Omit<AdminProductDetail, "seller_id" | "seller_name"> & {
+  attributes?: Record<string, unknown>;
+};
+
 export type AdminPurchaseOrderLine = {
   product_id: string;
   name: string;
@@ -1777,7 +1782,7 @@ export const vendorApi = {
   posCheckout: (payload: Record<string, unknown>) =>
     vendorWrite<{ order_number: string; total: number }>("pos/checkout", "POST", payload),
   products: (params?: QueryParams) => vendorPaged<Record<string, unknown>>("products", params),
-  productDetail: (id: string) => vendorFetch<Record<string, unknown>>(`/vendor/products/${id}/`, undefined, true),
+  productDetail: (id: string) => vendorFetch<VendorProductDetail>(`/vendor/products/${id}/`, undefined, true),
   createProduct: (payload: Record<string, unknown> | FormData) =>
     vendorWrite<Record<string, unknown>>("products/create", "POST", payload),
   updateProduct: (id: string, payload: Record<string, unknown> | FormData) =>

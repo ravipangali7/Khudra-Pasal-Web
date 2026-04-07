@@ -21,9 +21,10 @@ import {
   buildVendorModulePath,
   getDefaultVendorModuleId,
   isKnownVendorModuleId,
-  parseVendorPath,
+  parseVendorRoute,
   renderVendorModule,
 } from './moduleRegistry';
+import { VendorRouteContext } from './vendorRouteContext';
 import { VendorReelViewerProvider } from '@/modules/reels/vendor/VendorReelViewerContext';
 import { cn } from '@/lib/utils';
 
@@ -149,10 +150,29 @@ export default function VendorPortal() {
   }, [vMe]);
 
   const sidebarItems = useMemo(() => mapApiNavToAdminItems(navData?.items), [navData]);
-  const activeSection = parseVendorPath(location.pathname);
+  const routeState = useMemo(() => parseVendorRoute(location.pathname), [location.pathname]);
+  const activeSection = routeState.moduleId;
 
   const normalizeModuleId = (id: string) => (id === 'add-product' ? 'all-products' : id);
-  const setActiveSection = (id: string) => navigate(buildVendorModulePath(normalizeModuleId(id)));
+
+  const vendorRouteCtx = useMemo(
+    () => ({
+      moduleId: routeState.moduleId,
+      action: routeState.action,
+      itemId: routeState.itemId,
+      navigateToList: () => navigate(buildVendorModulePath('all-products')),
+      navigateToAdd: () => navigate(buildVendorModulePath('all-products', 'add')),
+      navigateToEdit: (id: string) => navigate(buildVendorModulePath('all-products', 'edit', id)),
+    }),
+    [navigate, routeState.action, routeState.itemId, routeState.moduleId],
+  );
+  const setActiveSection = (id: string) => {
+    if (id === 'add-product') {
+      navigate(buildVendorModulePath('all-products', 'add'));
+      return;
+    }
+    navigate(buildVendorModulePath(normalizeModuleId(id)));
+  };
 
   if (!hasToken) {
     return (
@@ -370,7 +390,9 @@ export default function VendorPortal() {
       }
     >
       <VendorReelViewerProvider vendorNumericId={vendorNumericId}>
-        {renderVendorModule({ activeSection, setActiveSection })}
+        <VendorRouteContext.Provider value={vendorRouteCtx}>
+          {renderVendorModule({ activeSection, setActiveSection })}
+        </VendorRouteContext.Provider>
       </VendorReelViewerProvider>
 
       <LogoutConfirmDialog
