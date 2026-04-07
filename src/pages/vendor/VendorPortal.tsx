@@ -29,7 +29,13 @@ import { VendorRouteContext } from './vendorRouteContext';
 import { VendorReelViewerProvider } from '@/modules/reels/vendor/VendorReelViewerContext';
 import { cn } from '@/lib/utils';
 
-const VENDOR_SIDEBAR_EXCLUDED_IDS = new Set(['faq', 'faqs', 'settings']);
+const VENDOR_SIDEBAR_EXCLUDED_IDS = new Set([
+  'faq',
+  'faqs',
+  'settings',
+  'upload-reel',
+  'all-reels',
+]);
 
 function filterExcludedVendorNavItems(items: SidebarItem[]): SidebarItem[] {
   return items
@@ -385,6 +391,13 @@ export default function VendorPortal() {
 
   if (location.pathname === '/vendor' || location.pathname === '/vendor/') {
     return <Navigate to={buildVendorModulePath(fallbackModule)} replace />;
+  }
+
+  if (location.pathname === '/vendor/upload-reel') {
+    return <Navigate to={`${buildVendorModulePath('my-reels')}?upload=1`} replace />;
+  }
+  if (location.pathname === '/vendor/all-reels') {
+    return <Navigate to={buildVendorModulePath('my-reels')} replace />;
   }
 
   if (!isKnownVendorModuleId(activeSection) || !availableIds.has(activeSection)) {

@@ -6,7 +6,6 @@ import VendorOrdersModule from "./modules/VendorOrdersModule";
 import VendorPOSModule from "./modules/VendorPOSModule";
 import VendorWalletModule from "./modules/VendorWalletModule";
 import VendorReelsModule from "./modules/VendorReelsModule";
-import VendorAllReelsModule from "./modules/VendorAllReelsModule";
 import VendorCustomersModule from "./modules/VendorCustomersModule";
 import VendorReportsModule from "./modules/VendorReportsModule";
 import VendorSupportModule from "./modules/VendorSupportModule";
@@ -40,9 +39,7 @@ const ENTRIES = [
   ["withdrawals", (ctx: VendorRenderCtx) => <VendorWalletModule activeSection={ctx.activeSection} />] as const,
   ["kyc", () => <VendorKycModule />] as const,
   ["transactions", (ctx: VendorRenderCtx) => <VendorWalletModule activeSection={ctx.activeSection} />] as const,
-  ["my-reels", (ctx: VendorRenderCtx) => <VendorReelsModule activeSection={ctx.activeSection} />] as const,
-  ["upload-reel", (ctx: VendorRenderCtx) => <VendorReelsModule activeSection={ctx.activeSection} />] as const,
-  ["all-reels", () => <VendorAllReelsModule />] as const,
+  ["my-reels", () => <VendorReelsModule />] as const,
   ["customers", () => <VendorCustomersModule />] as const,
   ["reports", () => <VendorReportsModule />] as const,
   ["tickets", () => <VendorSupportModule />] as const,
