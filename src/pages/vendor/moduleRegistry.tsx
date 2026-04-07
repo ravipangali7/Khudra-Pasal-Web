@@ -10,7 +10,6 @@ import VendorAllReelsModule from "./modules/VendorAllReelsModule";
 import VendorCustomersModule from "./modules/VendorCustomersModule";
 import VendorReportsModule from "./modules/VendorReportsModule";
 import VendorSupportModule from "./modules/VendorSupportModule";
-import VendorSettingsModule from "./modules/VendorSettingsModule";
 import VendorKycModule from "./modules/VendorKycModule";
 
 export type VendorCrudAction = "list" | "add" | "edit" | "view";
@@ -46,9 +45,7 @@ const ENTRIES = [
   ["all-reels", () => <VendorAllReelsModule />] as const,
   ["customers", () => <VendorCustomersModule />] as const,
   ["reports", () => <VendorReportsModule />] as const,
-  ["tickets", (ctx: VendorRenderCtx) => <VendorSupportModule activeSection={ctx.activeSection} />] as const,
-  ["faq", (ctx: VendorRenderCtx) => <VendorSupportModule activeSection={ctx.activeSection} />] as const,
-  ["settings", () => <VendorSettingsModule />] as const,
+  ["tickets", () => <VendorSupportModule />] as const,
 ] as const;
 
 const MODULE_MAP = new Map<string, (ctx: VendorRenderCtx) => JSX.Element>(

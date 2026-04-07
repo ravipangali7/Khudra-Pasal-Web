@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Search, X, ChevronDown } from 'lucide-react';
 import VideoPreviewCard from './VideoPreviewCard';
 import ReelsButton from '../shared/ReelsButton';
+import { cn } from '@/lib/utils';
 import '../reels-theme.css';
 
 const platforms = [
@@ -19,9 +20,11 @@ const platforms = [
 export type ReelUploadFormProps = {
   vendorId?: string | null;
   onPublished?: () => void;
+  /** Use vendor portal light theme (matches AdminLayout). */
+  variant?: 'standalone' | 'portal';
 };
 
-const ReelUploadForm: React.FC<ReelUploadFormProps> = ({ vendorId, onPublished }) => {
+const ReelUploadForm: React.FC<ReelUploadFormProps> = ({ vendorId, onPublished, variant = 'standalone' }) => {
   const queryClient = useQueryClient();
   const [videoUrl, setVideoUrl] = useState('');
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -135,7 +138,7 @@ const ReelUploadForm: React.FC<ReelUploadFormProps> = ({ vendorId, onPublished }
 
   return (
     <motion.div
-      className="rounded-2xl p-6 space-y-6 relative overflow-hidden"
+      className={cn('rounded-2xl p-6 space-y-6 relative overflow-hidden', variant === 'portal' && 'vendor-reels-light')}
       style={{ background: 'var(--reels-card)' }}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -159,12 +162,17 @@ const ReelUploadForm: React.FC<ReelUploadFormProps> = ({ vendorId, onPublished }
         )}
       </AnimatePresence>
 
-      <h3 className="reels-font-display font-bold text-xl text-white">Upload New Reel</h3>
+      <h3 className="reels-font-display font-bold text-xl reels-ui-text">Upload New Reel</h3>
 
       {/* Step 1: Video URL */}
       <div>
-        <label className="reels-font-body text-sm font-medium text-white block mb-2">
-          <span className="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold mr-2" style={{ background: 'var(--reels-accent)' }}>1</span>
+        <label className="reels-font-body text-sm font-medium reels-ui-text block mb-2">
+          <span
+            className="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold mr-2"
+            style={{ background: 'var(--reels-accent)', color: 'var(--reels-step-on-accent)' }}
+          >
+            1
+          </span>
           Paste your product video link
         </label>
         <input
@@ -172,7 +180,7 @@ const ReelUploadForm: React.FC<ReelUploadFormProps> = ({ vendorId, onPublished }
           value={videoUrl}
           onChange={e => setVideoUrl(e.target.value)}
           placeholder="https://youtube.com/shorts/... or video.mp4"
-          className="w-full rounded-xl px-4 py-3 reels-font-body text-sm text-white outline-none focus:ring-2 transition-all"
+          className="w-full rounded-xl px-4 py-3 reels-font-body text-sm reels-ui-text outline-none focus:ring-2 transition-all placeholder:text-[color:var(--reels-text-muted)]"
           style={{ background: 'var(--reels-surface)', border: '1px solid var(--reels-glass-border)' }}
         />
         <div className="flex flex-wrap gap-2 mt-2">
@@ -190,7 +198,7 @@ const ReelUploadForm: React.FC<ReelUploadFormProps> = ({ vendorId, onPublished }
             <input
               type="file"
               accept="video/*"
-              className="text-xs text-white w-full"
+              className="text-xs reels-ui-text w-full file:mr-2 file:rounded file:border-0 file:bg-muted file:px-2 file:py-1"
               onChange={(e) => setVideoFile(e.target.files?.[0] ?? null)}
             />
           </div>
@@ -202,8 +210,13 @@ const ReelUploadForm: React.FC<ReelUploadFormProps> = ({ vendorId, onPublished }
 
       {/* Step 2: Product Selection with searchable dropdown */}
       <div>
-        <label className="reels-font-body text-sm font-medium text-white block mb-2">
-          <span className="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold mr-2" style={{ background: 'var(--reels-accent)' }}>2</span>
+        <label className="reels-font-body text-sm font-medium reels-ui-text block mb-2">
+          <span
+            className="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold mr-2"
+            style={{ background: 'var(--reels-accent)', color: 'var(--reels-step-on-accent)' }}
+          >
+            2
+          </span>
           Select product to feature
         </label>
 
@@ -237,7 +250,7 @@ const ReelUploadForm: React.FC<ReelUploadFormProps> = ({ vendorId, onPublished }
               value={productSearch}
               onChange={e => { setProductSearch(e.target.value); setProductDropdownOpen(true); }}
               placeholder={selectedProd ? 'Change product...' : 'Search products...'}
-              className="flex-1 bg-transparent reels-font-body text-sm text-white outline-none"
+              className="flex-1 bg-transparent reels-font-body text-sm reels-ui-text outline-none placeholder:text-[color:var(--reels-text-muted)]"
               onClick={e => { e.stopPropagation(); setProductDropdownOpen(true); }}
             />
             <ChevronDown className={`w-4 h-4 transition-transform ${productDropdownOpen ? 'rotate-180' : ''}`} style={{ color: 'var(--reels-text-muted)' }} />
@@ -263,7 +276,7 @@ const ReelUploadForm: React.FC<ReelUploadFormProps> = ({ vendorId, onPublished }
                     >
                       <img src={p.image} alt={p.name} className="w-8 h-8 rounded-lg" />
                       <div className="text-left flex-1">
-                        <p className="reels-font-body text-sm text-white">{p.name}</p>
+                        <p className="reels-font-body text-sm reels-ui-text">{p.name}</p>
                         <p className="reels-font-mono text-xs" style={{ color: 'var(--reels-gold)' }}>NPR {p.price.toLocaleString()}</p>
                       </div>
                     </button>
@@ -277,8 +290,13 @@ const ReelUploadForm: React.FC<ReelUploadFormProps> = ({ vendorId, onPublished }
 
       {/* Step 3: Caption & Tags */}
       <div>
-        <label className="reels-font-body text-sm font-medium text-white block mb-2">
-          <span className="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold mr-2" style={{ background: 'var(--reels-accent)' }}>3</span>
+        <label className="reels-font-body text-sm font-medium reels-ui-text block mb-2">
+          <span
+            className="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold mr-2"
+            style={{ background: 'var(--reels-accent)', color: 'var(--reels-step-on-accent)' }}
+          >
+            3
+          </span>
           Caption & Tags
         </label>
         <div className="relative">
@@ -287,7 +305,7 @@ const ReelUploadForm: React.FC<ReelUploadFormProps> = ({ vendorId, onPublished }
             onChange={e => setCaption(e.target.value.slice(0, 200))}
             placeholder="Write a caption..."
             rows={3}
-            className="w-full rounded-xl px-4 py-3 reels-font-body text-sm text-white outline-none resize-none"
+            className="w-full rounded-xl px-4 py-3 reels-font-body text-sm reels-ui-text outline-none resize-none placeholder:text-[color:var(--reels-text-muted)]"
             style={{ background: 'var(--reels-surface)', border: '1px solid var(--reels-glass-border)' }}
           />
           <span className="absolute bottom-2 right-3 reels-font-mono text-[10px]" style={{ color: caption.length >= 180 ? 'var(--reels-accent)' : 'var(--reels-text-muted)' }}>
@@ -302,7 +320,7 @@ const ReelUploadForm: React.FC<ReelUploadFormProps> = ({ vendorId, onPublished }
             onChange={e => setTagInput(e.target.value)}
             onKeyDown={handleAddTag}
             placeholder="Add tags (press Enter)"
-            className="w-full rounded-xl px-4 py-2.5 reels-font-body text-sm text-white outline-none"
+            className="w-full rounded-xl px-4 py-2.5 reels-font-body text-sm reels-ui-text outline-none placeholder:text-[color:var(--reels-text-muted)]"
             style={{ background: 'var(--reels-surface)', border: '1px solid var(--reels-glass-border)' }}
           />
           <div className="flex flex-wrap gap-1.5 mt-2">
@@ -315,7 +333,14 @@ const ReelUploadForm: React.FC<ReelUploadFormProps> = ({ vendorId, onPublished }
                 animate={{ scale: 1, opacity: 1 }}
               >
                 #{tag}
-                <button onClick={() => setTags(tags.filter((_, j) => j !== i))} className="text-white/40 hover:text-white ml-0.5">×</button>
+                <button
+                  type="button"
+                  onClick={() => setTags(tags.filter((_, j) => j !== i))}
+                  className="ml-0.5 opacity-50 hover:opacity-100"
+                  style={{ color: 'var(--reels-text-primary)' }}
+                >
+                  ×
+                </button>
               </motion.span>
             ))}
           </div>
@@ -328,8 +353,13 @@ const ReelUploadForm: React.FC<ReelUploadFormProps> = ({ vendorId, onPublished }
           onClick={() => setThumbExpanded(!thumbExpanded)}
           className="w-full flex items-center justify-between mb-2"
         >
-          <label className="reels-font-body text-sm font-medium text-white flex items-center pointer-events-none">
-            <span className="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold mr-2" style={{ background: 'var(--reels-accent)' }}>4</span>
+          <label className="reels-font-body text-sm font-medium reels-ui-text flex items-center pointer-events-none">
+            <span
+              className="inline-flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold mr-2"
+              style={{ background: 'var(--reels-accent)', color: 'var(--reels-step-on-accent)' }}
+            >
+              4
+            </span>
             Thumbnail <span className="text-[10px] ml-2 px-1.5 py-0.5 rounded" style={{ background: 'var(--reels-glass)', color: 'var(--reels-text-muted)' }}>Optional</span>
           </label>
           <ChevronDown className={`w-4 h-4 transition-transform ${thumbExpanded ? 'rotate-180' : ''}`} style={{ color: 'var(--reels-text-muted)' }} />

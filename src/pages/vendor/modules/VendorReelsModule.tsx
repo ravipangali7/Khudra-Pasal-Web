@@ -13,7 +13,11 @@ export default function VendorReelsModule({ activeSection }: { activeSection: st
   if (activeSection === 'upload-reel') {
     return (
       <div className="p-4 lg:p-6">
-        <ReelUploadForm vendorId={vendorId} onPublished={() => navigate(buildVendorModulePath('my-reels'))} />
+        <ReelUploadForm
+          vendorId={vendorId}
+          variant="portal"
+          onPublished={() => navigate(buildVendorModulePath('my-reels'))}
+        />
       </div>
     );
   }
