@@ -6,23 +6,15 @@ import {
   Camera,
   MapPin,
   Package,
-  Pencil,
   Star,
   UserRound,
   Users,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
 import { extractResults, portalApi } from '@/lib/api';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -83,7 +75,6 @@ export default function PortalCustomerProfileModule() {
   const [address, setAddress] = useState('');
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
-  const [editOpen, setEditOpen] = useState(false);
 
   useEffect(() => {
     if (!data) return;
@@ -121,7 +112,6 @@ export default function PortalCustomerProfileModule() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['portal'] });
       toast.success('Profile saved');
-      setEditOpen(false);
       if (bannerInputRef.current) bannerInputRef.current.value = '';
       if (logoInputRef.current) logoInputRef.current.value = '';
     },
@@ -223,7 +213,7 @@ export default function PortalCustomerProfileModule() {
         </div>
 
         <div className="relative px-4 pb-8 pt-0 sm:px-8">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-start">
             <div className="flex min-w-0 flex-1 flex-col gap-5 sm:flex-row sm:gap-6">
               <div className="relative -mt-14 w-fit shrink-0 sm:-mt-16">
                 <div
@@ -318,19 +308,66 @@ export default function PortalCustomerProfileModule() {
                 ) : null}
               </div>
             </div>
-
-            <Button
-              type="button"
-              variant="outline"
-              className="shrink-0 gap-2 self-start rounded-lg border-border bg-card"
-              onClick={() => setEditOpen(true)}
-            >
-              <Pencil className="h-4 w-4" />
-              Edit Profile
-            </Button>
           </div>
         </div>
       </div>
+
+      <Card className="border-primary/10 shadow-sm">
+        <CardHeader>
+          <CardTitle>Profile details</CardTitle>
+          <CardDescription>
+            Update your public name, description, and contact info. Change cover and profile photo from the header above,
+            then save here to upload them with your other changes.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSave} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="portal-profile-display-name">Display name</Label>
+              <Input
+                id="portal-profile-display-name"
+                value={storeName}
+                onChange={(e) => setStoreName(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="portal-profile-description">Description</Label>
+              <Textarea
+                id="portal-profile-description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={5}
+                placeholder={
+                  'Optional: first line with tags, then blank line, then bio.\nExample line 1: 🌿 Shop local | 🇳🇵 Nepal'
+                }
+              />
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="portal-profile-email">Contact email</Label>
+                <Input
+                  id="portal-profile-email"
+                  type="email"
+                  value={contactEmail}
+                  onChange={(e) => setContactEmail(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="portal-profile-phone">Phone</Label>
+                <Input id="portal-profile-phone" value={phone} onChange={(e) => setPhone(e.target.value)} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="portal-profile-address">Address</Label>
+              <Input id="portal-profile-address" value={address} onChange={(e) => setAddress(e.target.value)} />
+            </div>
+            <Button type="submit" disabled={saveMut.isPending}>
+              {saveMut.isPending ? 'Saving…' : 'Save profile'}
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {[
@@ -402,120 +439,6 @@ export default function PortalCustomerProfileModule() {
           </div>
         )}
       </div>
-
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-          <form onSubmit={handleSave}>
-            <DialogHeader>
-              <DialogTitle>Edit profile</DialogTitle>
-              <DialogDescription>
-                Update your public profile and images. Same layout as the vendor store profile.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="overflow-hidden rounded-2xl border border-border bg-card">
-                <div
-                  className={cn(
-                    'relative h-36 sm:h-40 w-full',
-                    !bannerPreview &&
-                      'bg-gradient-to-r from-[hsl(28,90%,92%)] via-[hsl(320,40%,96%)] to-[hsl(270,35%,94%)]',
-                  )}
-                >
-                  {bannerPreview ? (
-                    <img src={bannerPreview} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center">
-                      <UserRound className="h-12 w-12 text-muted-foreground/25" strokeWidth={1.25} />
-                    </div>
-                  )}
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    className="absolute bottom-3 right-3 gap-2 rounded-lg border border-border/80 bg-background/85 shadow-sm backdrop-blur-sm hover:bg-background"
-                    onClick={() => bannerInputRef.current?.click()}
-                  >
-                    <Camera className="h-4 w-4" />
-                    Change Cover
-                  </Button>
-                </div>
-
-                <div className="relative px-4 pb-5 pt-0 sm:px-6">
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                    <div className="flex items-end gap-4">
-                      <div className="relative -mt-10 w-fit shrink-0 sm:-mt-12">
-                        <div className="relative flex h-20 w-20 items-center justify-center overflow-hidden rounded-xl border-4 border-card bg-muted shadow-md sm:h-24 sm:w-24">
-                          {logoPreview ? (
-                            <img src={logoPreview} alt="" className="h-full w-full object-cover" />
-                          ) : (
-                            <UserRound className="h-9 w-9 text-muted-foreground/40" strokeWidth={1.25} />
-                          )}
-                        </div>
-                        <button
-                          type="button"
-                          className="absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md ring-4 ring-card transition hover:opacity-90"
-                          aria-label="Change profile photo"
-                          onClick={() => logoInputRef.current?.click()}
-                        >
-                          <Camera className="h-4 w-4" />
-                        </button>
-                      </div>
-                      <div className="min-w-0 pb-1">
-                        <p className="text-sm font-semibold text-foreground">Profile images</p>
-                        <p className="text-xs text-muted-foreground">
-                          Cover and photo upload when you click “Save changes”.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Display name</Label>
-                <Input value={storeName} onChange={(e) => setStoreName(e.target.value)} required />
-              </div>
-              <div className="space-y-2">
-                <Label>Description</Label>
-                <Textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={5}
-                  placeholder={
-                    'Optional: first line with tags, then blank line, then bio.\nExample line 1: 🌿 Shop local | 🇳🇵 Nepal'
-                  }
-                />
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Contact email</Label>
-                  <Input
-                    type="email"
-                    value={contactEmail}
-                    onChange={(e) => setContactEmail(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Phone</Label>
-                  <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Address</Label>
-                <Input value={address} onChange={(e) => setAddress(e.target.value)} />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={saveMut.isPending}>
-                {saveMut.isPending ? 'Saving…' : 'Save changes'}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
