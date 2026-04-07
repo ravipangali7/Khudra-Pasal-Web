@@ -97,6 +97,7 @@ import UnifiedAuthLoginPage from '@/components/auth/UnifiedAuthLoginPage';
 import ProfileMenu from '@/components/profile/ProfileMenu';
 import PortalFamilyChildProfileModule from '@/components/portal/PortalFamilyChildProfileModule';
 import PortalProductsCatalogSection from '@/components/portal/PortalProductsCatalogSection';
+import PortalKycSection from '@/components/portal/PortalKycSection';
 import PortalNotificationsModal from '@/components/portal/PortalNotificationsModal';
 import FloatingCart from '@/components/cart/FloatingCart';
 import PayoutAccountsManager from '@/components/wallet/PayoutAccountsManager';
@@ -353,6 +354,7 @@ export function FamilyPortal() {
       productRestrictions: () => <ProductRestrictionsContent />,
       autoApproval: () => <AutoApprovalContent />,
       history: () => <TransactionHistoryContent />,
+      kyc: () => <PortalKycSection onBack={() => goTo('wallets-overview')} />,
       products: () => <PortalProductsCatalogSection variant="family" />,
       myOrders: () => (
         <div className="p-4 lg:p-6">

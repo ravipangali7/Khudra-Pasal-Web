@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import AdminTable from '@/components/admin/AdminTable';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -47,6 +48,7 @@ function vendorTxnTypeLabel(source: string, type: string) {
 }
 
 export default function VendorWalletModule({ activeSection }: { activeSection: string }) {
+  const navigate = useNavigate();
   const qc = useQueryClient();
   const { data: summary } = useQuery({
     queryKey: ['vendor', 'summary'],
@@ -93,7 +95,15 @@ export default function VendorWalletModule({ activeSection }: { activeSection: s
       toast.success('Withdrawal requested');
       setAmount('');
     },
-    onError: (e: Error) => toast.error(e.message),
+    onError: (e: Error) => {
+      const msg = (e.message ?? '').toLowerCase();
+      if (msg.includes('kyc')) {
+        toast.error(e.message);
+        navigate('/vendor/kyc');
+        return;
+      }
+      toast.error(e.message);
+    },
   });
 
   const txRows = transactions.map((t) => {

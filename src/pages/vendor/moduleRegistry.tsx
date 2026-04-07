@@ -12,6 +12,7 @@ import VendorCustomersModule from "./modules/VendorCustomersModule";
 import VendorReportsModule from "./modules/VendorReportsModule";
 import VendorSupportModule from "./modules/VendorSupportModule";
 import VendorSettingsModule from "./modules/VendorSettingsModule";
+import VendorKycModule from "./modules/VendorKycModule";
 
 export type VendorRenderCtx = {
   activeSection: string;
@@ -34,6 +35,7 @@ const ENTRIES = [
   ["earnings", (ctx: VendorRenderCtx) => <VendorWalletModule activeSection={ctx.activeSection} />] as const,
   ["wallet", (ctx: VendorRenderCtx) => <VendorWalletModule activeSection={ctx.activeSection} />] as const,
   ["withdrawals", (ctx: VendorRenderCtx) => <VendorWalletModule activeSection={ctx.activeSection} />] as const,
+  ["kyc", () => <VendorKycModule />] as const,
   ["transactions", (ctx: VendorRenderCtx) => <VendorWalletModule activeSection={ctx.activeSection} />] as const,
   ["my-reels", (ctx: VendorRenderCtx) => <VendorReelsModule activeSection={ctx.activeSection} />] as const,
   ["upload-reel", (ctx: VendorRenderCtx) => <VendorReelsModule activeSection={ctx.activeSection} />] as const,

@@ -11,6 +11,7 @@ export const FAMILY_PORTAL_VIEW_KEYS = [
   "product-restrictions",
   "auto-approval",
   "history",
+  "kyc",
   "products",
   "my-orders",
   "profile",
@@ -29,6 +30,7 @@ export type FamilyPortalViewRenderFns = {
   productRestrictions: () => ReactNode;
   autoApproval: () => ReactNode;
   history: () => ReactNode;
+  kyc: () => ReactNode;
   products: () => ReactNode;
   myOrders: () => ReactNode;
   profile: () => ReactNode;
@@ -49,6 +51,7 @@ export function createFamilyPortalViewRegistry(
     "product-restrictions": f.productRestrictions,
     "auto-approval": f.autoApproval,
     history: f.history,
+    kyc: f.kyc,
     products: f.products,
     "my-orders": f.myOrders,
     profile: f.profile,

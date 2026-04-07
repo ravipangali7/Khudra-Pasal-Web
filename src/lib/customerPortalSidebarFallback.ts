@@ -6,6 +6,7 @@ import {
   Package,
   Receipt,
   RefreshCcw,
+  Shield,
   ShoppingBag,
   User,
   Users,
@@ -29,6 +30,7 @@ export function getCustomerPortalSidebarFallback(role: CustomerPortalUserRole): 
   const head: SidebarItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'wallet', label: 'Wallet', icon: Wallet },
+    { id: 'kyc', label: 'KYC Verification', icon: Shield },
   ];
   const parentOnly: SidebarItem[] =
     role === 'parent'
