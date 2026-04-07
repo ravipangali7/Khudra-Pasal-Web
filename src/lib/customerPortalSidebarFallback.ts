@@ -1,7 +1,9 @@
 import type { SidebarItem } from '@/components/portal/PortalSidebar';
 import {
+  ArrowUpRight,
   Heart,
   HelpCircle,
+  Landmark,
   LayoutDashboard,
   Package,
   Receipt,
@@ -30,6 +32,8 @@ export function getCustomerPortalSidebarFallback(role: CustomerPortalUserRole): 
   const head: SidebarItem[] = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'wallet', label: 'Wallet', icon: Wallet },
+    { id: 'wallet-payout-accounts', label: 'Payout accounts', icon: Landmark },
+    { id: 'wallet-withdraw', label: 'Withdraw', icon: ArrowUpRight },
     { id: 'kyc', label: 'KYC Verification', icon: Shield },
   ];
   const parentOnly: SidebarItem[] =

@@ -350,6 +350,8 @@ export function FamilyPortal() {
       membersRequests: () => <JoinRequestsContent />,
       productApprovalRequests: () => <ProductApprovalRequestsContent />,
       wallets: () => <WalletsContent />,
+      walletsPayout: () => <WalletsPayoutContent />,
+      walletsWithdraw: () => <WalletsWithdrawContent />,
       spendingLimits: () => <SpendingLimitsContent />,
       productRestrictions: () => <ProductRestrictionsContent />,
       autoApproval: () => <AutoApprovalContent />,
@@ -1652,115 +1654,6 @@ export function FamilyPortal() {
     const [transCategoryId, setTransCategoryId] = useState('');
     const [transAmount, setTransAmount] = useState('');
     const [walletErr, setWalletErr] = useState('');
-    const [famWithdrawWallet, setFamWithdrawWallet] = useState('');
-    const [famWithdrawPayout, setFamWithdrawPayout] = useState('');
-    const [famWithdrawAmt, setFamWithdrawAmt] = useState('');
-    const [famWithdrawProofFile, setFamWithdrawProofFile] = useState<File | null>(null);
-    const [famWithdrawListFilter, setFamWithdrawListFilter] = useState<
-      'all' | 'pending' | 'approved' | 'rejected'
-    >('all');
-    const [famWithdrawDetail, setFamWithdrawDetail] = useState<PortalWithdrawalRow | null>(null);
-
-    const { data: famPayoutAccounts = [], isLoading: famPayoutLoading } = useQuery({
-      queryKey: ['portal', 'family', 'payout-accounts', sessionTick],
-      queryFn: async () => (await portalApi.familyPayoutAccounts()).results,
-    });
-
-    const { data: famWithdrawals = [] } = useQuery({
-      queryKey: ['portal', 'family', 'wallet-withdrawals', sessionTick],
-      queryFn: async () => (await portalApi.familyWalletWithdrawals()).results,
-    });
-
-    const { data: famMe } = useQuery({
-      queryKey: ['portal', 'me', sessionTick],
-      queryFn: () => portalApi.me(),
-      enabled: authed,
-      retry: false,
-    });
-
-    const withdrawWalletOptions = useMemo(() => {
-      const out: { id: string; label: string; balance: number }[] = [];
-      for (const w of walletCategories) {
-        out.push({
-          id: w.id,
-          label: `${w.name} (shared) · Rs. ${w.balance.toLocaleString()}`,
-          balance: w.balance,
-        });
-      }
-      const vid = overview?.viewer?.family_member_id;
-      const self = vid ? familyMembers.find((m) => m.id === vid) : undefined;
-      if (self?.wallet_id && self.role !== 'child') {
-        out.push({
-          id: self.wallet_id,
-          label: `Your member wallet · Rs. ${self.balance.toLocaleString()}`,
-          balance: self.balance,
-        });
-      }
-      return out;
-    }, [walletCategories, familyMembers, overview?.viewer]);
-
-    const walletLabelByWithdrawalWalletId = useMemo(() => {
-      const m = new Map<string, string>();
-      for (const o of withdrawWalletOptions) m.set(o.id, o.label);
-      return m;
-    }, [withdrawWalletOptions]);
-
-    const filteredFamWithdrawals = useMemo(() => {
-      if (famWithdrawListFilter === 'all') return famWithdrawals;
-      return famWithdrawals.filter((w) => w.status === famWithdrawListFilter);
-    }, [famWithdrawals, famWithdrawListFilter]);
-
-    useEffect(() => {
-      if (withdrawWalletOptions.length && !famWithdrawWallet) {
-        setFamWithdrawWallet(withdrawWalletOptions[0].id);
-      }
-    }, [withdrawWalletOptions, famWithdrawWallet]);
-
-    useEffect(() => {
-      if (famPayoutAccounts.length && !famWithdrawPayout) {
-        setFamWithdrawPayout(famPayoutAccounts[0].id);
-      }
-    }, [famPayoutAccounts, famWithdrawPayout]);
-
-    const famWithdrawMut = useMutation({
-      mutationFn: () =>
-        portalApi.familyWalletWithdraw({
-          wallet_id: famWithdrawWallet,
-          amount: Number(famWithdrawAmt),
-          payout_account_id: famWithdrawPayout,
-          proof_image: famWithdrawProofFile,
-        }),
-      onSuccess: (data) => {
-        setWalletErr('');
-        setFamWithdrawAmt('');
-        setFamWithdrawProofFile(null);
-        toast.success(`Withdrawal request ${data.withdrawal_number} submitted (pending approval).`);
-        invFamily();
-        void qc.invalidateQueries({ queryKey: ['portal', 'family', 'wallet-withdrawals'] });
-        void qc.invalidateQueries({ queryKey: ['portal', 'summary', 'family'] });
-      },
-      onError: (e: Error) => {
-        if (e instanceof PortalApiError && isPortalKycBlockedError(e)) {
-          toast.error(typeof e.body.detail === 'string' ? e.body.detail : 'Complete KYC to withdraw.');
-          goTo('kyc');
-          return;
-        }
-        if (e instanceof PortalApiError && isPortalPayoutRequiredError(e)) {
-          toast.error(typeof e.body.detail === 'string' ? e.body.detail : 'Add a payout account first.');
-          return;
-        }
-        toast.error(e.message || 'Withdrawal request failed.');
-      },
-    });
-
-    const selectedWithdrawOpt = withdrawWalletOptions.find((o) => o.id === famWithdrawWallet);
-    const famWMax = selectedWithdrawOpt?.balance ?? 0;
-    const famWNum = Number(famWithdrawAmt);
-    const canFamWithdraw =
-      Boolean(famWithdrawWallet && famWithdrawPayout) &&
-      Number.isFinite(famWNum) &&
-      famWNum >= 1 &&
-      famWNum <= famWMax;
 
     const invFamily = () => {
       void qc.invalidateQueries({ queryKey: ['portal', 'family', 'overview'] });
@@ -2077,276 +1970,8 @@ export function FamilyPortal() {
                 </div>
               </div>
             </div>
-
-            <Card className="border-amber-300/80 bg-white/90 dark:bg-amber-950/40 dark:border-amber-800/50">
-              <CardHeader>
-                <CardTitle className="text-base text-amber-950 dark:text-amber-50">
-                  Withdrawal requests
-                </CardTitle>
-                <CardDescription>
-                  Track payout requests by status. Balance is debited only after Super Admin approval.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex flex-wrap gap-2">
-                  {(
-                    [
-                      { id: 'all' as const, label: 'All' },
-                      { id: 'pending' as const, label: 'Pending' },
-                      { id: 'approved' as const, label: 'Approved' },
-                      { id: 'rejected' as const, label: 'Rejected' },
-                    ] as const
-                  ).map((t) => (
-                    <Button
-                      key={t.id}
-                      type="button"
-                      size="sm"
-                      variant={famWithdrawListFilter === t.id ? 'default' : 'outline'}
-                      className="h-8 text-xs"
-                      onClick={() => setFamWithdrawListFilter(t.id)}
-                    >
-                      {t.label}
-                    </Button>
-                  ))}
-                </div>
-                {filteredFamWithdrawals.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No requests in this filter.</p>
-                ) : (
-                  <div className="rounded-lg border border-border/60 overflow-hidden">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="text-xs">Reference</TableHead>
-                          <TableHead className="text-xs">Amount</TableHead>
-                          <TableHead className="text-xs">Status</TableHead>
-                          <TableHead className="text-xs w-[100px]"> </TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredFamWithdrawals.map((w) => (
-                          <TableRow key={w.id}>
-                            <TableCell className="font-mono text-xs py-2">
-                              {w.withdrawal_number}
-                            </TableCell>
-                            <TableCell className="text-sm py-2 tabular-nums">
-                              Rs. {w.amount.toLocaleString()}
-                            </TableCell>
-                            <TableCell className="py-2">
-                              <Badge
-                                variant={
-                                  w.status === 'approved'
-                                    ? 'default'
-                                    : w.status === 'rejected'
-                                      ? 'destructive'
-                                      : 'secondary'
-                                }
-                                className="text-[10px] capitalize"
-                              >
-                                {w.status}
-                              </Badge>
-                            </TableCell>
-                            <TableCell className="py-2">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 gap-1 text-xs"
-                                onClick={() => setFamWithdrawDetail(w)}
-                              >
-                                <Eye className="w-3.5 h-3.5" />
-                                View
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            <Card className="border-amber-300/80 bg-white/90 dark:bg-amber-950/40 dark:border-amber-800/50">
-              <CardHeader>
-                <CardTitle className="text-base text-amber-950 dark:text-amber-50">
-                  Withdraw funds (parent)
-                </CardTitle>
-                <CardDescription>
-                  Request payout from a shared family bucket or your own member wallet. Requires verified KYC and a
-                  saved payout account. You can attach an optional proof image. Submitted requests go to Super Admin
-                  for approval.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {famMe && famMe.kyc_required !== false && famMe.kyc_status !== 'verified' ? (
-                  <p className="text-sm text-amber-800 dark:text-amber-200">
-                    Complete KYC (profile) before withdrawing.
-                  </p>
-                ) : null}
-                <PayoutAccountsManager
-                  accounts={famPayoutAccounts}
-                  loading={famPayoutLoading}
-                  onCreate={async (fd) => {
-                    await portalApi.familyCreatePayoutAccount(fd);
-                    await qc.invalidateQueries({ queryKey: ['portal', 'family', 'payout-accounts'] });
-                  }}
-                  onDelete={async (id) => {
-                    await portalApi.familyDeletePayoutAccount(id);
-                    await qc.invalidateQueries({ queryKey: ['portal', 'family', 'payout-accounts'] });
-                  }}
-                />
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>From wallet</Label>
-                    <Select value={famWithdrawWallet} onValueChange={setFamWithdrawWallet}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select wallet" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {withdrawWalletOptions.map((o) => (
-                          <SelectItem key={o.id} value={o.id}>
-                            {o.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Payout account</Label>
-                    <Select value={famWithdrawPayout} onValueChange={setFamWithdrawPayout}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select account" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {famPayoutAccounts.map((a) => (
-                          <SelectItem key={a.id} value={a.id}>
-                            {a.type} · {a.phone || a.bank_account_no || '—'}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Amount (max Rs. {famWMax.toLocaleString()})</Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={famWithdrawAmt}
-                    onChange={(e) => setFamWithdrawAmt(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Proof image (optional)</Label>
-                  <Input
-                    type="file"
-                    accept="image/*"
-                    className="cursor-pointer text-sm"
-                    onChange={(e) => setFamWithdrawProofFile(e.target.files?.[0] ?? null)}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Screenshot or receipt; shown only to you and admins reviewing the request.
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  className="w-full sm:w-auto"
-                  disabled={!canFamWithdraw || famWithdrawMut.isPending}
-                  onClick={() => famWithdrawMut.mutate()}
-                >
-                  {famWithdrawMut.isPending ? 'Submitting…' : 'Submit withdrawal request'}
-                </Button>
-              </CardContent>
-            </Card>
           </div>
         </div>
-
-        <Dialog
-          open={famWithdrawDetail !== null}
-          onOpenChange={(o) => {
-            if (!o) setFamWithdrawDetail(null);
-          }}
-        >
-          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>Withdrawal request</DialogTitle>
-              <DialogDescription className="font-mono text-xs">
-                {famWithdrawDetail?.withdrawal_number}
-              </DialogDescription>
-            </DialogHeader>
-            {famWithdrawDetail ? (
-              <div className="space-y-4 text-sm">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-lg border border-border/60 p-3">
-                    <p className="text-xs text-muted-foreground">Amount</p>
-                    <p className="font-semibold tabular-nums">
-                      Rs. {famWithdrawDetail.amount.toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="rounded-lg border border-border/60 p-3">
-                    <p className="text-xs text-muted-foreground">Status</p>
-                    <Badge
-                      variant={
-                        famWithdrawDetail.status === 'approved'
-                          ? 'default'
-                          : famWithdrawDetail.status === 'rejected'
-                            ? 'destructive'
-                            : 'secondary'
-                      }
-                      className="mt-1 capitalize"
-                    >
-                      {famWithdrawDetail.status}
-                    </Badge>
-                  </div>
-                  <div className="rounded-lg border border-border/60 p-3 col-span-2">
-                    <p className="text-xs text-muted-foreground">Wallet</p>
-                    <p className="font-medium">
-                      {walletLabelByWithdrawalWalletId.get(famWithdrawDetail.wallet_id) ?? '—'}
-                    </p>
-                  </div>
-                  <div className="rounded-lg border border-border/60 p-3 col-span-2">
-                    <p className="text-xs text-muted-foreground">Payout destination</p>
-                    <p className="capitalize">{famWithdrawDetail.method.replace(/_/g, ' ')}</p>
-                    <p className="text-muted-foreground text-xs mt-0.5">{famWithdrawDetail.method_account}</p>
-                  </div>
-                  <div className="rounded-lg border border-border/60 p-3 col-span-2">
-                    <p className="text-xs text-muted-foreground">Submitted</p>
-                    <p>{new Date(famWithdrawDetail.created_at).toLocaleString()}</p>
-                  </div>
-                  {famWithdrawDetail.processed_at ? (
-                    <div className="rounded-lg border border-border/60 p-3 col-span-2">
-                      <p className="text-xs text-muted-foreground">Processed</p>
-                      <p>{new Date(famWithdrawDetail.processed_at).toLocaleString()}</p>
-                    </div>
-                  ) : null}
-                  {famWithdrawDetail.reject_reason ? (
-                    <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 col-span-2">
-                      <p className="text-xs text-muted-foreground">Rejection reason</p>
-                      <p className="mt-1">{famWithdrawDetail.reject_reason}</p>
-                    </div>
-                  ) : null}
-                </div>
-                {famWithdrawDetail.proof_image_url ? (
-                  <div className="space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground">Proof image</p>
-                    <div className="rounded-xl border border-border/60 bg-muted/30 p-2 flex justify-center">
-                      <img
-                        src={famWithdrawDetail.proof_image_url}
-                        alt="Withdrawal proof"
-                        className="max-h-64 w-full object-contain rounded-lg"
-                      />
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setFamWithdrawDetail(null)}>
-                Close
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
 
         <Dialog open={showLoadMoney} onOpenChange={(o) => { setShowLoadMoney(o); if (!o) setWalletErr(''); }}>
           <DialogContent>
@@ -2587,6 +2212,441 @@ export function FamilyPortal() {
                 onClick={() => transferMutation.mutate()}
               >
                 {transferMutation.isPending ? 'Working…' : 'Transfer'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </>
+    );
+  }
+
+  function WalletsPayoutContent() {
+    const qc = useQueryClient();
+    const { data: famPayoutAccounts = [], isLoading: famPayoutLoading } = useQuery({
+      queryKey: ['portal', 'family', 'payout-accounts', sessionTick],
+      queryFn: async () => (await portalApi.familyPayoutAccounts()).results,
+    });
+
+    return (
+      <div className="p-4 lg:p-6 space-y-4 max-w-2xl">
+        <div>
+          <h2 className="text-lg font-semibold text-foreground">Payout accounts</h2>
+          <p className="text-sm text-muted-foreground">
+            Save eSewa, Khalti, or bank details. Add at least one account before requesting a withdrawal from the
+            Withdraw page.
+          </p>
+        </div>
+        <Card className="border-amber-300/80 bg-white/90 dark:bg-amber-950/40 dark:border-amber-800/50">
+          <CardContent className="p-4 pt-6">
+            <PayoutAccountsManager
+              accounts={famPayoutAccounts}
+              loading={famPayoutLoading}
+              onCreate={async (fd) => {
+                await portalApi.familyCreatePayoutAccount(fd);
+                await qc.invalidateQueries({ queryKey: ['portal', 'family', 'payout-accounts'] });
+              }}
+              onDelete={async (id) => {
+                await portalApi.familyDeletePayoutAccount(id);
+                await qc.invalidateQueries({ queryKey: ['portal', 'family', 'payout-accounts'] });
+              }}
+            />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  function WalletsWithdrawContent() {
+    const qc = useQueryClient();
+    const [famWithdrawWallet, setFamWithdrawWallet] = useState('');
+    const [famWithdrawPayout, setFamWithdrawPayout] = useState('');
+    const [famWithdrawAmt, setFamWithdrawAmt] = useState('');
+    const [famWithdrawProofFile, setFamWithdrawProofFile] = useState<File | null>(null);
+    const [famWithdrawListFilter, setFamWithdrawListFilter] = useState<
+      'all' | 'pending' | 'approved' | 'rejected'
+    >('all');
+    const [famWithdrawDetail, setFamWithdrawDetail] = useState<PortalWithdrawalRow | null>(null);
+
+    const { data: famPayoutAccounts = [], isLoading: famPayoutLoading } = useQuery({
+      queryKey: ['portal', 'family', 'payout-accounts', sessionTick],
+      queryFn: async () => (await portalApi.familyPayoutAccounts()).results,
+    });
+
+    const { data: famWithdrawals = [] } = useQuery({
+      queryKey: ['portal', 'family', 'wallet-withdrawals', sessionTick],
+      queryFn: async () => (await portalApi.familyWalletWithdrawals()).results,
+    });
+
+    const { data: famMe } = useQuery({
+      queryKey: ['portal', 'me', sessionTick],
+      queryFn: () => portalApi.me(),
+      enabled: authed,
+      retry: false,
+    });
+
+    const withdrawWalletOptions = useMemo(() => {
+      const out: { id: string; label: string; balance: number }[] = [];
+      for (const w of walletCategories) {
+        out.push({
+          id: w.id,
+          label: `${w.name} (shared) · Rs. ${w.balance.toLocaleString()}`,
+          balance: w.balance,
+        });
+      }
+      const vid = overview?.viewer?.family_member_id;
+      const self = vid ? familyMembers.find((m) => m.id === vid) : undefined;
+      if (self?.wallet_id && self.role !== 'child') {
+        out.push({
+          id: self.wallet_id,
+          label: `Your member wallet · Rs. ${self.balance.toLocaleString()}`,
+          balance: self.balance,
+        });
+      }
+      return out;
+    }, [walletCategories, familyMembers, overview?.viewer]);
+
+    const walletLabelByWithdrawalWalletId = useMemo(() => {
+      const m = new Map<string, string>();
+      for (const o of withdrawWalletOptions) m.set(o.id, o.label);
+      return m;
+    }, [withdrawWalletOptions]);
+
+    const filteredFamWithdrawals = useMemo(() => {
+      if (famWithdrawListFilter === 'all') return famWithdrawals;
+      return famWithdrawals.filter((w) => w.status === famWithdrawListFilter);
+    }, [famWithdrawals, famWithdrawListFilter]);
+
+    useEffect(() => {
+      if (withdrawWalletOptions.length && !famWithdrawWallet) {
+        setFamWithdrawWallet(withdrawWalletOptions[0].id);
+      }
+    }, [withdrawWalletOptions, famWithdrawWallet]);
+
+    useEffect(() => {
+      if (famPayoutAccounts.length && !famWithdrawPayout) {
+        setFamWithdrawPayout(famPayoutAccounts[0].id);
+      }
+    }, [famPayoutAccounts, famWithdrawPayout]);
+
+    const invFamily = () => {
+      void qc.invalidateQueries({ queryKey: ['portal', 'family', 'overview'] });
+      void qc.invalidateQueries({ queryKey: ['portal', 'family', 'txns'] });
+    };
+
+    const famWithdrawMut = useMutation({
+      mutationFn: () =>
+        portalApi.familyWalletWithdraw({
+          wallet_id: famWithdrawWallet,
+          amount: Number(famWithdrawAmt),
+          payout_account_id: famWithdrawPayout,
+          proof_image: famWithdrawProofFile,
+        }),
+      onSuccess: (data) => {
+        setFamWithdrawAmt('');
+        setFamWithdrawProofFile(null);
+        toast.success(`Withdrawal request ${data.withdrawal_number} submitted (pending approval).`);
+        invFamily();
+        void qc.invalidateQueries({ queryKey: ['portal', 'family', 'wallet-withdrawals'] });
+        void qc.invalidateQueries({ queryKey: ['portal', 'summary', 'family'] });
+      },
+      onError: (e: Error) => {
+        if (e instanceof PortalApiError && isPortalKycBlockedError(e)) {
+          toast.error(typeof e.body.detail === 'string' ? e.body.detail : 'Complete KYC to withdraw.');
+          goTo('kyc');
+          return;
+        }
+        if (e instanceof PortalApiError && isPortalPayoutRequiredError(e)) {
+          toast.error(typeof e.body.detail === 'string' ? e.body.detail : 'Add a payout account first.');
+          goTo('wallets-payout-accounts');
+          return;
+        }
+        toast.error(e.message || 'Withdrawal request failed.');
+      },
+    });
+
+    const selectedWithdrawOpt = withdrawWalletOptions.find((o) => o.id === famWithdrawWallet);
+    const famWMax = selectedWithdrawOpt?.balance ?? 0;
+    const famWNum = Number(famWithdrawAmt);
+    const canFamWithdraw =
+      Boolean(famWithdrawWallet && famWithdrawPayout) &&
+      Number.isFinite(famWNum) &&
+      famWNum >= 1 &&
+      famWNum <= famWMax;
+
+    return (
+      <>
+        <div className="p-4 lg:p-6 space-y-6">
+          <Card className="border-amber-300/80 bg-white/90 dark:bg-amber-950/40 dark:border-amber-800/50">
+            <CardHeader>
+              <CardTitle className="text-base text-amber-950 dark:text-amber-50">
+                Withdrawal requests
+              </CardTitle>
+              <CardDescription>
+                Track payout requests by status. Balance is debited only after Super Admin approval.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                {(
+                  [
+                    { id: 'all' as const, label: 'All' },
+                    { id: 'pending' as const, label: 'Pending' },
+                    { id: 'approved' as const, label: 'Approved' },
+                    { id: 'rejected' as const, label: 'Rejected' },
+                  ] as const
+                ).map((t) => (
+                  <Button
+                    key={t.id}
+                    type="button"
+                    size="sm"
+                    variant={famWithdrawListFilter === t.id ? 'default' : 'outline'}
+                    className="h-8 text-xs"
+                    onClick={() => setFamWithdrawListFilter(t.id)}
+                  >
+                    {t.label}
+                  </Button>
+                ))}
+              </div>
+              {filteredFamWithdrawals.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No requests in this filter.</p>
+              ) : (
+                <div className="rounded-lg border border-border/60 overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="text-xs">Reference</TableHead>
+                        <TableHead className="text-xs">Amount</TableHead>
+                        <TableHead className="text-xs">Status</TableHead>
+                        <TableHead className="text-xs w-[100px]"> </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredFamWithdrawals.map((w) => (
+                        <TableRow key={w.id}>
+                          <TableCell className="font-mono text-xs py-2">
+                            {w.withdrawal_number}
+                          </TableCell>
+                          <TableCell className="text-sm py-2 tabular-nums">
+                            Rs. {w.amount.toLocaleString()}
+                          </TableCell>
+                          <TableCell className="py-2">
+                            <Badge
+                              variant={
+                                w.status === 'approved'
+                                  ? 'default'
+                                  : w.status === 'rejected'
+                                    ? 'destructive'
+                                    : 'secondary'
+                              }
+                              className="text-[10px] capitalize"
+                            >
+                              {w.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="py-2">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-8 gap-1 text-xs"
+                              onClick={() => setFamWithdrawDetail(w)}
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              View
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="border-amber-300/80 bg-white/90 dark:bg-amber-950/40 dark:border-amber-800/50">
+            <CardHeader>
+              <CardTitle className="text-base text-amber-950 dark:text-amber-50">
+                Withdraw funds (parent)
+              </CardTitle>
+              <CardDescription>
+                Request payout from a shared family bucket or your own member wallet. Requires verified KYC and a
+                saved payout account (
+                <button
+                  type="button"
+                  className="text-primary underline underline-offset-2"
+                  onClick={() => goTo('wallets-payout-accounts')}
+                >
+                  manage accounts
+                </button>
+                ). You can attach an optional proof image.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {famMe && famMe.kyc_required !== false && famMe.kyc_status !== 'verified' ? (
+                <p className="text-sm text-amber-800 dark:text-amber-200">
+                  Complete KYC (profile) before withdrawing.
+                </p>
+              ) : null}
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>From wallet</Label>
+                  <Select value={famWithdrawWallet} onValueChange={setFamWithdrawWallet}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select wallet" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {withdrawWalletOptions.map((o) => (
+                        <SelectItem key={o.id} value={o.id}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Payout account</Label>
+                  <Select value={famWithdrawPayout} onValueChange={setFamWithdrawPayout} disabled={famPayoutLoading}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select account" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {famPayoutAccounts.map((a) => (
+                        <SelectItem key={a.id} value={a.id}>
+                          {a.type} · {a.phone || a.bank_account_no || '—'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              {famPayoutAccounts.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No payout accounts yet.{' '}
+                  <button
+                    type="button"
+                    className="text-primary font-medium underline underline-offset-2"
+                    onClick={() => goTo('wallets-payout-accounts')}
+                  >
+                    Add payout accounts
+                  </button>
+                </p>
+              ) : null}
+              <div className="space-y-2">
+                <Label>Amount (max Rs. {famWMax.toLocaleString()})</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={famWithdrawAmt}
+                  onChange={(e) => setFamWithdrawAmt(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Proof image (optional)</Label>
+                <Input
+                  type="file"
+                  accept="image/*"
+                  className="cursor-pointer text-sm"
+                  onChange={(e) => setFamWithdrawProofFile(e.target.files?.[0] ?? null)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Screenshot or receipt; shown only to you and admins reviewing the request.
+                </p>
+              </div>
+              <Button
+                type="button"
+                className="w-full sm:w-auto"
+                disabled={!canFamWithdraw || famWithdrawMut.isPending}
+                onClick={() => famWithdrawMut.mutate()}
+              >
+                {famWithdrawMut.isPending ? 'Submitting…' : 'Submit withdrawal request'}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Dialog
+          open={famWithdrawDetail !== null}
+          onOpenChange={(o) => {
+            if (!o) setFamWithdrawDetail(null);
+          }}
+        >
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Withdrawal request</DialogTitle>
+              <DialogDescription className="font-mono text-xs">
+                {famWithdrawDetail?.withdrawal_number}
+              </DialogDescription>
+            </DialogHeader>
+            {famWithdrawDetail ? (
+              <div className="space-y-4 text-sm">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-lg border border-border/60 p-3">
+                    <p className="text-xs text-muted-foreground">Amount</p>
+                    <p className="font-semibold tabular-nums">
+                      Rs. {famWithdrawDetail.amount.toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-border/60 p-3">
+                    <p className="text-xs text-muted-foreground">Status</p>
+                    <Badge
+                      variant={
+                        famWithdrawDetail.status === 'approved'
+                          ? 'default'
+                          : famWithdrawDetail.status === 'rejected'
+                            ? 'destructive'
+                            : 'secondary'
+                      }
+                      className="mt-1 capitalize"
+                    >
+                      {famWithdrawDetail.status}
+                    </Badge>
+                  </div>
+                  <div className="rounded-lg border border-border/60 p-3 col-span-2">
+                    <p className="text-xs text-muted-foreground">Wallet</p>
+                    <p className="font-medium">
+                      {walletLabelByWithdrawalWalletId.get(famWithdrawDetail.wallet_id) ?? '—'}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-border/60 p-3 col-span-2">
+                    <p className="text-xs text-muted-foreground">Payout destination</p>
+                    <p className="capitalize">{famWithdrawDetail.method.replace(/_/g, ' ')}</p>
+                    <p className="text-muted-foreground text-xs mt-0.5">{famWithdrawDetail.method_account}</p>
+                  </div>
+                  <div className="rounded-lg border border-border/60 p-3 col-span-2">
+                    <p className="text-xs text-muted-foreground">Submitted</p>
+                    <p>{new Date(famWithdrawDetail.created_at).toLocaleString()}</p>
+                  </div>
+                  {famWithdrawDetail.processed_at ? (
+                    <div className="rounded-lg border border-border/60 p-3 col-span-2">
+                      <p className="text-xs text-muted-foreground">Processed</p>
+                      <p>{new Date(famWithdrawDetail.processed_at).toLocaleString()}</p>
+                    </div>
+                  ) : null}
+                  {famWithdrawDetail.reject_reason ? (
+                    <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 col-span-2">
+                      <p className="text-xs text-muted-foreground">Rejection reason</p>
+                      <p className="mt-1">{famWithdrawDetail.reject_reason}</p>
+                    </div>
+                  ) : null}
+                </div>
+                {famWithdrawDetail.proof_image_url ? (
+                  <div className="space-y-2">
+                    <p className="text-xs font-medium text-muted-foreground">Proof image</p>
+                    <div className="rounded-xl border border-border/60 bg-muted/30 p-2 flex justify-center">
+                      <img
+                        src={famWithdrawDetail.proof_image_url}
+                        alt="Withdrawal proof"
+                        className="max-h-64 w-full object-contain rounded-lg"
+                      />
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setFamWithdrawDetail(null)}>
+                Close
               </Button>
             </DialogFooter>
           </DialogContent>

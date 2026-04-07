@@ -426,6 +426,8 @@ const ChildPortal = () => {
         return <TopUpContent />;
       case 'transfer':
         return <TransferContent />;
+      case 'payout-accounts':
+        return <PayoutAccountsContent />;
       case 'withdraw':
         return <WithdrawContent />;
       case 'kyc':
@@ -1100,6 +1102,71 @@ const ChildPortal = () => {
     );
   }
 
+  // Payout accounts (child)
+  function PayoutAccountsContent() {
+    const qc = useQueryClient();
+    const { data: childPayouts = [], isLoading: childPayoutLoading } = useQuery({
+      queryKey: ['portal', 'child', 'payout-accounts'],
+      queryFn: async () => (await portalApi.childPayoutAccounts()).results,
+      enabled: authed && activeSection === 'payout-accounts',
+    });
+
+    const rulesLoading = childRulesQuery.isLoading;
+    const allowWithdraw = childRulesQuery.data?.group_permissions?.allow_cash_withdrawal ?? false;
+
+    if (rulesLoading) {
+      return (
+        <div className="p-4 lg:p-6 text-sm text-muted-foreground">Loading…</div>
+      );
+    }
+
+    if (!childRulesQuery.isLoading && childRulesQuery.data && !childRulesQuery.data.group_permissions) {
+      return (
+        <div className="p-4 lg:p-6 space-y-4">
+          <h2 className="text-lg font-bold text-foreground">Payout accounts</h2>
+          <p className="text-sm text-muted-foreground">Join a family group to manage payout accounts.</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="p-4 lg:p-6 space-y-4">
+        <div>
+          <h2 className="text-lg font-bold text-foreground">Payout accounts</h2>
+          <p className="text-sm text-muted-foreground">
+            Save eSewa, Khalti, or bank details. Use them when you submit a withdrawal on the Withdraw page.
+          </p>
+        </div>
+
+        {!allowWithdraw ? (
+          <Card className="border-amber-200 bg-amber-50/50 dark:bg-amber-950/20">
+            <CardContent className="p-4 text-sm text-muted-foreground">
+              Cash withdrawal is turned off for your family. Ask a parent to enable it in Family Portal settings.
+            </CardContent>
+          </Card>
+        ) : null}
+
+        <Card>
+          <CardContent className="p-6">
+            <PayoutAccountsManager
+              accounts={childPayouts}
+              loading={childPayoutLoading}
+              disabled={!allowWithdraw}
+              onCreate={async (fd) => {
+                await portalApi.childCreatePayoutAccount(fd);
+                await qc.invalidateQueries({ queryKey: ['portal', 'child', 'payout-accounts'] });
+              }}
+              onDelete={async (id) => {
+                await portalApi.childDeletePayoutAccount(id);
+                await qc.invalidateQueries({ queryKey: ['portal', 'child', 'payout-accounts'] });
+              }}
+            />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   // Withdraw Content
   function WithdrawContent() {
     const qc = useQueryClient();
@@ -1109,6 +1176,7 @@ const ChildPortal = () => {
     const { data: childPayouts = [], isLoading: childPayoutLoading } = useQuery({
       queryKey: ['portal', 'child', 'payout-accounts'],
       queryFn: async () => (await portalApi.childPayoutAccounts()).results,
+      enabled: authed && activeSection === 'withdraw',
     });
 
     const { data: childWds = [] } = useQuery({
@@ -1155,6 +1223,7 @@ const ChildPortal = () => {
         }
         if (isPortalPayoutRequiredError(e)) {
           toast.error(typeof e.body.detail === 'string' ? e.body.detail : 'Add a payout account first.');
+          goTo('payout-accounts');
           return;
         }
         toast.error(e.message || 'Withdrawal failed.');
@@ -1201,25 +1270,30 @@ const ChildPortal = () => {
         ) : null}
 
         <Card>
-          <CardContent className="p-6">
-            <PayoutAccountsManager
-              accounts={childPayouts}
-              loading={childPayoutLoading}
-              disabled={!allowWithdraw}
-              onCreate={async (fd) => {
-                await portalApi.childCreatePayoutAccount(fd);
-                await qc.invalidateQueries({ queryKey: ['portal', 'child', 'payout-accounts'] });
-              }}
-              onDelete={async (id) => {
-                await portalApi.childDeletePayoutAccount(id);
-                await qc.invalidateQueries({ queryKey: ['portal', 'child', 'payout-accounts'] });
-              }}
-            />
-          </CardContent>
-        </Card>
-
-        <Card>
           <CardContent className="p-6 space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Manage saved payout destinations on the{' '}
+              <button
+                type="button"
+                className="text-primary font-medium underline underline-offset-2"
+                onClick={() => goTo('payout-accounts')}
+              >
+                Payout accounts
+              </button>{' '}
+              page.
+            </p>
+            {childPayouts.length === 0 && allowWithdraw ? (
+              <p className="text-sm text-amber-700 dark:text-amber-400">
+                No payout accounts yet.{' '}
+                <button
+                  type="button"
+                  className="font-medium underline underline-offset-2"
+                  onClick={() => goTo('payout-accounts')}
+                >
+                  Add payout accounts
+                </button>
+              </p>
+            ) : null}
             <div className="space-y-2">
               <Label>Payout account</Label>
               <Select value={payoutId} onValueChange={setPayoutId} disabled={!allowWithdraw || childPayoutLoading}>

@@ -34,6 +34,7 @@ const ENTRIES = [
   ["flash-deals", (ctx: VendorRenderCtx) => <VendorMarketingModule activeSection={ctx.activeSection} />] as const,
   ["earnings", (ctx: VendorRenderCtx) => <VendorWalletModule activeSection={ctx.activeSection} />] as const,
   ["wallet", (ctx: VendorRenderCtx) => <VendorWalletModule activeSection={ctx.activeSection} />] as const,
+  ["payout-accounts", (ctx: VendorRenderCtx) => <VendorWalletModule activeSection={ctx.activeSection} />] as const,
   ["withdrawals", (ctx: VendorRenderCtx) => <VendorWalletModule activeSection={ctx.activeSection} />] as const,
   ["kyc", () => <VendorKycModule />] as const,
   ["transactions", (ctx: VendorRenderCtx) => <VendorWalletModule activeSection={ctx.activeSection} />] as const,

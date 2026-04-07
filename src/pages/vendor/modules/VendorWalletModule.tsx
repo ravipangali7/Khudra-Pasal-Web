@@ -70,7 +70,7 @@ export default function VendorWalletModule({ activeSection }: { activeSection: s
   const { data: vendorPayouts = [], isLoading: vendorPayoutLoading } = useQuery({
     queryKey: ['vendor', 'payout-accounts'],
     queryFn: async () => (await vendorApi.payoutAccounts()).results,
-    enabled: activeSection === 'withdrawals',
+    enabled: activeSection === 'withdrawals' || activeSection === 'payout-accounts',
   });
   const transactions = useMemo(() => extractResults<Record<string, unknown>>(txResp), [txResp]);
   const withdrawals = useMemo(() => extractResults<Record<string, unknown>>(wdResp), [wdResp]);
@@ -79,7 +79,11 @@ export default function VendorWalletModule({ activeSection }: { activeSection: s
   const [payoutId, setPayoutId] = useState('');
 
   useEffect(() => {
-    if (activeSection === 'withdrawals' && vendorPayouts.length && !payoutId) {
+    if (
+      (activeSection === 'withdrawals' || activeSection === 'payout-accounts') &&
+      vendorPayouts.length &&
+      !payoutId
+    ) {
       setPayoutId(vendorPayouts[0].id);
     }
   }, [activeSection, vendorPayouts, payoutId]);
@@ -441,7 +445,7 @@ export default function VendorWalletModule({ activeSection }: { activeSection: s
     );
   }
 
-  if (activeSection === 'withdrawals') {
+  if (activeSection === 'payout-accounts') {
     return (
       <div className="p-4 lg:p-6 space-y-6">
         <Card>
@@ -464,6 +468,13 @@ export default function VendorWalletModule({ activeSection }: { activeSection: s
             />
           </CardContent>
         </Card>
+      </div>
+    );
+  }
+
+  if (activeSection === 'withdrawals') {
+    return (
+      <div className="p-4 lg:p-6 space-y-6">
         <Card>
           <CardHeader>
             <CardTitle>Request withdrawal</CardTitle>

@@ -107,7 +107,6 @@ const CustomerPortal = () => {
   const [showAddMoneyModal, setShowAddMoneyModal] = useState(false);
   const [addMoneyPrefill, setAddMoneyPrefill] = useState('');
   const [showTransferModal, setShowTransferModal] = useState(false);
-  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [newFamilyName, setNewFamilyName] = useState('');
@@ -156,12 +155,6 @@ const CustomerPortal = () => {
     queryFn: () => portalApi.me(),
     enabled: authed,
     retry: false,
-  });
-
-  const { data: payoutAccounts = [], isLoading: payoutAccountsLoading } = useQuery({
-    queryKey: ['portal', 'payout-accounts', sessionTick],
-    queryFn: async () => (await portalApi.payoutAccounts()).results,
-    enabled: authed,
   });
 
   const { data: selfProfile } = useQuery({
@@ -408,10 +401,18 @@ const CustomerPortal = () => {
 
   const { segment: activeSection, goTo, isSegmentKnown } = usePortalSectionPath('/portal', sidebarItems);
 
+  const walletNavSections = new Set(['wallet', 'wallet-payout-accounts', 'wallet-withdraw']);
+
+  const { data: payoutAccounts = [], isLoading: payoutAccountsLoading } = useQuery({
+    queryKey: ['portal', 'payout-accounts', sessionTick],
+    queryFn: async () => (await portalApi.payoutAccounts()).results,
+    enabled: authed && walletNavSections.has(activeSection),
+  });
+
   const { data: walletWithdrawals = [] } = useQuery({
     queryKey: ['portal', 'wallet-withdrawals', sessionTick],
     queryFn: async () => (await portalApi.walletWithdrawals()).results,
-    enabled: authed && activeSection === 'wallet',
+    enabled: authed && walletNavSections.has(activeSection),
   });
 
   const stayOnSwitchPortal = searchParams.get('stay') === '1';
@@ -434,7 +435,7 @@ const CustomerPortal = () => {
   }, [activeSection, navigate, stayOnSwitchPortal, switchPortalContext]);
 
   useEffect(() => {
-    if (!authed || activeSection !== 'wallet') return;
+    if (!authed || !walletNavSections.has(activeSection)) return;
     void queryClient.invalidateQueries({ queryKey: ['portal', 'me'] });
   }, [authed, activeSection, queryClient]);
 
@@ -1401,7 +1402,7 @@ const CustomerPortal = () => {
                         goTo('kyc');
                         return;
                       }
-                      setShowWithdrawModal(true);
+                      goTo('wallet-withdraw');
                     }}
                     className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-white/20 rounded-xl font-medium hover:bg-white/30 transition-colors"
                   >
@@ -1437,6 +1438,17 @@ const CustomerPortal = () => {
                 </div>
               </div>
 
+            </div>
+          )}
+
+          {activeSection === 'wallet-payout-accounts' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-lg font-bold text-foreground">Payout accounts</h2>
+                <p className="text-sm text-muted-foreground">
+                  Save eSewa, Khalti, or bank details. Use these when you request a withdrawal.
+                </p>
+              </div>
               <div className="bg-card rounded-xl border border-border p-4">
                 <PayoutAccountsManager
                   accounts={payoutAccounts}
@@ -1451,12 +1463,22 @@ const CustomerPortal = () => {
                   }}
                 />
               </div>
+            </div>
+          )}
 
+          {activeSection === 'wallet-withdraw' && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-lg font-bold text-foreground">Withdraw</h2>
+                <p className="text-sm text-muted-foreground">
+                  Review past requests and submit a new withdrawal to your saved payout account.
+                </p>
+              </div>
               {walletWithdrawals.length > 0 ? (
                 <div className="bg-card rounded-xl border border-border p-4 space-y-2">
                   <h3 className="font-semibold">Withdrawal requests</h3>
                   <ul className="space-y-2 text-sm">
-                    {walletWithdrawals.slice(0, 8).map((w) => (
+                    {walletWithdrawals.map((w) => (
                       <li
                         key={w.id}
                         className="flex justify-between gap-2 border-b border-border/60 pb-2 last:border-0"
@@ -1469,6 +1491,40 @@ const CustomerPortal = () => {
                   </ul>
                 </div>
               ) : null}
+              <WalletWithdraw
+                variant="page"
+                walletBalance={walletBalance}
+                payoutAccounts={payoutAccounts}
+                payoutLoading={payoutAccountsLoading}
+                onNavigateToPayout={() => goTo('wallet-payout-accounts')}
+                onConfirmWithdraw={async (payload) => {
+                  try {
+                    await portalApi.walletWithdraw(payload);
+                    invalidatePortalWallet();
+                    await queryClient.invalidateQueries({ queryKey: ['portal', 'wallet-withdrawals'] });
+                  } catch (e) {
+                    if (isPortalKycBlockedError(e)) {
+                      const msg =
+                        typeof e.body.detail === 'string'
+                          ? e.body.detail
+                          : 'Complete KYC verification to withdraw.';
+                      toast.error(msg);
+                      goTo('kyc');
+                      throw e;
+                    }
+                    if (isPortalPayoutRequiredError(e)) {
+                      toast.error(
+                        typeof e.body.detail === 'string'
+                          ? e.body.detail
+                          : 'Add a payout account before withdrawing.',
+                      );
+                      goTo('wallet-payout-accounts');
+                      throw e;
+                    }
+                    throw e;
+                  }
+                }}
+              />
             </div>
           )}
 
@@ -1555,39 +1611,6 @@ const CustomerPortal = () => {
         onConfirmTransfer={async ({ recipient, amount }) => {
           await portalApi.walletTransfer({ recipient, amount });
           invalidatePortalWallet();
-        }}
-      />
-      <WalletWithdraw
-        isOpen={showWithdrawModal}
-        onClose={() => setShowWithdrawModal(false)}
-        walletBalance={walletBalance}
-        payoutAccounts={payoutAccounts}
-        payoutLoading={payoutAccountsLoading}
-        onConfirmWithdraw={async (payload) => {
-          try {
-            await portalApi.walletWithdraw(payload);
-            invalidatePortalWallet();
-            await queryClient.invalidateQueries({ queryKey: ['portal', 'wallet-withdrawals'] });
-          } catch (e) {
-            if (isPortalKycBlockedError(e)) {
-              const msg =
-                typeof e.body.detail === 'string'
-                  ? e.body.detail
-                  : 'Complete KYC verification to withdraw.';
-              toast.error(msg);
-              goTo('kyc');
-              throw e;
-            }
-            if (isPortalPayoutRequiredError(e)) {
-              toast.error(
-                typeof e.body.detail === 'string'
-                  ? e.body.detail
-                  : 'Add a payout account before withdrawing.',
-              );
-              throw e;
-            }
-            throw e;
-          }
         }}
       />
       <WalletAddMoney
