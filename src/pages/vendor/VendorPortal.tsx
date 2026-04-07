@@ -10,7 +10,7 @@ import { Loader2, Trash2 } from 'lucide-react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import AdminLayout from '@/components/admin/AdminLayout';
-import AdminSidebar from '@/components/admin/AdminSidebar';
+import AdminSidebar, { type SidebarItem } from '@/components/admin/AdminSidebar';
 import UnifiedAuthLoginPage from '@/components/auth/UnifiedAuthLoginPage';
 import { vendorApi, getAuthToken, clearAllAuthTokens, getLoginSurface, setLoginSurface } from '@/lib/api';
 import { PORTAL_LOGIN_PATH, navigateToPortalLogin, setPostLogoutLoginPath } from '@/lib/portalLoginPaths';
@@ -28,6 +28,17 @@ import {
 import { VendorRouteContext } from './vendorRouteContext';
 import { VendorReelViewerProvider } from '@/modules/reels/vendor/VendorReelViewerContext';
 import { cn } from '@/lib/utils';
+
+const VENDOR_SIDEBAR_EXCLUDED_IDS = new Set(['faq', 'faqs', 'settings']);
+
+function filterExcludedVendorNavItems(items: SidebarItem[]): SidebarItem[] {
+  return items
+    .filter((i) => !VENDOR_SIDEBAR_EXCLUDED_IDS.has(i.id))
+    .map((i) => ({
+      ...i,
+      children: i.children?.length ? filterExcludedVendorNavItems(i.children) : undefined,
+    }));
+}
 
 export default function VendorPortal() {
   const queryClient = useQueryClient();
@@ -151,7 +162,10 @@ export default function VendorPortal() {
     return Number.isFinite(n) ? n : null;
   }, [vMe]);
 
-  const sidebarItems = useMemo(() => mapApiNavToAdminItems(navData?.items), [navData]);
+  const sidebarItems = useMemo(
+    () => filterExcludedVendorNavItems(mapApiNavToAdminItems(navData?.items)),
+    [navData],
+  );
   const routeState = useMemo(() => parseVendorRoute(location.pathname), [location.pathname]);
   const activeSection = routeState.moduleId;
 
