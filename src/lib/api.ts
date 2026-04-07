@@ -1807,22 +1807,6 @@ export const vendorApi = {
     vendorFetch<PortalPayoutAccountRow>(`/vendor/payout-accounts/${encodeURIComponent(id)}/`, { method: "PATCH", body }, true),
   deletePayoutAccount: (id: string) =>
     vendorFetch<{ ok: boolean }>(`/vendor/payout-accounts/${encodeURIComponent(id)}/`, { method: "DELETE" }, true),
-  coupons: (params?: QueryParams) => vendorPaged<Record<string, unknown>>("coupons", params),
-  createCoupon: (payload: Record<string, unknown>) =>
-    vendorWrite<{ id: string }>("coupons", "POST", payload),
-  updateCoupon: (id: string, payload: Record<string, unknown>) =>
-    vendorWrite<Record<string, unknown>>(`coupons/${id}`, "PATCH", payload),
-  deleteCoupon: (id: string) => vendorWrite<{ ok: true }>(`coupons/${id}`, "DELETE"),
-  flashDeals: (params?: QueryParams) => vendorPaged<Record<string, unknown>>("flash-deals", params),
-  createFlashDeal: (payload: Record<string, unknown>) =>
-    vendorWrite<{ id: string }>("flash-deals", "POST", payload),
-  updateFlashDeal: (id: string, payload: Record<string, unknown>) =>
-    vendorWrite<Record<string, unknown>>(`flash-deals/${id}`, "PATCH", payload),
-  deleteFlashDeal: (id: string) => vendorWrite<{ ok: true }>(`flash-deals/${id}`, "DELETE"),
-  flashDealAddProducts: (dealId: string, product_ids: (string | number)[]) =>
-    vendorWrite<{ added: number }>(`flash-deals/${dealId}/products`, "POST", { product_ids }),
-  flashDealRemoveProduct: (dealId: string, productId: string) =>
-    vendorWrite<{ ok: true }>(`flash-deals/${dealId}/products/${productId}`, "DELETE"),
   customers: (params?: QueryParams) => vendorPaged<Record<string, unknown>>("customers", params),
   reportsSummary: (params?: { from?: string; to?: string }) =>
     vendorFetch<Record<string, unknown>>(`/vendor/reports/summary/${buildQuery(params)}`, undefined, true),

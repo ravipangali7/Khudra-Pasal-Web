@@ -4,7 +4,6 @@ import VendorProductsModule from "./modules/VendorProductsModule";
 import VendorReviewsModule from "./modules/VendorReviewsModule";
 import VendorOrdersModule from "./modules/VendorOrdersModule";
 import VendorPOSModule from "./modules/VendorPOSModule";
-import VendorMarketingModule from "./modules/VendorMarketingModule";
 import VendorWalletModule from "./modules/VendorWalletModule";
 import VendorReelsModule from "./modules/VendorReelsModule";
 import VendorAllReelsModule from "./modules/VendorAllReelsModule";
@@ -36,8 +35,6 @@ const ENTRIES = [
   ["pending", (ctx: VendorRenderCtx) => <VendorOrdersModule activeSection={ctx.activeSection} />] as const,
   ["returns", () => <VendorOrdersModule activeSection="returns" />] as const,
   ["pos", () => <VendorPOSModule />] as const,
-  ["coupons", (ctx: VendorRenderCtx) => <VendorMarketingModule activeSection={ctx.activeSection} />] as const,
-  ["flash-deals", (ctx: VendorRenderCtx) => <VendorMarketingModule activeSection={ctx.activeSection} />] as const,
   ["earnings", (ctx: VendorRenderCtx) => <VendorWalletModule activeSection={ctx.activeSection} />] as const,
   ["wallet", (ctx: VendorRenderCtx) => <VendorWalletModule activeSection={ctx.activeSection} />] as const,
   ["payout-accounts", (ctx: VendorRenderCtx) => <VendorWalletModule activeSection={ctx.activeSection} />] as const,
@@ -65,7 +62,6 @@ const ID_SET = new Set(MODULE_IDS);
 const PARENT_REDIRECT: Record<string, string> = {
   products: "all-products",
   orders: "all-orders",
-  marketing: "coupons",
   reels: "my-reels",
   support: "tickets",
 };
