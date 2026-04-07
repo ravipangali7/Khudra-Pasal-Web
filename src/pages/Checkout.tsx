@@ -49,6 +49,7 @@ import {
   evaluateChildProductCommerce,
 } from '@/lib/childShoppingRules';
 import { toast } from 'sonner';
+import { normalizeNepalPhoneDigits } from '@/lib/nepalPhone';
 
 type CheckoutStep = 'cart' | 'delivery' | 'payment';
 
@@ -100,6 +101,7 @@ const Checkout = () => {
   const {
     isChildShopper,
     rules,
+    profile,
     isLoadingProfile,
     isLoadingRules,
     rulesFetchError,
@@ -187,6 +189,15 @@ const Checkout = () => {
       cancelled = true;
     };
   }, [hasStorefrontSession]);
+
+  useEffect(() => {
+    if (!hasStorefrontSession || !profile) return;
+    setFormData((prev) => ({
+      ...prev,
+      fullName: prev.fullName || (profile.name?.trim() ?? ''),
+      mobile: prev.mobile || (normalizeNepalPhoneDigits(profile.phone ?? '') ?? ''),
+    }));
+  }, [hasStorefrontSession, profile]);
 
   useEffect(() => {
     if (!hasStorefrontSession || step !== 'payment') {
