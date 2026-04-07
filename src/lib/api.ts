@@ -1356,8 +1356,16 @@ export const adminApi = {
       method: "PATCH",
       body: JSON.stringify(payload),
     }, true),
-  refundOrder: (pk: number, payload: { amount: number; reason: string }) =>
-    apiFetch<{ ok: boolean; refund_number: string; amount: number }>(`/admin/orders/${pk}/refund/`, {
+  refundOrder: (pk: number, payload: { reason: string }) =>
+    apiFetch<{
+      ok: boolean;
+      refund_number: string;
+      gross_amount: number;
+      platform_fee: number;
+      net_credit: number;
+      status: string;
+      message?: string;
+    }>(`/admin/orders/${pk}/refund/`, {
       method: "POST",
       body: JSON.stringify(payload),
     }, true),
@@ -2048,6 +2056,9 @@ export type PortalOrderRefundRow = {
   refund_number: string;
   status: string;
   amount: number;
+  gross_amount?: number;
+  platform_fee?: number;
+  net_credit?: number;
   reason: string;
   created_at: string;
 };
@@ -2449,11 +2460,19 @@ export const portalApi = {
   requestOrderRefund: (
     surface: "main" | "family" | "child",
     orderPk: number,
-    body: { amount?: number; reason: string; notes?: string },
+    body: { reason: string; notes?: string },
   ) => {
     const prefix =
       surface === "main" ? "/portal" : surface === "family" ? "/family-portal" : "/child-portal";
-    return portalFetch<{ ok: boolean; refund_number: string; amount: number; status: string }>(
+    return portalFetch<{
+      ok: boolean;
+      refund_number: string;
+      gross_amount: number;
+      platform_fee: number;
+      net_credit: number;
+      amount: number;
+      status: string;
+    }>(
       `${prefix}/orders/${orderPk}/refund-request/`,
       { method: "POST", body: JSON.stringify(body) },
       true,

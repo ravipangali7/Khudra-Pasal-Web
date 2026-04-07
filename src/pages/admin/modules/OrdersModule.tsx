@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 import { adminApi, extractResults, type AdminOrderDetail, type AdminOrderListRow } from '@/lib/api';
 import { useAdminRouteContext } from '../adminRouteContext';
 import { useAdminMutation } from '../hooks/useAdminMutation';
@@ -185,7 +186,6 @@ function AllOrdersView() {
   const [selectedPk, setSelectedPk] = useState<number | null>(null);
   const [docPreview, setDocPreview] = useState<'invoice' | 'packing' | null>(null);
   const [refundOpen, setRefundOpen] = useState(false);
-  const [refundAmount, setRefundAmount] = useState('');
   const [refundReason, setRefundReason] = useState('');
   const [actionErr, setActionErr] = useState('');
   const routeViewPk = adminRoute?.action === 'view' && adminRoute.itemId ? Number(adminRoute.itemId) : null;
@@ -222,7 +222,7 @@ function AllOrdersView() {
     [['admin', 'orders']],
   );
   const refundMut = useAdminMutation(
-    ({ pk, payload }: { pk: number; payload: { amount: number; reason: string } }) => adminApi.refundOrder(pk, payload),
+    ({ pk, payload }: { pk: number; payload: { reason: string } }) => adminApi.refundOrder(pk, payload),
     [['admin', 'orders']],
   );
 
@@ -356,7 +356,6 @@ function AllOrdersView() {
                   </Button>
                   {crud.canRefund && refundRemaining > 0 && order.status !== 'refunded' ? (
                     <Button variant="outline" className="w-full text-destructive" size="sm" type="button" onClick={() => {
-                      setRefundAmount(String(refundRemaining));
                       setRefundReason('');
                       setRefundOpen(true);
                     }}>
@@ -434,11 +433,34 @@ function AllOrdersView() {
       <Dialog open={refundOpen} onOpenChange={setRefundOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Process refund</DialogTitle>
+            <DialogTitle>Request refund</DialogTitle>
+            <p className="text-sm text-muted-foreground">
+              Submits a pending request for Super Admin approval. Gross refund uses the full remaining order total.
+            </p>
           </DialogHeader>
           <div className="space-y-3">
-            <div><Label>Amount (max Rs. {refundRemaining.toLocaleString()})</Label><Input type="number" value={refundAmount} onChange={(e) => setRefundAmount(e.target.value)} /></div>
-            <div><Label>Reason</Label><Input value={refundReason} onChange={(e) => setRefundReason(e.target.value)} placeholder="Required" /></div>
+            {order ? (
+              <div className="rounded-lg border bg-muted/40 p-3 text-sm space-y-1.5">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Gross (remaining)</span>
+                  <span className="font-mono font-medium">Rs. {refundRemaining.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">3% platform fee</span>
+                  <span className="font-mono">Rs. {(Math.round(refundRemaining * 0.03 * 100) / 100).toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between font-medium pt-1 border-t">
+                  <span>Net to customer</span>
+                  <span className="font-mono text-primary">
+                    Rs. {(Math.round((refundRemaining - Math.round(refundRemaining * 0.03 * 100) / 100) * 100) / 100).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+            ) : null}
+            <div>
+              <Label>Reason (required)</Label>
+              <Input value={refundReason} onChange={(e) => setRefundReason(e.target.value)} placeholder="Refund reason" />
+            </div>
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setRefundOpen(false)}>Cancel</Button>
@@ -447,22 +469,21 @@ function AllOrdersView() {
               disabled={refundMut.isPending || !order}
               onClick={async () => {
                 if (!order) return;
-                const amt = parseFloat(refundAmount);
-                if (!Number.isFinite(amt) || amt <= 0) return;
                 if (!refundReason.trim()) return;
                 setActionErr('');
                 try {
                   await refundMut.mutateAsync({
                     pk: order.pk,
-                    payload: { amount: amt, reason: refundReason.trim() },
+                    payload: { reason: refundReason.trim() },
                   });
+                  toast.success('Refund request submitted. Pending Super Admin approval.');
                   setRefundOpen(false);
                 } catch (e) {
                   setActionErr(formatApiError(e));
                 }
               }}
             >
-              {refundMut.isPending ? 'Submitting…' : 'Submit refund'}
+              {refundMut.isPending ? 'Submitting…' : 'Submit request'}
             </Button>
           </DialogFooter>
         </DialogContent>

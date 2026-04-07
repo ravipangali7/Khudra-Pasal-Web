@@ -10,7 +10,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -26,6 +25,22 @@ export type PortalOrdersSurface = "main" | "family" | "child";
 
 function formatPrice(amount: number) {
   return `Rs. ${amount.toLocaleString("en-NP")}`;
+}
+
+/** Match server Decimal 2dp: 3% fee on gross, net = gross − fee */
+function refundBreakdownDisplay(gross: number) {
+  const g = Math.round(gross * 100) / 100;
+  const fee = Math.round(g * 0.03 * 100) / 100;
+  const net = Math.round((g - fee) * 100) / 100;
+  return { gross: g, fee, net };
+}
+
+function remainingRefundGross(o: PortalOrderRow): number {
+  const refunded =
+    o.refunds
+      ?.filter((r) => (r.status || "").toLowerCase() === "approved")
+      .reduce((s, r) => s + (Number(r.amount) || 0), 0) ?? 0;
+  return Math.max(0, o.total - refunded);
 }
 
 function canRequestRefund(o: PortalOrderRow): boolean {
@@ -49,7 +64,6 @@ export default function PortalMyOrdersSection({ surface, sessionTick, authed }: 
   const [refundOrder, setRefundOrder] = useState<PortalOrderRow | null>(null);
   const [refundReason, setRefundReason] = useState("");
   const [refundNotes, setRefundNotes] = useState("");
-  const [refundAmount, setRefundAmount] = useState("");
 
   const { data: ordersResp, isError: ordersError, isLoading: ordersLoading } = useQuery({
     queryKey: ["portal", "orders", surface, sessionTick],
@@ -63,24 +77,16 @@ export default function PortalMyOrdersSection({ surface, sessionTick, authed }: 
   const refundMut = useMutation({
     mutationFn: async () => {
       if (!refundOrder) throw new Error("No order");
-      const amt = refundAmount.trim();
-      const payload: { reason: string; notes?: string; amount?: number } = {
+      return portalApi.requestOrderRefund(surface, refundOrder.pk, {
         reason: refundReason.trim(),
         notes: refundNotes.trim() || undefined,
-      };
-      if (amt) {
-        const n = Number(amt);
-        if (!Number.isFinite(n) || n <= 0) throw new Error("Enter a valid amount.");
-        payload.amount = n;
-      }
-      return portalApi.requestOrderRefund(surface, refundOrder.pk, payload);
+      });
     },
     onSuccess: () => {
-      toast.success("Refund request submitted.");
+      toast.success("Refund request submitted. A super admin will review it.");
       setRefundOrder(null);
       setRefundReason("");
       setRefundNotes("");
-      setRefundAmount("");
       void queryClient.invalidateQueries({ queryKey: ["portal", "orders", surface] });
       void queryClient.invalidateQueries({ queryKey: ["portal", "summary"] });
       void queryClient.invalidateQueries({ queryKey: ["portal", "notifications"] });
@@ -209,7 +215,14 @@ export default function PortalMyOrdersSection({ surface, sessionTick, authed }: 
                                             {r.status}
                                           </span>
                                           <span className="font-medium">
-                                            {formatPrice(r.amount)}
+                                            {formatPrice(r.net_credit ?? r.amount)}
+                                            {r.platform_fee != null ? (
+                                              <span className="text-muted-foreground font-normal">
+                                                {" "}
+                                                (gross {formatPrice(r.gross_amount ?? r.amount)}, fee{" "}
+                                                {formatPrice(r.platform_fee)})
+                                              </span>
+                                            ) : null}
                                           </span>
                                         </div>
                                         {r.reason ? (
@@ -287,8 +300,37 @@ export default function PortalMyOrdersSection({ surface, sessionTick, authed }: 
             ) : null}
           </DialogHeader>
           <div className="space-y-3">
+            {refundOrder ? (
+              <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm space-y-1.5">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  Refund breakdown (full remaining order)
+                </p>
+                {(() => {
+                  const g = remainingRefundGross(refundOrder);
+                  const { fee, net } = refundBreakdownDisplay(g);
+                  return (
+                    <>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Original amount (gross)</span>
+                        <span className="font-mono font-medium">{formatPrice(g)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">3% platform fee</span>
+                        <span className="font-mono">−{formatPrice(fee)}</span>
+                      </div>
+                      <div className="flex justify-between pt-1 border-t border-border font-medium">
+                        <span>Final refund to wallet</span>
+                        <span className="font-mono text-primary">{formatPrice(net)}</span>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            ) : null}
             <div>
-              <Label htmlFor="refund-reason">Reason</Label>
+              <Label htmlFor="refund-reason">
+                Reason <span className="text-destructive">*</span>
+              </Label>
               <Textarea
                 id="refund-reason"
                 rows={3}
@@ -304,18 +346,6 @@ export default function PortalMyOrdersSection({ surface, sessionTick, authed }: 
                 rows={2}
                 value={refundNotes}
                 onChange={(e) => setRefundNotes(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="refund-amt">Amount (optional)</Label>
-              <Input
-                id="refund-amt"
-                type="number"
-                min={0}
-                step="0.01"
-                placeholder="Leave empty for full remaining balance"
-                value={refundAmount}
-                onChange={(e) => setRefundAmount(e.target.value)}
               />
             </div>
           </div>

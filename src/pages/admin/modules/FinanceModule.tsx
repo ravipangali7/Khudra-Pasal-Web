@@ -71,9 +71,15 @@ type RefundRow = {
   customer_phone?: string;
   placed_portal?: string;
   amount: number;
+  gross_amount?: number;
+  platform_fee?: number;
+  net_credit?: number;
+  deduction_summary?: string;
   reason: string;
   status: string;
   date: string;
+  created_at?: string;
+  processed_at?: string | null;
 };
 type WithdrawalRow = {
   id: string;
@@ -506,6 +512,8 @@ function TransactionsView() {
 function RefundsView() {
   const [filters, setFilters] = useState({ period: 'all', refund_status: 'all', customer: 'all' });
   const [rejectOpen, setRejectOpen] = useState(false);
+  const [approveOpen, setApproveOpen] = useState(false);
+  const [approveTarget, setApproveTarget] = useState<RefundRow | null>(null);
   const [selected, setSelected] = useState<RefundRow | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const setFilter = (k: string, v: string) => setFilters(prev => ({ ...prev, [k]: v }));
@@ -535,9 +543,13 @@ function RefundsView() {
   if (isLoading) return <div className="p-4 lg:p-6 text-sm text-muted-foreground">Loading refunds…</div>;
   if (isError) return <div className="p-4 lg:p-6 text-sm text-destructive">Could not load refunds.</div>;
 
-  const handleApprove = (id: string) => {
+  const runApprove = (id: string) => {
     approveMut.mutate(id, {
-      onSuccess: () => toast.success('Refund approved.'),
+      onSuccess: () => {
+        toast.success('Refund approved.');
+        setApproveOpen(false);
+        setApproveTarget(null);
+      },
       onError: (e) => toast.error(formatApiError(e)),
     });
   };
@@ -564,7 +576,7 @@ function RefundsView() {
   return (
     <div className="p-4 lg:p-6">
       <FilterBar filters={filters} onChange={setFilter} />
-      <AdminTable title="Refund Requests" subtitle="Approve, reject, and track customer refunds"
+      <AdminTable title="Refund Requests" subtitle="Super Admin approves or rejects; 3% platform fee applies on payout"
         data={filtered}
         columns={[
           { key: 'id', label: 'Refund ID' },
@@ -579,12 +591,61 @@ function RefundsView() {
             ),
           },
           { key: 'customer', label: 'Customer' },
-          { key: 'amount', label: 'Amount', render: (r) => <span className="font-medium">Rs. {Number(r.amount).toLocaleString()}</span> },
+          {
+            key: 'gross',
+            label: 'Gross',
+            render: (r) => (
+              <span className="font-mono text-xs">Rs. {Number(r.gross_amount ?? r.amount).toLocaleString()}</span>
+            ),
+          },
+          {
+            key: 'fee',
+            label: '3% fee',
+            render: (r) => (
+              <span className="font-mono text-xs text-muted-foreground">
+                Rs. {Number(r.platform_fee ?? Math.round(Number(r.amount) * 0.03 * 100) / 100).toLocaleString()}
+              </span>
+            ),
+          },
+          {
+            key: 'net',
+            label: 'Net refund',
+            render: (r) => (
+              <span className="font-mono text-xs font-medium text-primary">
+                Rs. {Number(
+                  r.net_credit ??
+                    Math.round((Number(r.amount) - Math.round(Number(r.amount) * 0.03 * 100) / 100) * 100) / 100,
+                ).toLocaleString()}
+              </span>
+            ),
+          },
+          {
+            key: 'deduction_summary',
+            label: 'Deduction',
+            render: (r) => (
+              <span className="text-[10px] text-muted-foreground max-w-[140px] inline-block leading-tight">
+                {r.deduction_summary || '—'}
+              </span>
+            ),
+          },
           { key: 'reason', label: 'Reason' },
           { key: 'status', label: 'Status', render: (r) => (
             <Badge variant={r.status === 'approved' ? 'default' : r.status === 'rejected' ? 'destructive' : 'secondary'}
-              className={cn("text-xs", r.status === 'approved' && "bg-emerald-500")}>{r.status}</Badge>
+              className={cn("text-xs capitalize", r.status === 'approved' && "bg-emerald-500")}>{r.status}</Badge>
           )},
+          {
+            key: 'when',
+            label: 'When',
+            render: (r) => (
+              <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                {r.processed_at
+                  ? new Date(r.processed_at).toLocaleString()
+                  : r.created_at
+                    ? new Date(r.created_at).toLocaleString()
+                    : r.date}
+              </span>
+            ),
+          },
           { key: 'actions', label: '', render: (r) => r.status === 'pending' ? (
             <div className="flex gap-1">
               <Button
@@ -592,7 +653,7 @@ function RefundsView() {
                 variant="outline"
                 className="h-7 text-emerald-600"
                 disabled={approveMut.isPending || rejectMut.isPending}
-                onClick={() => handleApprove(r.id)}
+                onClick={() => { setApproveTarget(r); setApproveOpen(true); }}
               >
                 <CheckCircle className="w-3 h-3 mr-1" /> Approve
               </Button>
@@ -611,12 +672,71 @@ function RefundsView() {
         onFilter={() => {}}
       />
 
+      <AlertDialog open={approveOpen} onOpenChange={(o) => { if (!o) { setApproveOpen(false); setApproveTarget(null); } }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Approve refund?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="text-sm text-muted-foreground space-y-2 pt-2">
+                {approveTarget ? (
+                  <>
+                    <p>This credits the customer wallet (net) and debits vendor/platform per settlement rules.</p>
+                    <div className="rounded-md border bg-muted/40 p-3 space-y-1 text-foreground">
+                      <div className="flex justify-between text-xs">
+                        <span>Gross</span>
+                        <span className="font-mono font-medium">
+                          Rs. {Number(approveTarget.gross_amount ?? approveTarget.amount).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span>3% platform fee (retained)</span>
+                        <span className="font-mono">
+                          Rs. {Number(approveTarget.platform_fee ?? Math.round(Number(approveTarget.amount) * 0.03 * 100) / 100).toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-xs font-medium pt-1 border-t">
+                        <span>Net to customer</span>
+                        <span className="font-mono text-primary">
+                          Rs. {Number(
+                            approveTarget.net_credit ??
+                              Math.round(
+                                (Number(approveTarget.amount) - Math.round(Number(approveTarget.amount) * 0.03 * 100) / 100) *
+                                  100,
+                              ) / 100,
+                          ).toLocaleString()}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground pt-1">
+                        {approveTarget.deduction_summary || 'Wallet clawback per order settlement.'}
+                      </p>
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={approveMut.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={approveMut.isPending || !approveTarget}
+              className="bg-emerald-600 hover:bg-emerald-700"
+              onClick={(e) => {
+                e.preventDefault();
+                if (approveTarget) runApprove(approveTarget.id);
+              }}
+            >
+              {approveMut.isPending ? 'Approving…' : 'Confirm approve'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <CRUDModal open={rejectOpen} onClose={() => setRejectOpen(false)} title="Reject Refund Request" onSave={handleRejectSave} saveLabel="Reject Refund">
         {selected && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="p-3 bg-muted/50 rounded-lg"><p className="text-xs text-muted-foreground">Refund ID</p><p className="font-bold">{selected.id}</p></div>
-              <div className="p-3 bg-muted/50 rounded-lg"><p className="text-xs text-muted-foreground">Amount</p><p className="font-bold">Rs. {selected.amount}</p></div>
+              <div className="p-3 bg-muted/50 rounded-lg"><p className="text-xs text-muted-foreground">Gross</p><p className="font-bold">Rs. {selected.gross_amount ?? selected.amount}</p></div>
               <div className="p-3 bg-muted/50 rounded-lg"><p className="text-xs text-muted-foreground">Customer</p><p className="font-bold">{selected.customer}</p></div>
               <div className="p-3 bg-muted/50 rounded-lg"><p className="text-xs text-muted-foreground">Reason</p><p className="font-bold">{selected.reason}</p></div>
             </div>
