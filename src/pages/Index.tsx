@@ -1,7 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { Search } from 'lucide-react';
 import Header from '@/components/layout/Header';
-import StorefrontTextNav from '@/components/layout/StorefrontTextNav';
 import CategoryNav from '@/components/layout/CategoryNav';
 import MobileFooterNav from '@/components/layout/MobileFooterNav';
 import Footer from '@/components/layout/Footer';
@@ -31,18 +30,17 @@ import { resolveThemeClass } from '@/lib/categoryTheme';
 import { useLocation } from 'react-router-dom';
 import { storefrontRoutes } from '@/lib/routes';
 
-/** Subtle strip behind category icon nav (non-all) — white + light pink wash */
 const categoryHeaderStyles: Record<string, string> = {
   all: '',
-  default: 'bg-gradient-to-r from-background via-primary/[0.04] to-background',
-  cafe: 'bg-gradient-to-r from-background via-primary/[0.05] to-background',
-  home: 'bg-gradient-to-r from-background via-primary/[0.05] to-background',
-  toys: 'bg-gradient-to-r from-background via-primary/[0.05] to-background',
-  fresh: 'bg-gradient-to-r from-background via-primary/[0.05] to-background',
-  electronics: 'bg-gradient-to-r from-background via-primary/[0.05] to-background',
-  mobiles: 'bg-gradient-to-r from-background via-primary/[0.05] to-background',
-  beauty: 'bg-gradient-to-r from-background via-primary/[0.05] to-background',
-  fashion: 'bg-gradient-to-r from-background via-primary/[0.05] to-background',
+  default: 'bg-gradient-to-r from-muted/40 to-muted/25 dark:from-muted/20 dark:to-muted/10',
+  cafe: 'bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20',
+  home: 'bg-gradient-to-r from-sky-50 to-teal-50 dark:from-sky-950/20 dark:to-teal-950/20',
+  toys: 'bg-gradient-to-r from-amber-50 to-violet-50 dark:from-amber-950/20 dark:to-violet-950/20',
+  fresh: 'bg-gradient-to-r from-emerald-50 to-lime-50 dark:from-emerald-950/20 dark:to-lime-950/20',
+  electronics: 'bg-gradient-to-r from-slate-50 to-blue-50 dark:from-slate-950/20 dark:to-blue-950/20',
+  mobiles: 'bg-gradient-to-r from-indigo-50 to-cyan-50 dark:from-indigo-950/20 dark:to-cyan-950/20',
+  beauty: 'bg-gradient-to-r from-amber-50 to-yellow-50 dark:from-amber-950/20 dark:to-yellow-950/20',
+  fashion: 'bg-gradient-to-r from-violet-50 to-purple-50 dark:from-violet-950/20 dark:to-purple-950/20',
 };
 
 const Index = () => {
@@ -190,7 +188,6 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background pb-0 md:pb-0">
       <Header />
-      <StorefrontTextNav activeCategory={activeCategory} onCategoryChange={handleCategoryChange} />
       <div className={headerClass}>
         <CategoryNav activeCategory={activeCategory} onCategoryChange={handleCategoryChange} />
       </div>
@@ -201,18 +198,6 @@ const Index = () => {
           <>
             <HomePromoStrip />
             <ShopByCategory onCategoryClick={handleCategoryChange} />
-
-            {flashDealProductsUi.length > 0 && (
-              <FlashDeals
-                products={flashDealProductsUi}
-                categoryTheme="cafe"
-                listingScope="home-flash-deals"
-                endsAt={flashEndsAt}
-              />
-            )}
-
-            <BrandShowcase />
-
             <DiscountPromoCard discountedCount={bestDealsProducts.length} />
 
             {bestDealsProducts.length > 0 && (
@@ -229,6 +214,17 @@ const Index = () => {
                 products={latestProducts}
                 categoryTheme="fresh"
                 listingScope="home-latest-arrivals"
+              />
+            )}
+
+            <BrandShowcase />
+
+            {flashDealProductsUi.length > 0 && (
+              <FlashDeals
+                products={flashDealProductsUi}
+                categoryTheme="cafe"
+                listingScope="home-flash-deals"
+                endsAt={flashEndsAt}
               />
             )}
 

@@ -28,7 +28,8 @@ interface ProductCardProps {
   sectionFrame?: ProductCardSectionFrame;
 }
 
-const DISCOUNT_GREEN = '#4CAF50';
+const DISCOUNT_GREEN = '#28A745';
+const ADD_ORANGE = '#FF9800';
 
 const ProductCard = ({
   product,
@@ -154,7 +155,7 @@ const ProductCard = ({
       <div
         className={cn(
           `product-card theme-${theme} flex flex-col h-full rounded-xl bg-card shadow-md border border-border/40`,
-          sectionFrame === 'flash' && 'border-border/50 shadow-md',
+          sectionFrame === 'flash' && 'ring-2 ring-[hsl(var(--storefront-orange)/0.28)] shadow-md',
         )}
       >
         <div className="relative shrink-0">
@@ -193,20 +194,20 @@ const ProductCard = ({
             )}
 
             {showBestseller && (
-              <div className="absolute top-2 right-2 z-10 px-2 py-1 rounded-md bg-primary text-primary-foreground text-[11px] md:text-[10px] font-bold shadow-sm">
+              <div className="absolute top-2 right-2 z-10 px-2 py-1 rounded-md bg-amber-500 text-white text-[11px] md:text-[10px] font-bold shadow-sm">
                 Bestseller
               </div>
             )}
 
             {showAccent && (
               <div
-                className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-sm bg-primary/15 border border-primary/35"
+                className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full flex items-center justify-center backdrop-blur-sm bg-amber-500/25 border border-amber-400/30"
                 aria-hidden
               >
                 {topRightAccent === 'hot' ? (
-                  <Flame className="w-4 h-4 text-primary" strokeWidth={2.25} />
+                  <Flame className="w-4 h-4 text-amber-600" strokeWidth={2.25} />
                 ) : (
-                  <TrendingUp className="w-4 h-4 text-primary" strokeWidth={2.25} />
+                  <TrendingUp className="w-4 h-4 text-amber-600" strokeWidth={2.25} />
                 )}
               </div>
             )}
@@ -229,14 +230,16 @@ const ProductCard = ({
                     : childCommerceDisabled
                 }
                 className={cn(
-                  'absolute bottom-2 right-2 z-20 px-3.5 py-1.5 rounded-lg text-xs font-bold shadow-md transition-all text-primary-foreground',
+                  'absolute bottom-2 right-2 z-20 px-3.5 py-1.5 rounded-lg text-white text-xs font-bold shadow-md transition-all',
                   showChildPurchaseRequest || !childCommerceDisabled
                     ? 'hover:opacity-95 active:scale-[0.97]'
-                    : 'opacity-50 cursor-not-allowed',
-                  childCommerceDisabled && !showChildPurchaseRequest && 'bg-muted-foreground',
-                  showChildPurchaseRequest && 'bg-indigo-500',
-                  !showChildPurchaseRequest && !childCommerceDisabled && 'bg-primary',
+                    : 'opacity-50 cursor-not-allowed bg-muted-foreground',
                 )}
+                style={
+                  showChildPurchaseRequest || !childCommerceDisabled
+                    ? { backgroundColor: showChildPurchaseRequest ? '#6366f1' : ADD_ORANGE }
+                    : undefined
+                }
                 aria-label={showChildPurchaseRequest ? 'Request purchase approval' : 'Add to cart'}
               >
                 {showChildPurchaseRequest
@@ -288,7 +291,7 @@ const ProductCard = ({
         >
           {isSoldOut ? (
             <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0">
-              <span className="product-price-current text-lg md:text-base">{formatPrice(product.price)}</span>
+              <span className="text-lg md:text-base font-bold text-foreground">{formatPrice(product.price)}</span>
               {showOriginal && (
                 <span className="text-sm md:text-xs text-muted-foreground line-through">
                   {formatPrice(product.originalPrice!)}
@@ -298,7 +301,7 @@ const ProductCard = ({
           ) : (
             <>
               <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0">
-                <span className="product-price-current text-lg md:text-base">{formatPrice(product.price)}</span>
+                <span className="text-lg md:text-base font-bold text-foreground">{formatPrice(product.price)}</span>
                 {showOriginal && (
                   <span className="text-sm md:text-xs text-[#666666] line-through">
                     {formatPrice(product.originalPrice!)}

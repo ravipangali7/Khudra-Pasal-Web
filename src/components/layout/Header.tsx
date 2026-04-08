@@ -27,20 +27,10 @@ function initialsFromName(name: string | undefined): string {
 /** Shown only when the API returns no admin-configured placeholders. */
 const NEUTRAL_SEARCH_HINT = "products and categories";
 
-/** Mobile header height (toolbar + search strip) for sticky children below the header. */
-export const STOREFRONT_HEADER_HEIGHT_MOBILE = "112px";
-
-/** Text nav row sticks directly under the sticky header. */
-export const STOREFRONT_TEXT_NAV_STICKY_TOP = "top-[112px] md:top-16";
-
 /**
- * Sticky offset for CategoryNav: below header + {@link StorefrontTextNav}.
- * Mobile ~112px + ~44px text bar; md ~64px + ~40px text bar.
+ * Sticky offset for CategoryNav: mobile = main row + search strip; md+ = single toolbar row.
  */
-export const STOREFRONT_CATEGORY_NAV_STICKY_TOP = "top-[156px] md:top-[104px]";
-
-/** @deprecated Use STOREFRONT_CATEGORY_NAV_STICKY_TOP */
-export const STOREFRONT_HEADER_STICKY_OFFSET = STOREFRONT_CATEGORY_NAV_STICKY_TOP;
+export const STOREFRONT_HEADER_STICKY_OFFSET = "top-[112px] md:top-16";
 
 const Header = () => {
   const portalChrome = usePortalHeaderChrome();

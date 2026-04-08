@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom';
 import { Tag, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+const CORAL = '#f06565';
+
 interface DiscountDealsBannerProps {
   dealCount: number;
   /** When set, the whole banner is clickable and shows the CTA chip. */
@@ -23,9 +25,9 @@ function BannerInner({
   return (
     <div
       className={cn(
-        'flex flex-wrap items-center justify-between gap-4 rounded-2xl px-5 py-4 md:px-8 md:py-5 shadow-md',
-        'bg-gradient-to-r from-secondary via-secondary to-[hsl(270_65%_42%)]',
+        'flex flex-wrap items-center justify-between gap-4 rounded-3xl px-5 py-4 md:px-8 md:py-5 shadow-md',
       )}
+      style={{ backgroundColor: CORAL }}
     >
       <div className="flex min-w-0 items-center gap-4 md:gap-5">
         <div className="flex h-12 w-12 shrink-0 items-center justify-center md:h-14 md:w-14" aria-hidden>
@@ -36,16 +38,15 @@ function BannerInner({
           />
         </div>
         <div className="min-w-0">
-          <h2 className="text-lg font-black uppercase tracking-tight text-yellow-300 md:text-2xl drop-shadow-sm">
-            Discounted Products
-          </h2>
-          <p className="mt-0.5 text-sm font-medium text-white/95 md:text-[15px]">{subtitle}</p>
+          <h2 className="text-lg font-bold text-white md:text-xl">Discounted Products</h2>
+          <p className="mt-0.5 text-sm font-normal text-white/95 md:text-[15px]">{subtitle}</p>
         </div>
       </div>
 
       {!hideCta && (
         <span
-          className="inline-flex items-center gap-1 rounded-full bg-yellow-300 px-5 py-2.5 text-sm font-bold text-secondary shadow-sm md:px-6 md:py-3"
+          className="inline-flex items-center gap-1 rounded-full bg-white px-5 py-2.5 text-sm font-bold shadow-sm md:px-6 md:py-3"
+          style={{ color: CORAL }}
         >
           View All Deals
           <ArrowRight className="h-4 w-4" strokeWidth={2.5} />
@@ -56,7 +57,7 @@ function BannerInner({
 }
 
 /**
- * Purple promo banner with yellow headline emphasis (reference image 1).
+ * Coral promo banner (home / section header) matching storefront discount deals design.
  */
 const DiscountDealsBanner = ({ dealCount, to, hideCta = false, className }: DiscountDealsBannerProps) => {
   const inner = <BannerInner dealCount={dealCount} hideCta={hideCta} />;

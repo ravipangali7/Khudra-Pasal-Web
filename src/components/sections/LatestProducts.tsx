@@ -37,7 +37,7 @@ const LatestProducts = ({
         </div>
         <Link
           to={href}
-          className="flex items-center gap-0.5 text-sm font-bold text-primary hover:underline shrink-0 pt-0.5"
+          className="flex items-center gap-0.5 text-sm font-bold text-foreground hover:underline shrink-0 pt-0.5"
         >
           View All <ChevronRight className="w-4 h-4" />
         </Link>

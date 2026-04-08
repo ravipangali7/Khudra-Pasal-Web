@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { websiteApi } from '@/lib/api';
 import { cn } from '@/lib/utils';
-import { STOREFRONT_CATEGORY_NAV_STICKY_TOP } from '@/components/layout/Header';
+import { STOREFRONT_HEADER_STICKY_OFFSET } from '@/components/layout/Header';
 import { storefrontRoutes } from '@/lib/routes';
 
 interface CategoryNavProps {
@@ -67,7 +67,7 @@ const CategoryNav = ({ activeCategory, onCategoryChange }: CategoryNavProps) => 
     );
 
   return (
-    <nav className={cn('bg-white border-b border-border/60 sticky z-40 shadow-[0_4px_12px_-4px_rgba(0,0,0,0.06)]', STOREFRONT_CATEGORY_NAV_STICKY_TOP)}>
+    <nav className={cn('bg-white border-b border-border/60 sticky z-40 shadow-[0_4px_12px_-4px_rgba(0,0,0,0.06)]', STOREFRONT_HEADER_STICKY_OFFSET)}>
       <div className="container mx-auto px-2 md:px-4">
         <div
           className="relative"

@@ -8,20 +8,22 @@
 
 @layer base {
   :root {
-    /* Reference image 1: pink #E91E63, green #4CAF50, soft orange #FFB74D */
-    --storefront-pink: 340 82% 52%;
+    /* Reference palette: amber #F59E0B, green #4CAF50, orange #FF9800 */
+    --storefront-pink: 38 92% 50%;
     --storefront-green: 122 39% 51%;
-    --storefront-orange: 36 100% 72%;
+    --storefront-orange: 36 100% 50%;
     --storefront-orange-deep: 14 90% 48%;
 
     --brand-orange: 36 100% 50%;
     --brand-purple: 270 80% 35%;
-    --marketplace-cta: 340 82% 52%;
-    --marketplace-cta-foreground: 0 0% 100%;
+    /* Add to cart, hero accents, nav active — amber */
+    --marketplace-cta: 38 92% 50%;
+    --marketplace-cta-foreground: 28 30% 10%;
+    /* Discount badges on product cards */
     --discount-badge: 122 39% 51%;
 
     /* Background & Foreground */
-    --background: 0 0% 100%;
+    --background: 0 0% 98%;
     --foreground: 222 47% 11%;
 
     --card: 0 0% 100%;
@@ -30,9 +32,9 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    /* Primary — storefront pink */
-    --primary: 340 82% 52%;
-    --primary-foreground: 0 0% 100%;
+    /* Primary — storefront amber */
+    --primary: 38 92% 50%;
+    --primary-foreground: 28 30% 10%;
 
     /* Secondary — soft purple for variety */
     --secondary: 270 80% 35%;
@@ -49,13 +51,13 @@
 
     --border: 214 32% 91%;
     --input: 214 32% 91%;
-    --ring: 340 82% 52%;
+    --ring: 38 92% 50%;
 
     --radius: 0.75rem;
 
     /* Category Theme Colors - HSL Values */
     --category-all: 122 39% 51%;
-    --category-cafe: 340 82% 52%;
+    --category-cafe: 38 92% 50%;
     --category-home: 263 70% 50%;
     --category-toys: 21 90% 48%;
     --category-fresh: 122 39% 51%;
@@ -64,9 +66,9 @@
     --category-beauty: 347 77% 50%;
     --category-fashion: 239 84% 67%;
 
-    /* Gradients — hero: pink → soft orange (reference image 1) */
-    --gradient-hero: linear-gradient(90deg, hsl(340 82% 52%) 0%, hsl(36 100% 72%) 100%);
-    --gradient-cafe: linear-gradient(90deg, hsl(340 82% 52%) 0%, hsl(36 100% 72%) 100%);
+    /* Gradients */
+    --gradient-hero: linear-gradient(135deg, hsl(38 92% 50%) 0%, hsl(30 95% 52%) 100%);
+    --gradient-cafe: linear-gradient(135deg, hsl(38 92% 50%) 0%, hsl(28 92% 48%) 100%);
     --gradient-electronics: linear-gradient(135deg, hsl(217 91% 60%) 0%, hsl(239 84% 67%) 100%);
     --gradient-fresh: linear-gradient(135deg, hsl(142 71% 45%) 0%, hsl(160 84% 39%) 100%);
     --gradient-mobiles: linear-gradient(135deg, hsl(271 81% 56%) 0%, hsl(280 85% 50%) 100%);
@@ -81,7 +83,7 @@
     --shadow-product: 0 4px 12px 0 rgb(0 0 0 / 0.1);
 
     /* Sidebar defaults */
-    --sidebar-background: 0 0% 100%;
+    --sidebar-background: 0 0% 98%;
     --sidebar-foreground: 240 5% 26%;
     --sidebar-primary: 240 6% 10%;
     --sidebar-primary-foreground: 0 0% 98%;
@@ -101,8 +103,8 @@
     --popover: 222 47% 8%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 340 75% 58%;
-    --primary-foreground: 0 0% 100%;
+    --primary: 40 94% 56%;
+    --primary-foreground: 28 30% 10%;
 
     --secondary: 270 80% 45%;
     --secondary-foreground: 0 0% 100%;
@@ -116,12 +118,12 @@
     --destructive: 0 63% 31%;
     --destructive-foreground: 210 40% 98%;
 
-    --marketplace-cta: 340 75% 58%;
-    --marketplace-cta-foreground: 0 0% 100%;
+    --marketplace-cta: 40 94% 56%;
+    --marketplace-cta-foreground: 28 30% 10%;
 
     --border: 217 33% 17%;
     --input: 217 33% 17%;
-    --ring: 340 75% 58%;
+    --ring: 40 94% 56%;
 
     --sidebar-background: 240 6% 10%;
     --sidebar-foreground: 240 5% 96%;
@@ -258,14 +260,9 @@
     border-color: hsl(var(--theme-color, var(--primary)));
   }
 
-  /* Price Styles — green on product cards (reference image 1) */
+  /* Price Styles */
   .price-current {
     @apply font-bold text-foreground;
-  }
-
-  .product-card .product-price-current {
-    @apply font-bold;
-    color: hsl(var(--storefront-green));
   }
 
   .price-original {
@@ -312,7 +309,7 @@
   /* Hero Banner */
   .hero-banner {
     @apply relative overflow-hidden rounded-2xl;
-    background: var(--theme-gradient, var(--gradient-hero));
+    background: var(--theme-gradient, var(--gradient-cafe));
   }
 
   /* Section Headers */
@@ -326,7 +323,7 @@
 
   .see-all-link {
     @apply text-sm font-semibold flex items-center gap-1 transition-colors;
-    color: hsl(var(--primary));
+    color: hsl(var(--theme-color, var(--primary)));
   }
 
   .see-all-link:hover {
@@ -342,7 +339,7 @@
   /* Floating Cart - Hidden on desktop, positioned above mobile footer */
   .floating-cart {
     @apply fixed z-40 flex items-center gap-3 px-5 py-2.5 rounded-full text-white font-semibold;
-    background: linear-gradient(135deg, hsl(var(--storefront-pink)) 0%, hsl(36 100% 65%) 100%);
+    background: linear-gradient(135deg, hsl(var(--storefront-pink)) 0%, hsl(30 92% 48%) 100%);
     box-shadow: 0 4px 20px rgba(0,0,0,0.25);
     bottom: calc(60px + env(safe-area-inset-bottom));
     left: 50%;

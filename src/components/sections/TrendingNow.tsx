@@ -18,7 +18,7 @@ const TrendingNow = ({ products, listingScope, trendingText }: TrendingNowProps)
 
       {trendingText ? (
         <div className="flex items-center gap-2 mb-4 py-2 px-4 bg-muted rounded-lg overflow-hidden">
-          <TrendingUp className="w-5 h-5 text-primary flex-shrink-0" />
+          <TrendingUp className="w-5 h-5 text-category-cafe flex-shrink-0" />
           <div className="overflow-hidden">
             <p className="text-sm font-medium text-foreground animate-slide-up">{trendingText}</p>
           </div>

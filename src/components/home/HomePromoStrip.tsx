@@ -95,7 +95,7 @@ const HomePromoStrip = () => {
           const cta = row.cta_text?.trim() || 'Order now';
           const inner = (
             <>
-              <DecorativeBlob className="bg-white/20" />
+              <DecorativeBlob className="bg-emerald-200/50" />
               <div className="relative z-[1] flex min-h-[120px] flex-col justify-between md:min-h-[140px]">
                 <div>
                   <h3 className="text-sm font-bold leading-tight text-white md:text-base">{row.title}</h3>
@@ -115,14 +115,14 @@ const HomePromoStrip = () => {
             <PromoNavLink
               key={row.id}
               href={href}
-              className="relative block overflow-hidden rounded-2xl border border-storefront-green/35 bg-gradient-to-br from-storefront-green to-emerald-800 p-4 text-left shadow-card transition-shadow hover:shadow-product"
+              className="relative block overflow-hidden rounded-2xl border border-teal-600/30 bg-gradient-to-br from-teal-500 to-cyan-600 p-4 text-left shadow-card transition-shadow hover:shadow-product"
             >
               {inner}
             </PromoNavLink>
           ) : (
             <div
               key={row.id}
-              className="relative overflow-hidden rounded-2xl border border-storefront-green/35 bg-gradient-to-br from-storefront-green to-emerald-800 p-4 shadow-card"
+              className="relative overflow-hidden rounded-2xl border border-teal-600/30 bg-gradient-to-br from-teal-500 to-cyan-600 p-4 shadow-card"
             >
               {inner}
             </div>
@@ -133,7 +133,7 @@ const HomePromoStrip = () => {
           const cta = row.cta_text?.trim() || 'Shop now';
           const inner = (
             <>
-              <DecorativeBlob className="bg-white/15" />
+              <DecorativeBlob className="bg-amber-200/40" />
               <div className="relative z-[1] flex min-h-[120px] flex-col justify-between md:min-h-[140px]">
                 <div>
                   <h3 className="text-sm font-bold leading-tight text-white md:text-base">{row.title}</h3>
@@ -153,14 +153,14 @@ const HomePromoStrip = () => {
             <PromoNavLink
               key={row.id}
               href={href}
-              className="relative block overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-primary to-fuchsia-700 p-4 text-left shadow-card transition-shadow hover:shadow-product"
+              className="relative block overflow-hidden rounded-2xl border border-primary/25 bg-gradient-to-br from-primary to-amber-600 p-4 text-left shadow-card transition-shadow hover:shadow-product"
             >
               {inner}
             </PromoNavLink>
           ) : (
             <div
               key={row.id}
-              className="relative overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-primary to-fuchsia-700 p-4 shadow-card"
+              className="relative overflow-hidden rounded-2xl border border-primary/25 bg-gradient-to-br from-primary to-amber-600 p-4 shadow-card"
             >
               {inner}
             </div>
@@ -170,17 +170,17 @@ const HomePromoStrip = () => {
         if (variant === 'white_discount') {
           const cta = row.cta_text?.trim() || 'Shop now';
           const cardBody = (
-            <div className="flex min-h-[120px] flex-col justify-between rounded-2xl border-2 border-primary/15 bg-card p-4 shadow-card ring-1 ring-storefront-green/20 md:min-h-[140px]">
+            <div className="flex min-h-[120px] flex-col justify-between rounded-2xl border border-border/80 bg-card p-4 shadow-card md:min-h-[140px]">
               <div>
                 <h3 className="text-sm font-bold text-foreground md:text-base">{row.title}</h3>
                 {row.badge_text?.trim() ? (
-                  <p className="mt-2 inline-block border border-primary/40 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-primary md:text-xs">
+                  <p className="mt-2 inline-block border border-foreground px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-foreground md:text-xs">
                     {row.badge_text.trim()}
                   </p>
                 ) : null}
               </div>
               {href ? (
-                <span className="mt-3 w-fit text-xs font-semibold text-primary underline underline-offset-2 md:text-sm">
+                <span className="mt-3 w-fit text-xs font-semibold text-foreground underline underline-offset-2 md:text-sm">
                   {cta}
                 </span>
               ) : null}
@@ -204,7 +204,7 @@ const HomePromoStrip = () => {
         /* white_link */
         const cta = row.cta_text?.trim() || 'See All';
         const cardBody = (
-          <div className="flex min-h-[120px] flex-col justify-between rounded-2xl border-2 border-primary/12 bg-card p-4 shadow-card ring-1 ring-border/60 md:min-h-[140px]">
+          <div className="flex min-h-[120px] flex-col justify-between rounded-2xl border border-border/80 bg-card p-4 shadow-card md:min-h-[140px]">
             <div>
               <h3 className="text-sm font-bold text-foreground md:text-base">{row.title}</h3>
               {row.subtitle ? (
@@ -212,7 +212,7 @@ const HomePromoStrip = () => {
               ) : null}
             </div>
             {href ? (
-              <span className="mt-3 w-fit text-xs font-semibold text-primary underline underline-offset-2 md:text-sm">
+              <span className="mt-3 w-fit text-xs font-semibold text-foreground underline underline-offset-2 md:text-sm">
                 {cta}
               </span>
             ) : null}
