@@ -150,6 +150,8 @@ const Checkout = () => {
   } | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [deliveryQuoteFailed, setDeliveryQuoteFailed] = useState(false);
+  /** Optional; server validates and applies — client does not estimate discount amount. */
+  const [couponCode, setCouponCode] = useState('');
 
   const { data: shippingZones = [], isLoading: zonesLoading } = useQuery({
     queryKey: ['website', 'shipping-zones'],
@@ -285,6 +287,7 @@ const Checkout = () => {
       !deliveryQuoteFailed &&
       deliveryQuote !== null);
   const totalAmount = baseSubtotal + deliveryFee;
+  const couponEntered = couponCode.trim().length > 0;
 
   const checkoutWalletsTotalBalance = useMemo(() => {
     const list = walletCheckoutCtx?.payable_wallets;
@@ -363,9 +366,9 @@ const Checkout = () => {
     !hasStorefrontSession ||
     !walletCheckoutCtx?.default ||
     (wantDelivery && !deliveryPricingReady) ||
-    (effectivePayWallet != null && totalAmount > effectivePayWallet.balance) ||
-    effectiveWalletOverChildSpendingLimit ||
-    childSpendingLimitNoPersonalOutlet;
+    (!couponEntered && effectivePayWallet != null && totalAmount > effectivePayWallet.balance) ||
+    (!couponEntered && effectiveWalletOverChildSpendingLimit) ||
+    (!couponEntered && childSpendingLimitNoPersonalOutlet);
 
   const steps: { key: CheckoutStep; label: string; icon: typeof Truck }[] = [
     { key: 'cart', label: 'Cart', icon: Truck },
@@ -535,6 +538,7 @@ const Checkout = () => {
       rules &&
       effectivePayWallet &&
       effectivePayWallet.child_spending_limits_apply !== false &&
+      !couponEntered &&
       childOrderWouldExceedSpendingLimits(totalAmount, rules)
     ) {
       toast.error(
@@ -559,6 +563,10 @@ const Checkout = () => {
       payload.pay_wallet_id = payWalletId;
     }
 
+    if (couponEntered) {
+      payload.coupon_code = couponCode.trim();
+    }
+
     if (wantDelivery) {
       payload.shipping_zone_id = shippingZoneId;
       payload.delivery = {
@@ -577,6 +585,7 @@ const Checkout = () => {
     }
 
     const walletInsufficient =
+      !couponEntered &&
       !walletCtxLoading &&
       Boolean(walletCheckoutCtx?.default) &&
       effectivePayWallet != null &&
@@ -1187,6 +1196,28 @@ const Checkout = () => {
                   <span className="text-muted-foreground">Subtotal ({baseCount} items)</span>
                   <span>{formatPrice(baseSubtotal)}</span>
                 </div>
+                {step === 'payment' && (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-medium text-muted-foreground" htmlFor="checkout-coupon">
+                      Promo code (optional)
+                    </label>
+                    <input
+                      id="checkout-coupon"
+                      type="text"
+                      value={couponCode}
+                      onChange={(e) => setCouponCode(e.target.value)}
+                      autoComplete="off"
+                      placeholder="Enter code"
+                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-category-fresh"
+                    />
+                    {couponEntered ? (
+                      <p className="text-xs text-muted-foreground">
+                        Discount is calculated when you place the order. Subtotal above may not include promo
+                        pricing for flash deals — totals always match the server.
+                      </p>
+                    ) : null}
+                  </div>
+                )}
                 {wantDelivery && (
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Delivery Fee</span>
@@ -1205,9 +1236,14 @@ const Checkout = () => {
               </div>
 
               <div className="flex justify-between py-4 font-bold text-lg">
-                <span>Total</span>
+                <span>{couponEntered ? 'Due before coupon' : 'Total'}</span>
                 <span className="text-category-fresh">{formatPrice(totalAmount)}</span>
               </div>
+              {couponEntered ? (
+                <p className="text-xs text-muted-foreground -mt-2 mb-3">
+                  Wallet is charged the final total after your code is applied (shown on success).
+                </p>
+              ) : null}
 
               <button
                 type="button"
