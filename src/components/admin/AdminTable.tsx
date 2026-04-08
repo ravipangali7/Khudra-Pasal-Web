@@ -93,8 +93,8 @@ export default function AdminTable<T extends Record<string, any>>({
   const allSelected = filteredData.length > 0 && selectedRows.length === filteredData.length;
 
   return (
-    <Card>
-      <CardHeader className="pb-4">
+    <Card className="flex min-w-0 max-w-full flex-col">
+      <CardHeader className="shrink-0 pb-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
             <h2 className="text-lg font-semibold text-foreground">{title}</h2>
@@ -169,9 +169,9 @@ export default function AdminTable<T extends Record<string, any>>({
         </div>
       </CardHeader>
 
-      <CardContent className="p-0">
-        <div className="overflow-x-auto">
-          <table className="w-full">
+      <CardContent className="p-0 min-w-0 overflow-hidden">
+        <div className="min-w-0 overflow-x-auto overscroll-x-contain">
+          <table className="w-full min-w-max">
             <thead className="bg-muted/50 border-y border-border">
               <tr>
                 {bulkActions.length > 0 && (
