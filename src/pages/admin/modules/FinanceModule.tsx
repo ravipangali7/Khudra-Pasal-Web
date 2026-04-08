@@ -718,12 +718,6 @@ function RefundsView() {
               const { Icon: PortalIcon, label: portalLabel } = portalProfileMeta(r.placed_portal);
               return (
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="min-w-0 flex-1 text-left">
-                    <p className="font-medium truncate">{r.customer}</p>
-                    {r.customer_phone ? (
-                      <p className="text-xs text-muted-foreground truncate">{r.customer_phone}</p>
-                    ) : null}
-                  </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <Avatar className="h-9 w-9 border border-border">
                       {r.customer_avatar ? (
@@ -743,6 +737,12 @@ function RefundsView() {
                         {portalLabel}
                       </TooltipContent>
                     </Tooltip>
+                  </div>
+                  <div className="min-w-0 flex-1 text-left">
+                    <p className="font-medium truncate">{r.customer}</p>
+                    {r.customer_phone ? (
+                      <p className="text-xs text-muted-foreground truncate">{r.customer_phone}</p>
+                    ) : null}
                   </div>
                 </div>
               );
