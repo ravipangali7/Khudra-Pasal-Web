@@ -28,6 +28,7 @@ import { DashboardSectionCard } from '@/components/admin/dashboard/DashboardSect
 import { SalesOrdersSection } from '@/components/admin/dashboard/SalesOrdersSection';
 import type { SalesChartPeriod } from '@/components/admin/dashboard/SalesOrdersChart';
 import { WalletActivitySection } from '@/components/admin/dashboard/WalletActivitySection';
+import { ProductAnalyticsSection } from '@/components/admin/dashboard/ProductAnalyticsSection';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -128,12 +129,22 @@ export default function DashboardModule({ onNavigate }: DashboardModuleProps) {
   const [freezeAllOpen, setFreezeAllOpen] = useState(false);
   const [salesChartPeriod, setSalesChartPeriod] = useState<SalesChartPeriod>('7');
   const [walletChartPeriod, setWalletChartPeriod] = useState<SalesChartPeriod>('7');
+  const [productChartPeriod, setProductChartPeriod] = useState<SalesChartPeriod>('30');
   const [approveKyc, setApproveKyc] = useState<AdminKycSubmissionRow | null>(null);
   const [rejectKycId, setRejectKycId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
 
   const salesDays = Number(salesChartPeriod) as 7 | 30 | 90;
   const walletDays = Number(walletChartPeriod) as 7 | 30 | 90;
+  const productDays = Number(productChartPeriod) as 7 | 30 | 90;
+
+  const productSnapshotParams = useMemo(() => {
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(endDate.getDate() - (productDays - 1));
+    const toYmd = (date: Date) => date.toISOString().slice(0, 10);
+    return { date_from: toYmd(startDate), date_to: toYmd(endDate) };
+  }, [productDays]);
 
   const { data: summary, isLoading: summaryLoading } = useQuery({
     queryKey: ['admin', 'dashboard', 'summary'],
@@ -228,6 +239,19 @@ export default function DashboardModule({ onNavigate }: DashboardModuleProps) {
     retry: false,
   });
 
+  const {
+    data: productSnapshot,
+    isLoading: productSnapshotLoading,
+    isError: productSnapshotError,
+    refetch: refetchProductSnapshot,
+  } = useQuery({
+    queryKey: ['admin', 'dashboard', 'product-analytics', productSnapshotParams.date_from, productSnapshotParams.date_to],
+    queryFn: () => adminApi.reportsSnapshot(productSnapshotParams),
+    staleTime: DASH_STALE,
+    refetchInterval: DASH_POLL,
+    retry: false,
+  });
+
   const { data: recentOrdersApi } = useQuery({
     queryKey: ['admin', 'dashboard', 'recent-orders'],
     queryFn: () => adminApi.recentOrders(),
@@ -307,6 +331,33 @@ export default function DashboardModule({ onNavigate }: DashboardModuleProps) {
       withdrawal: item.withdrawal,
     }));
   }, [walletSeriesResp?.series]);
+
+  const productChartRows = useMemo(() => {
+    const salesSeries = productSnapshot?.series ?? [];
+    if (!salesSeries.length) return [];
+    const signupByDay = new Map((productSnapshot?.signup_series ?? []).map((d) => [d.day, d.signups]));
+    return salesSeries.map((item) => ({
+      name: new Date(item.day + 'T12:00:00').toLocaleDateString(undefined, {
+        month: 'short',
+        day: 'numeric',
+      }),
+      sales: item.sales,
+      orders: item.orders,
+      signups: signupByDay.get(item.day) ?? 0,
+    }));
+  }, [productSnapshot]);
+
+  const topCategory = useMemo(() => {
+    const rows = productSnapshot?.category_breakdown ?? [];
+    if (!rows.length) return null;
+    return rows.reduce((best, row) => (row.sales > best.sales ? row : best));
+  }, [productSnapshot?.category_breakdown]);
+
+  const topVendor = useMemo(() => {
+    const rows = productSnapshot?.vendor_breakdown ?? [];
+    if (!rows.length) return null;
+    return rows.reduce((best, row) => (row.sales > best.sales ? row : best));
+  }, [productSnapshot?.vendor_breakdown]);
 
   const uiRecentOrders =
     recentOrdersApi?.map((order) => ({
@@ -659,13 +710,24 @@ export default function DashboardModule({ onNavigate }: DashboardModuleProps) {
           description="Open Reports for category, vendor, and time-range breakdowns."
           onCardClick={() => onNavigate('reports')}
         >
-          <div className="flex flex-col items-center justify-center py-10 text-center text-sm text-muted-foreground gap-3 bg-muted/20 rounded-lg border border-dashed border-border">
-            <BarChart3 className="w-10 h-10 text-primary/60" />
-            <p>Top-selling product rankings are available in the Reports module.</p>
-            <Button variant="default" size="sm" onClick={() => onNavigate('reports')}>
-              Open Reports
-            </Button>
-          </div>
+          <ProductAnalyticsSection
+            rows={productChartRows}
+            period={productChartPeriod}
+            onPeriodChange={setProductChartPeriod}
+            isLoading={productSnapshotLoading}
+            isError={productSnapshotError}
+            onRetry={() => void refetchProductSnapshot()}
+            totalSales={productSnapshot?.kpis.total_sales}
+            totalOrders={productSnapshot?.kpis.total_orders}
+            avgOrderValue={productSnapshot?.kpis.aov}
+            salesGrowth={productSnapshot?.kpis.sales_growth_pct}
+            ordersGrowth={productSnapshot?.kpis.orders_growth_pct}
+            topCategoryName={topCategory?.name}
+            topCategorySales={topCategory?.sales}
+            topVendorName={topVendor?.name}
+            topVendorSales={topVendor?.sales}
+            onOpenReports={() => onNavigate('reports')}
+          />
         </DashboardSectionCard>
 
         <DashboardSectionCard
