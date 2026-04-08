@@ -92,8 +92,8 @@ export default function POSSystem({ variant = 'admin' }: POSSystemProps) {
   const [paymentModal, setPaymentModal] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<string | null>(null);
   const adminCheckout = useAdminMutation(
-    (payload: Parameters<typeof adminApi.createPurchaseOrder>[0]) => adminApi.createPurchaseOrder(payload),
-    [['admin', 'purchase-orders', 'po']],
+    (payload: Parameters<typeof adminApi.adminPosCheckout>[0]) => adminApi.adminPosCheckout(payload),
+    [['admin', 'purchase-orders', 'po'], ['admin', 'products', 'pos']],
   );
 
   const vendorCheckout = useMutation({
@@ -222,8 +222,8 @@ export default function POSSystem({ variant = 'admin' }: POSSystemProps) {
           quantity: c.quantity,
           unit_price: c.product.price,
         })),
+        tax_percent: 0,
         discount: discountAmount,
-        delivery_fee: 0,
         payment_method: selectedPayment,
       },
       { onSuccess: onDone },

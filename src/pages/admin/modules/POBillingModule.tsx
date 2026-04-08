@@ -39,6 +39,7 @@ type POListRow = {
   total: number;
   status: string;
   date: string;
+  record_type?: 'purchase_order' | 'pos_order';
 };
 
 type POProductRow = { id: string; name: string; sku: string; price: number; image_url?: string };
@@ -86,6 +87,7 @@ export default function POBillingModule() {
   const crud = useAdminCrudPolicy();
   const [modalOpen, setModalOpen] = useState(false);
   const [previewPk, setPreviewPk] = useState<number | null>(null);
+  const [previewRecordType, setPreviewRecordType] = useState<'purchase_order' | 'pos_order'>('purchase_order');
   const [previewPacking, setPreviewPacking] = useState(false);
   const [poItems, setPoItems] = useState<POItem[]>([]);
   const [poCustomer, setPoCustomer] = useState('');
@@ -105,8 +107,11 @@ export default function POBillingModule() {
   const site = (siteRaw ?? {}) as Record<string, unknown>;
 
   const { data: previewDetail } = useQuery({
-    queryKey: ['admin', 'purchase-orders', 'detail', previewPk],
-    queryFn: () => adminApi.purchaseOrderDetail(previewPk!),
+    queryKey: ['admin', 'purchase-orders', 'detail', previewPk, previewRecordType],
+    queryFn: () =>
+      previewRecordType === 'pos_order'
+        ? adminApi.purchaseOrderPosDetail(previewPk!)
+        : adminApi.purchaseOrderDetail(previewPk!),
     enabled: previewPk != null,
   });
 
@@ -168,8 +173,13 @@ export default function POBillingModule() {
     }
   };
 
-  const openInvoicePreview = (pk: number, packing: boolean) => {
+  const openInvoicePreview = (
+    pk: number,
+    packing: boolean,
+    recordType: 'purchase_order' | 'pos_order' = 'purchase_order',
+  ) => {
     setPreviewPacking(packing);
+    setPreviewRecordType(recordType);
     setPreviewPk(pk);
   };
 
@@ -223,13 +233,13 @@ export default function POBillingModule() {
           { key: 'date', label: 'Date' },
           { key: 'actions', label: '', render: (p) => (
             <div className="flex gap-1 flex-wrap">
-              <Button size="sm" variant="outline" className="h-7" type="button" onClick={() => openInvoicePreview(p.pk, false)}>
+              <Button size="sm" variant="outline" className="h-7" type="button" onClick={() => openInvoicePreview(p.pk, false, p.record_type ?? 'purchase_order')}>
                 <Download className="w-3 h-3 mr-1" /> Preview
               </Button>
-              <Button size="sm" variant="outline" className="h-7" type="button" onClick={() => openInvoicePreview(p.pk, true)}>
+              <Button size="sm" variant="outline" className="h-7" type="button" onClick={() => openInvoicePreview(p.pk, true, p.record_type ?? 'purchase_order')}>
                 Slip
               </Button>
-              <Button size="sm" variant="outline" className="h-7" type="button" onClick={() => openInvoicePreview(p.pk, false)}>
+              <Button size="sm" variant="outline" className="h-7" type="button" onClick={() => openInvoicePreview(p.pk, false, p.record_type ?? 'purchase_order')}>
                 <Printer className="w-3 h-3 mr-1" /> Print
               </Button>
             </div>
@@ -238,7 +248,7 @@ export default function POBillingModule() {
         onAdd={crud.canPOCreate ? () => setModalOpen(true) : undefined} addLabel="Generate PO"
       />
 
-      <Dialog open={previewPk != null} onOpenChange={(o) => { if (!o) setPreviewPk(null); }}>
+      <Dialog open={previewPk != null} onOpenChange={(o) => { if (!o) { setPreviewPk(null); setPreviewRecordType('purchase_order'); } }}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{previewPacking ? 'Packing slip' : 'Invoice preview'}</DialogTitle>

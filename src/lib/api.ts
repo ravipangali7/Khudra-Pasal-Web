@@ -1387,6 +1387,18 @@ export const adminApi = {
   productDetail: (id: string) => apiFetch<AdminProductDetail>(`/admin/products/${id}/`, undefined, true),
   purchaseOrderDetail: (pk: number) =>
     apiFetch<AdminPurchaseOrderDetail>(`/admin/purchase-orders/${pk}/`, undefined, true),
+  /** POS Order row invoice (same shape as purchaseOrderDetail) for PO Billing merged list. */
+  purchaseOrderPosDetail: (pk: number) =>
+    apiFetch<AdminPurchaseOrderDetail>(`/admin/purchase-orders/pos-orders/${pk}/`, undefined, true),
+  adminPosCheckout: (payload: {
+    customer_id?: string | null;
+    items: { product_id: string | number; quantity: number; unit_price?: number }[];
+    tax_percent?: number;
+    discount?: number;
+    delivery_fee?: number;
+    notes?: string;
+    payment_method: string;
+  }) => adminWrite<{ order_number: string; total: number }>("pos/checkout", "POST", payload),
   orderSettings: () =>
     apiFetch<{
       refund_validity_days: number;
