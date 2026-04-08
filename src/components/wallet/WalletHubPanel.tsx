@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Html5Qrcode } from 'html5-qrcode';
 import { QRCodeSVG } from 'qrcode.react';
 import { Loader2, QrCode, RefreshCw, Send, Upload } from 'lucide-react';
 import { portalApi, PortalApiError } from '@/lib/api';
@@ -139,6 +138,7 @@ const WalletHubPanel = ({ portalPrefix, onSent }: WalletHubPanelProps) => {
   const handleScanFile = async (file: File | null) => {
     if (!file) return;
     try {
+      const { Html5Qrcode } = await import('html5-qrcode');
       const decoded = await Html5Qrcode.scanFile(file, false);
       const parsed = parseTransferCodeFromScan(decoded);
       if (parsed.length >= 6) {
