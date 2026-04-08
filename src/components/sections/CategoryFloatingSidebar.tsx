@@ -6,6 +6,7 @@ interface SidebarCategory {
   id: string;
   name: string;
   icon?: string;
+  image_url?: string;
 }
 
 interface CategoryFloatingSidebarProps {
@@ -64,7 +65,26 @@ const CategoryFloatingSidebar = ({
               )}
             >
               <div className="flex items-center gap-2">
-                {category.icon && <span className="text-lg">{category.icon}</span>}
+                <span className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted">
+                  {category.image_url ? (
+                    <img
+                      src={category.image_url}
+                      alt={category.name}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                      onError={(e) => {
+                        e.currentTarget.src = '/placeholder.svg';
+                      }}
+                    />
+                  ) : (
+                    <img
+                      src="/placeholder.svg"
+                      alt={category.name}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                  )}
+                </span>
                 <span className="font-medium text-sm">{category.name}</span>
               </div>
               <ChevronRight className="w-4 h-4" />

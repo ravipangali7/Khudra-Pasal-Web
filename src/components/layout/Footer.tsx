@@ -52,6 +52,7 @@ const Footer = () => {
       id: cat.slug,
       name: cat.name,
       icon: cat.icon || '📦',
+      image_url: cat.image_url,
     })) || [];
 
   const features = [
@@ -160,7 +161,18 @@ const Footer = () => {
                       to={`/category/${cat.id}`}
                       className="flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-primary"
                     >
-                      <span>{cat.icon}</span> {cat.name}
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted">
+                        <img
+                          src={cat.image_url || '/placeholder.svg'}
+                          alt={cat.name}
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                          onError={(e) => {
+                            e.currentTarget.src = '/placeholder.svg';
+                          }}
+                        />
+                      </span>
+                      <span>{cat.name}</span>
                     </Link>
                   </li>
                 ))}

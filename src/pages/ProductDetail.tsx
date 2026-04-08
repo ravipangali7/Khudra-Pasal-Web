@@ -124,6 +124,11 @@ const ProductDetail = () => {
     queryFn: () => websiteApi.storeInfo(),
     staleTime: 60_000,
   });
+  const { data: categoryRows = [] } = useQuery({
+    queryKey: ['website-categories-nav'],
+    queryFn: () => websiteApi.categories(),
+    staleTime: 60_000,
+  });
   const { addToCart, getItemQuantity, updateQuantity } = useCart();
   const {
     isChildShopper,
@@ -275,7 +280,16 @@ const ProductDetail = () => {
 
   const variants = useMemo(() => [] as { label: string; options: string[] }[], []);
 
-  const sidebarCategories: { id: string; name: string }[] = [];
+  const sidebarCategories = useMemo(
+    () =>
+      categoryRows.map((cat) => ({
+        id: cat.slug,
+        name: cat.name,
+        icon: cat.icon,
+        image_url: cat.image_url || '/placeholder.svg',
+      })),
+    [categoryRows],
+  );
 
   const faqs = useMemo(
     () => [
