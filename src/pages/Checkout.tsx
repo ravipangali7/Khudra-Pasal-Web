@@ -33,7 +33,15 @@ import {
   CommandItem,
   CommandList,
 } from '@/components/ui/command';
+import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   getCheckoutPlacedPortal,
   isStorefrontCustomerSession,
@@ -143,13 +151,8 @@ const Checkout = () => {
   const [deliveryCoords, setDeliveryCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [shippingZoneId, setShippingZoneId] = useState('');
+  const [shippingMethodId, setShippingMethodId] = useState('');
   const [zonePopoverOpen, setZonePopoverOpen] = useState(false);
-  const [deliveryQuote, setDeliveryQuote] = useState<{
-    fee: number;
-    seller_pays_shipping: boolean;
-  } | null>(null);
-  const [quoteLoading, setQuoteLoading] = useState(false);
-  const [deliveryQuoteFailed, setDeliveryQuoteFailed] = useState(false);
   /** Optional; server validates on quote and at place order. */
   const [couponCode, setCouponCode] = useState('');
   const [debouncedCoupon, setDebouncedCoupon] = useState('');
@@ -162,6 +165,12 @@ const Checkout = () => {
   const { data: shippingZones = [], isLoading: zonesLoading } = useQuery({
     queryKey: ['website', 'shipping-zones'],
     queryFn: () => websiteApi.shippingZones(),
+    staleTime: 60_000,
+  });
+
+  const { data: shippingMethods = [], isLoading: methodsLoading } = useQuery({
+    queryKey: ['website', 'shipping-methods'],
+    queryFn: () => websiteApi.shippingMethods(),
     staleTime: 60_000,
   });
 
@@ -253,8 +262,10 @@ const Checkout = () => {
     if (debouncedCoupon) body.coupon_code = debouncedCoupon;
     if (wantDelivery) {
       if (shippingZoneId) body.shipping_zone_id = shippingZoneId;
+      if (shippingMethodId) body.shipping_method_id = shippingMethodId;
       body.delivery = {
         ...(shippingZoneId ? { shipping_zone_id: shippingZoneId } : {}),
+        ...(shippingMethodId ? { shipping_method_id: shippingMethodId } : {}),
         full_name: formData.fullName,
         mobile: formData.mobile,
         area_location: formData.areaLocation,
@@ -265,6 +276,7 @@ const Checkout = () => {
     checkoutItems,
     wantDelivery,
     shippingZoneId,
+    shippingMethodId,
     debouncedCoupon,
     formData.fullName,
     formData.mobile,
@@ -336,53 +348,19 @@ const Checkout = () => {
     }
   }, [shippingZones, shippingZoneId]);
 
-  useEffect(() => {
-    if (!wantDelivery || !shippingZoneId) {
-      setDeliveryQuote(null);
-      setQuoteLoading(false);
-      setDeliveryQuoteFailed(false);
-      return;
-    }
-    let cancelled = false;
-    setQuoteLoading(true);
-    setDeliveryQuoteFailed(false);
-    const t = window.setTimeout(() => {
-      void (async () => {
-        try {
-          const q = await websiteApi.shippingQuote({
-            zone_id: shippingZoneId,
-            order_total: baseSubtotal,
-          });
-          if (cancelled) return;
-          setDeliveryQuoteFailed(false);
-          setDeliveryQuote({
-            fee: q.fee,
-            seller_pays_shipping: q.seller_pays_shipping,
-          });
-        } catch (e) {
-          if (cancelled) return;
-          setDeliveryQuote(null);
-          setDeliveryQuoteFailed(true);
-          const msg = e instanceof Error ? e.message : 'Could not get delivery quote';
-          toast.error(msg);
-        } finally {
-          if (!cancelled) setQuoteLoading(false);
-        }
-      })();
-    }, 320);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(t);
-    };
-  }, [wantDelivery, shippingZoneId, baseSubtotal]);
-
-  const deliveryFee = !wantDelivery ? 0 : (deliveryQuote?.fee ?? 0);
+  const deliveryFee =
+    !wantDelivery
+      ? 0
+      : quoteData && !quoteData.delivery_error
+        ? quoteData.delivery_fee
+        : 0;
   const deliveryPricingReady =
     !wantDelivery ||
     (Boolean(shippingZoneId) &&
-      !quoteLoading &&
-      !deliveryQuoteFailed &&
-      deliveryQuote !== null);
+      !quoteFetching &&
+      !quoteIsError &&
+      Boolean(quoteData) &&
+      !quoteData.delivery_error);
 
   const totalAmount = useMemo(() => {
     if (!quoteData) return baseSubtotal + deliveryFee;
@@ -397,12 +375,7 @@ const Checkout = () => {
   const displayListSubtotal = quoteData
     ? quoteData.list_subtotal
     : displaySubtotal + (displaySavingsVsList > 0 ? displaySavingsVsList : 0);
-  const displayDeliveryLine =
-    !wantDelivery
-      ? 0
-      : quoteData && !quoteData.delivery_error
-        ? quoteData.delivery_fee
-        : deliveryFee;
+  const displayDeliveryLine = deliveryFee;
   const checkoutWalletsTotalBalance = useMemo(() => {
     const list = walletCheckoutCtx?.payable_wallets;
     if (!list?.length) return 0;
@@ -563,9 +536,11 @@ const Checkout = () => {
     }
     if (!shippingZoneId) newErrors.shippingZone = 'Select a delivery zone';
     if (wantDelivery && shippingZoneId) {
-      if (quoteLoading) newErrors.quote = 'Calculating delivery fee…';
-      else if (deliveryQuoteFailed || deliveryQuote === null) {
-        newErrors.quote = 'Delivery fee could not be calculated. Try again or pick another zone.';
+      if (quoteFetching) newErrors.quote = 'Calculating delivery fee…';
+      else if (quoteIsError || !quoteData || quoteData.delivery_error) {
+        newErrors.quote =
+          quoteData?.delivery_error?.trim() ||
+          'Delivery fee could not be calculated. Try again or pick another zone.';
       }
     }
     if (!formData.fullName.trim()) newErrors.fullName = 'Name is required';
@@ -682,6 +657,7 @@ const Checkout = () => {
 
     if (wantDelivery) {
       payload.shipping_zone_id = shippingZoneId;
+      if (shippingMethodId) payload.shipping_method_id = shippingMethodId;
       payload.delivery = {
         full_name: formData.fullName,
         mobile: formData.mobile,
@@ -691,6 +667,7 @@ const Checkout = () => {
         google_map_link: formData.googleMapLink || '',
         delivery_notes: formData.notes || '',
         shipping_zone_id: shippingZoneId,
+        ...(shippingMethodId ? { shipping_method_id: shippingMethodId } : {}),
         ...(deliveryCoords != null
           ? { latitude: deliveryCoords.lat, longitude: deliveryCoords.lng }
           : {}),
@@ -993,9 +970,38 @@ const Checkout = () => {
                       ) : null}
                       {errors.quote ? (
                         <p className="text-xs text-destructive mt-1">{errors.quote}</p>
-                      ) : quoteLoading && shippingZoneId ? (
+                      ) : quoteFetching && shippingZoneId ? (
                         <p className="text-xs text-muted-foreground mt-1">Updating delivery fee…</p>
                       ) : null}
+                    </div>
+
+                    <div>
+                      <Label className="text-sm font-medium mb-2 block">Shipping option</Label>
+                      <Select
+                        value={shippingMethodId || '__zone'}
+                        onValueChange={(v) => setShippingMethodId(v === '__zone' ? '' : v)}
+                        disabled={methodsLoading}
+                      >
+                        <SelectTrigger className="h-12 rounded-xl w-full font-normal">
+                          <SelectValue
+                            placeholder={
+                              methodsLoading ? 'Loading options…' : 'Zone default (weight rules)'
+                            }
+                          />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__zone">Zone default (weight-based rules)</SelectItem>
+                          {shippingMethods.map((m) => (
+                            <SelectItem key={m.id} value={m.id}>
+                              {m.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Optional: pick a method (flat, free over threshold, pickup, etc.). Leave as zone
+                        default to use zone + weight bands only.
+                      </p>
                     </div>
 
                     {/* Auto Location Button */}
@@ -1381,7 +1387,7 @@ const Checkout = () => {
                         displayDeliveryLine === 0 ? 'text-category-fresh font-medium' : ''
                       }
                     >
-                      {quoteLoading && shippingZoneId && !quoteData
+                      {quoteFetching && shippingZoneId && !quoteData
                         ? '…'
                         : displayDeliveryLine === 0
                           ? 'FREE'
@@ -1394,7 +1400,7 @@ const Checkout = () => {
                     {quoteData.delivery_error} Select a zone for an exact delivery total.
                   </p>
                 ) : null}
-                {wantDelivery && deliveryQuote?.seller_pays_shipping && displayDeliveryLine === 0 ? (
+                {wantDelivery && quoteData?.seller_pays_shipping && displayDeliveryLine === 0 ? (
                   <p className="text-xs text-muted-foreground">Delivery cost covered by seller</p>
                 ) : null}
                 {quoteData?.eligible_subtotal != null && debouncedCoupon && !quoteData.coupon_error ? (

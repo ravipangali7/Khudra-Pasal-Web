@@ -151,11 +151,18 @@ export type WebsiteShippingZone = {
   areas: string;
 };
 
+export type WebsiteShippingMethod = {
+  id: string;
+  name: string;
+  type: string;
+};
+
 export type WebsiteShippingQuote = {
   fee: number;
   currency: string;
   zone: { id: string; name: string };
   weight_kg: number;
+  shipping_method_id?: string | null;
   breakdown: unknown[];
   seller_pays_shipping: boolean;
 };
@@ -851,7 +858,15 @@ export function mapWebsiteCartToCartItems(cart: WebsiteCartApi): CartItem[] {
 export const websiteApi = {
   storeInfo: () => apiFetch<WebsiteStoreInfo>("/website/store-info/"),
   shippingZones: () => apiFetch<WebsiteShippingZone[]>("/website/shipping-zones/"),
-  shippingQuote: (body: { zone_id: string; order_total: number; weight_kg?: number }) =>
+  shippingMethods: () => apiFetch<WebsiteShippingMethod[]>("/website/shipping-methods/"),
+  shippingQuote: (body: {
+    zone_id: string;
+    order_total: number;
+    weight_kg?: number;
+    method_id?: string;
+    shipping_method_id?: string;
+    items?: Array<{ product_id: number; quantity: number }>;
+  }) =>
     apiFetch<WebsiteShippingQuote>("/website/shipping-quote/", {
       method: "POST",
       body: JSON.stringify(body),
@@ -2187,6 +2202,10 @@ export type PortalCheckoutQuoteResponse = {
   lines: PortalCheckoutQuoteLine[];
   stock_warnings: PortalCheckoutQuoteStockWarning[];
   delivery_error: string | null;
+  /** kg used for shipping calculation (portal checkout). */
+  delivery_weight_kg?: number;
+  shipping_method_id?: string | null;
+  seller_pays_shipping?: boolean;
 };
 
 export type PortalNotificationRow = {
