@@ -150,8 +150,14 @@ const Checkout = () => {
   } | null>(null);
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [deliveryQuoteFailed, setDeliveryQuoteFailed] = useState(false);
-  /** Optional; server validates and applies — client does not estimate discount amount. */
+  /** Optional; server validates on quote and at place order. */
   const [couponCode, setCouponCode] = useState('');
+  const [debouncedCoupon, setDebouncedCoupon] = useState('');
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setDebouncedCoupon(couponCode.trim()), 450);
+    return () => window.clearTimeout(t);
+  }, [couponCode]);
 
   const { data: shippingZones = [], isLoading: zonesLoading } = useQuery({
     queryKey: ['website', 'shipping-zones'],
@@ -228,6 +234,97 @@ const Checkout = () => {
   const baseSubtotal = buyNow ? buyNow.price * buyNowQuantity : cartTotal;
   const baseCount = buyNow ? buyNowQuantity : cartCount;
 
+  const checkoutItems = useMemo(() => {
+    if (buyNow) {
+      return [{ product_id: buyNow.productId, quantity: buyNowQuantity }];
+    }
+    return cartItems.map((item) => ({
+      product_id: parseInt(item.product.id, 10),
+      quantity: item.quantity,
+    }));
+  }, [buyNow, buyNowQuantity, cartItems]);
+
+  const quotePayload = useMemo((): Record<string, unknown> | null => {
+    if (!checkoutItems.length) return null;
+    const body: Record<string, unknown> = {
+      items: checkoutItems,
+      want_delivery: wantDelivery,
+    };
+    if (debouncedCoupon) body.coupon_code = debouncedCoupon;
+    if (wantDelivery) {
+      if (shippingZoneId) body.shipping_zone_id = shippingZoneId;
+      body.delivery = {
+        ...(shippingZoneId ? { shipping_zone_id: shippingZoneId } : {}),
+        full_name: formData.fullName,
+        mobile: formData.mobile,
+        area_location: formData.areaLocation,
+      };
+    }
+    return body;
+  }, [
+    checkoutItems,
+    wantDelivery,
+    shippingZoneId,
+    debouncedCoupon,
+    formData.fullName,
+    formData.mobile,
+    formData.areaLocation,
+  ]);
+
+  const { data: dealsData = [] } = useQuery({
+    queryKey: ['website', 'deals'],
+    queryFn: () => websiteApi.deals(),
+    staleTime: 60_000,
+    enabled: hasStorefrontSession,
+  });
+
+  const flashOverrideProductIds = useMemo(() => {
+    const s = new Set<number>();
+    for (const d of dealsData) {
+      for (const row of d.products ?? []) {
+        const raw = row.override_price;
+        const trimmed = raw != null ? String(raw).trim() : '';
+        if (trimmed !== '' && Number.isFinite(Number(trimmed))) {
+          s.add(Number(row.product.id));
+        }
+      }
+    }
+    return s;
+  }, [dealsData]);
+
+  const flashItemsInCart = useMemo(() => {
+    if (buyNow) {
+      return flashOverrideProductIds.has(buyNow.productId) ? buyNowQuantity : 0;
+    }
+    return cartItems.reduce((acc, item) => {
+      const id = parseInt(item.product.id, 10);
+      return acc + (flashOverrideProductIds.has(id) ? item.quantity : 0);
+    }, 0);
+  }, [buyNow, buyNowQuantity, cartItems, flashOverrideProductIds]);
+
+  const {
+    data: quoteData,
+    isFetching: quoteFetching,
+    isError: quoteIsError,
+  } = useQuery({
+    queryKey: ['portal', 'checkout-quote', JSON.stringify(quotePayload)],
+    queryFn: () => portalApi.checkoutQuote(quotePayload!),
+    enabled: Boolean(hasStorefrontSession && quotePayload),
+    staleTime: 15_000,
+  });
+
+  const clientListSavings = useMemo(() => {
+    if (buyNow) return 0;
+    let saved = 0;
+    for (const it of cartItems) {
+      const o = it.product.originalPrice;
+      if (o != null && o > it.product.price) {
+        saved += (o - it.product.price) * it.quantity;
+      }
+    }
+    return saved;
+  }, [buyNow, cartItems]);
+
   const selectedShippingZone = useMemo(
     () => shippingZones.find((z) => z.id === shippingZoneId),
     [shippingZones, shippingZoneId],
@@ -286,7 +383,26 @@ const Checkout = () => {
       !quoteLoading &&
       !deliveryQuoteFailed &&
       deliveryQuote !== null);
-  const totalAmount = baseSubtotal + deliveryFee;
+
+  const totalAmount = useMemo(() => {
+    if (!quoteData) return baseSubtotal + deliveryFee;
+    if (wantDelivery && quoteData.delivery_error) {
+      return quoteData.total + deliveryFee;
+    }
+    return quoteData.total;
+  }, [quoteData, baseSubtotal, deliveryFee, wantDelivery]);
+
+  const displaySubtotal = quoteData?.subtotal ?? baseSubtotal;
+  const displaySavingsVsList = quoteData ? quoteData.savings_vs_list : clientListSavings;
+  const displayListSubtotal = quoteData
+    ? quoteData.list_subtotal
+    : displaySubtotal + (displaySavingsVsList > 0 ? displaySavingsVsList : 0);
+  const displayDeliveryLine =
+    !wantDelivery
+      ? 0
+      : quoteData && !quoteData.delivery_error
+        ? quoteData.delivery_fee
+        : deliveryFee;
   const couponEntered = couponCode.trim().length > 0;
 
   const checkoutWalletsTotalBalance = useMemo(() => {
@@ -366,9 +482,9 @@ const Checkout = () => {
     !hasStorefrontSession ||
     !walletCheckoutCtx?.default ||
     (wantDelivery && !deliveryPricingReady) ||
-    (!couponEntered && effectivePayWallet != null && totalAmount > effectivePayWallet.balance) ||
-    (!couponEntered && effectiveWalletOverChildSpendingLimit) ||
-    (!couponEntered && childSpendingLimitNoPersonalOutlet);
+    (effectivePayWallet != null && totalAmount > effectivePayWallet.balance) ||
+    effectiveWalletOverChildSpendingLimit ||
+    childSpendingLimitNoPersonalOutlet;
 
   const steps: { key: CheckoutStep; label: string; icon: typeof Truck }[] = [
     { key: 'cart', label: 'Cart', icon: Truck },
@@ -538,7 +654,6 @@ const Checkout = () => {
       rules &&
       effectivePayWallet &&
       effectivePayWallet.child_spending_limits_apply !== false &&
-      !couponEntered &&
       childOrderWouldExceedSpendingLimits(totalAmount, rules)
     ) {
       toast.error(
@@ -563,7 +678,7 @@ const Checkout = () => {
       payload.pay_wallet_id = payWalletId;
     }
 
-    if (couponEntered) {
+    if (couponCode.trim()) {
       payload.coupon_code = couponCode.trim();
     }
 
@@ -585,7 +700,6 @@ const Checkout = () => {
     }
 
     const walletInsufficient =
-      !couponEntered &&
       !walletCtxLoading &&
       Boolean(walletCheckoutCtx?.default) &&
       effectivePayWallet != null &&
@@ -720,7 +834,7 @@ const Checkout = () => {
       <main className="container mx-auto px-4 py-6 pb-32">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left Column - Form/Cart */}
-          <div className="lg:col-span-2 space-y-6">
+          <div className="order-2 lg:order-none lg:col-span-2 space-y-6">
             {step === 'cart' && (
               <div className="bg-card rounded-2xl p-4 md:p-6 shadow-sm">
                 <h2 className="font-bold text-lg mb-4">{buyNow ? 'Buy Now Item' : `Cart Items (${cartCount})`}</h2>
@@ -1187,63 +1301,116 @@ const Checkout = () => {
           </div>
 
           {/* Right Column - Order Summary */}
-          <div className="lg:col-span-1">
-            <div className="bg-card rounded-2xl p-4 md:p-6 shadow-sm sticky top-40">
-              <h2 className="font-bold text-lg mb-4">Order Summary</h2>
-              
-              <div className="space-y-3 pb-4 border-b border-border">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Subtotal ({baseCount} items)</span>
-                  <span>{formatPrice(baseSubtotal)}</span>
+          <div className="order-1 lg:order-none lg:col-span-1">
+            <div className="bg-card rounded-2xl p-4 md:p-6 shadow-sm lg:sticky lg:top-40">
+              <div className="flex items-center justify-between gap-2 mb-4">
+                <h2 className="font-bold text-lg">Order Summary</h2>
+                {quoteFetching ? (
+                  <span className="text-xs text-muted-foreground">Updating…</span>
+                ) : null}
+              </div>
+
+              {flashItemsInCart > 0 ? (
+                <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-950 dark:text-amber-100">
+                  Flash deal pricing on {flashItemsInCart} item{flashItemsInCart === 1 ? '' : 's'} (override
+                  price; promo codes do not stack on those lines).
                 </div>
-                {step === 'payment' && (
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-muted-foreground" htmlFor="checkout-coupon">
-                      Promo code (optional)
-                    </label>
-                    <input
-                      id="checkout-coupon"
-                      type="text"
-                      value={couponCode}
-                      onChange={(e) => setCouponCode(e.target.value)}
-                      autoComplete="off"
-                      placeholder="Enter code"
-                      className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-category-fresh"
-                    />
-                    {couponEntered ? (
-                      <p className="text-xs text-muted-foreground">
-                        Discount is calculated when you place the order. Subtotal above may not include promo
-                        pricing for flash deals — totals always match the server.
-                      </p>
-                    ) : null}
-                  </div>
-                )}
+              ) : null}
+
+              <div className="space-y-3 pb-4 border-b border-border">
+                {displaySavingsVsList > 0 ? (
+                  <>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">List subtotal</span>
+                      <span className="line-through text-muted-foreground">
+                        {formatPrice(displayListSubtotal)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-sm text-category-fresh">
+                      <span>Offers &amp; discounts (in prices)</span>
+                      <span>−{formatPrice(displaySavingsVsList)}</span>
+                    </div>
+                  </>
+                ) : null}
+                <div className="flex justify-between text-sm font-medium">
+                  <span className="text-muted-foreground">Subtotal ({baseCount} items)</span>
+                  <span>{formatPrice(displaySubtotal)}</span>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-muted-foreground" htmlFor="checkout-coupon">
+                    Promo code (optional)
+                  </label>
+                  <input
+                    id="checkout-coupon"
+                    type="text"
+                    value={couponCode}
+                    onChange={(e) => setCouponCode(e.target.value)}
+                    autoComplete="off"
+                    placeholder="Enter code"
+                    className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-category-fresh"
+                  />
+                  {quoteData?.coupon_error ? (
+                    <p className="text-xs text-destructive">{quoteData.coupon_error}</p>
+                  ) : null}
+                  {quoteData && quoteData.coupon_discount > 0 ? (
+                    <div className="flex justify-between text-sm text-category-fresh">
+                      <span>Coupon</span>
+                      <span>−{formatPrice(quoteData.coupon_discount)}</span>
+                    </div>
+                  ) : null}
+                </div>
+
                 {wantDelivery && (
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Delivery Fee</span>
-                    <span className={deliveryFee === 0 ? 'text-category-fresh font-medium' : ''}>
-                      {quoteLoading && shippingZoneId
+                    <span
+                      className={
+                        displayDeliveryLine === 0 ? 'text-category-fresh font-medium' : ''
+                      }
+                    >
+                      {quoteLoading && shippingZoneId && !quoteData
                         ? '…'
-                        : deliveryFee === 0
+                        : displayDeliveryLine === 0
                           ? 'FREE'
-                          : formatPrice(deliveryFee)}
+                          : formatPrice(displayDeliveryLine)}
                     </span>
                   </div>
                 )}
-                {wantDelivery && deliveryQuote?.seller_pays_shipping && deliveryFee === 0 ? (
+                {wantDelivery && quoteData?.delivery_error ? (
+                  <p className="text-xs text-amber-700 dark:text-amber-300">
+                    {quoteData.delivery_error} Select a zone for an exact delivery total.
+                  </p>
+                ) : null}
+                {wantDelivery && deliveryQuote?.seller_pays_shipping && displayDeliveryLine === 0 ? (
                   <p className="text-xs text-muted-foreground">Delivery cost covered by seller</p>
+                ) : null}
+                {quoteData?.eligible_subtotal != null && debouncedCoupon && !quoteData.coupon_error ? (
+                  <p className="text-xs text-muted-foreground">
+                    Promo applies to Rs. {quoteData.eligible_subtotal.toLocaleString('en-NP')} of eligible
+                    items (excludes flash override lines).
+                  </p>
+                ) : null}
+                {quoteData?.stock_warnings && quoteData.stock_warnings.length > 0 ? (
+                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">
+                    {quoteData.stock_warnings.map((w) => (
+                      <p key={w.product_id}>
+                        {w.name}: requested {w.requested}, only {w.available} in stock.
+                      </p>
+                    ))}
+                  </div>
+                ) : null}
+                {quoteIsError ? (
+                  <p className="text-xs text-muted-foreground">
+                    Could not load server totals; amounts below are approximate until you continue.
+                  </p>
                 ) : null}
               </div>
 
               <div className="flex justify-between py-4 font-bold text-lg">
-                <span>{couponEntered ? 'Due before coupon' : 'Total'}</span>
+                <span>Total</span>
                 <span className="text-category-fresh">{formatPrice(totalAmount)}</span>
               </div>
-              {couponEntered ? (
-                <p className="text-xs text-muted-foreground -mt-2 mb-3">
-                  Wallet is charged the final total after your code is applied (shown on success).
-                </p>
-              ) : null}
 
               <button
                 type="button"

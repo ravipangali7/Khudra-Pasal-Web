@@ -2142,6 +2142,28 @@ export type PortalCheckoutWalletContext = {
   payable_wallets: PortalCheckoutWalletOption[];
 };
 
+/** POST /portal/orders/checkout-quote/ — read-only totals (flash, coupon, delivery). */
+export type PortalCheckoutQuoteStockWarning = {
+  product_id: number;
+  name: string;
+  requested: number;
+  available: number;
+};
+
+export type PortalCheckoutQuoteResponse = {
+  subtotal: number;
+  list_subtotal: number;
+  savings_vs_list: number;
+  delivery_fee: number;
+  coupon_discount: number;
+  eligible_subtotal: number;
+  total: number;
+  coupon_error: string | null;
+  flash_product_ids: number[];
+  stock_warnings: PortalCheckoutQuoteStockWarning[];
+  delivery_error: string | null;
+};
+
 export type PortalNotificationRow = {
   id: string;
   type: string;
@@ -3003,6 +3025,12 @@ export const portalApi = {
       orders: Array<{ order_number: string; total: number; payment_status: string }>;
       requires_payment_confirmation?: boolean;
     }>("/portal/orders/checkout/", { method: "POST", body: JSON.stringify(payload) }, true),
+  checkoutQuote: (payload: Record<string, unknown>) =>
+    portalFetch<PortalCheckoutQuoteResponse>(
+      "/portal/orders/checkout-quote/",
+      { method: "POST", body: JSON.stringify(payload) },
+      true,
+    ),
   ordersPaymentComplete: (orderNumbers: string[], gatewayPayload?: Record<string, unknown>) =>
     portalFetch<{
       orders: Array<{ order_number: string; payment_status: string; total: number }>;

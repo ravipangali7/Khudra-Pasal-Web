@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,23 +7,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { AlertTriangle, Database, Mail, MessageSquare, QrCode, Send } from 'lucide-react';
+import { QrCode } from 'lucide-react';
 import { adminApi } from '@/lib/api';
-import { toast } from 'sonner';
 import { useAdminMutation } from '../hooks/useAdminMutation';
 import { formatApiError, resolveMediaUrl } from '../hooks/adminFormUtils';
 
@@ -41,141 +29,6 @@ function deepExtras(raw: unknown): AdminExtras {
 
 /** Stable fallback so `useEffect(..., [cfg])` deps do not change every render when a section is absent. */
 const EMPTY_EXTRAS_SECTION: Record<string, unknown> = {};
-
-function CommunicationCenter({
-  communication,
-  onSave,
-}: {
-  communication: Record<string, unknown>;
-  onSave: (next: Record<string, unknown>) => Promise<void>;
-}) {
-  const [channel, setChannel] = useState(String(communication.channel ?? 'email'));
-  const [recipientType, setRecipientType] = useState(String(communication.recipientType ?? 'customer'));
-  const [subject, setSubject] = useState(String(communication.lastSubject ?? ''));
-  const [message, setMessage] = useState(String(communication.lastMessage ?? ''));
-  const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState(false);
-  const [saveErr, setSaveErr] = useState('');
-
-  useEffect(() => {
-    setChannel(String(communication.channel ?? 'email'));
-    setRecipientType(String(communication.recipientType ?? 'customer'));
-  }, [communication]);
-
-  const variables = ['{{customer_name}}', '{{order_id}}', '{{amount}}', '{{shop_name}}', '{{date}}', '{{tracking_id}}'];
-  const insertVariable = (v: string) => setMessage((prev) => `${prev} ${v}`);
-  const templates = (communication.templates as { name: string; body: string }[] | undefined) ?? [
-    { name: 'Welcome', body: 'Dear {{customer_name}}, welcome to Khudra Pasal!' },
-    { name: 'Order Update', body: 'Hi {{customer_name}}, your order #{{order_id}} has been shipped.' },
-  ];
-
-  const persistDraft = async () => {
-    setSaveErr('');
-    try {
-      await onSave({
-        ...communication,
-        channel,
-        recipientType,
-        lastSubject: subject,
-        lastMessage: message,
-        templates,
-      });
-    } catch (e) {
-      setSaveErr(formatApiError(e));
-    }
-  };
-
-  const handleSend = async () => {
-    setSending(true);
-    setSent(false);
-    setSaveErr('');
-    try {
-      const targetMap: Record<string, string> = {
-        customer: 'customers',
-        vendor: 'vendors',
-        staff: 'admins',
-        specific: 'all',
-      };
-      await adminApi.broadcastNotification({
-        title: subject || 'Notification',
-        message,
-        target: targetMap[recipientType] ?? 'all',
-        type: 'marketing',
-      });
-      setSent(true);
-      setTimeout(() => setSent(false), 3000);
-    } catch (e) {
-      setSaveErr(formatApiError(e));
-    } finally {
-      setSending(false);
-    }
-  };
-
-  return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2"><MessageSquare className="w-5 h-5" /> Communication Center</CardTitle>
-          <CardDescription>Send notifications to user segments; templates are stored in site settings.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex gap-2">
-            {['email', 'sms'].map((ch) => (
-              <Button key={ch} variant={channel === ch ? 'default' : 'outline'} size="sm" onClick={() => { setChannel(ch); }} className="capitalize">
-                {ch === 'email' ? <Mail className="w-4 h-4 mr-1" /> : <MessageSquare className="w-4 h-4 mr-1" />}
-                {ch}
-              </Button>
-            ))}
-          </div>
-          <div>
-            <Label>Recipient Type</Label>
-            <Select value={recipientType} onValueChange={(v) => { setRecipientType(v); }}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="customer">All Customers</SelectItem>
-                <SelectItem value="vendor">All Vendors</SelectItem>
-                <SelectItem value="staff">All Staff</SelectItem>
-                <SelectItem value="specific">Broadcast (all)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          {channel === 'email' && (
-            <div><Label>Subject</Label><Input value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject" /></div>
-          )}
-          <div>
-            <Label className="text-xs">Quick Templates</Label>
-            <div className="flex flex-wrap gap-2 mt-1">
-              {templates.map((t) => (
-                <Button key={t.name} variant="outline" size="sm" className="text-xs" type="button" onClick={() => { setMessage(t.body); if (channel === 'email') setSubject(t.name); }}>
-                  {t.name}
-                </Button>
-              ))}
-            </div>
-          </div>
-          <div>
-            <Label>Message</Label>
-            <Textarea rows={5} value={message} onChange={(e) => setMessage(e.target.value)} placeholder="Message body" />
-            <div className="flex flex-wrap gap-1 mt-2">
-              <span className="text-xs text-muted-foreground mr-1">Variables:</span>
-              {variables.map((v) => (
-                <Button key={v} variant="ghost" size="sm" className="h-6 text-[10px] font-mono px-1.5" type="button" onClick={() => insertVariable(v)}>
-                  {v}
-                </Button>
-              ))}
-            </div>
-          </div>
-          {saveErr ? <p className="text-sm text-destructive">{saveErr}</p> : null}
-          <div className="flex gap-2 flex-wrap">
-            <Button type="button" onClick={() => { void persistDraft(); }} variant="outline">Save draft & templates</Button>
-            <Button type="button" onClick={() => { void handleSend(); }} disabled={!message || sending} className="flex-1">
-              {sending ? 'Sending…' : sent ? 'Sent!' : <><Send className="w-4 h-4 mr-1" /> Send broadcast</>}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
 
 function ReelsSettingsPanel({
   reels,
@@ -241,19 +94,7 @@ function ReelsSettingsPanel({
 }
 
 export default function SettingsModule() {
-  const queryClient = useQueryClient();
   const [tab, setTab] = useState('general');
-  const [selectedModuleIds, setSelectedModuleIds] = useState<string[]>([]);
-  const [cleanupConfirmOpen, setCleanupConfirmOpen] = useState(false);
-
-  const { data: adminProfile } = useQuery({
-    queryKey: ['admin', 'profile'],
-    queryFn: () => adminApi.profile(),
-    retry: false,
-  });
-
-  const isSuperAdmin =
-    Boolean(adminProfile?.is_superuser) || adminProfile?.role === 'super_admin';
 
   const { data: site, isLoading, isError } = useQuery({
     queryKey: ['admin', 'site-settings'],
@@ -263,29 +104,6 @@ export default function SettingsModule() {
   const { data: gwData } = useQuery({
     queryKey: ['admin', 'payment-gateways'],
     queryFn: () => adminApi.paymentGateways(),
-  });
-
-  const { data: cleanupData, error: cleanupErr, isLoading: cleanupLoading } = useQuery({
-    queryKey: ['admin', 'cleanup-modules'],
-    queryFn: () => adminApi.cleanupModules(),
-    enabled: tab === 'clean-db' && isSuperAdmin,
-    retry: false,
-  });
-
-  const cleanupModules = cleanupData?.modules ?? [];
-
-  const cleanupMutation = useMutation({
-    mutationFn: (module_ids: string[]) => adminApi.cleanupExecute(module_ids),
-    onSuccess: async () => {
-      setSelectedModuleIds([]);
-      toast.success('Database cleanup completed.');
-      await queryClient.invalidateQueries({ queryKey: ['admin', 'cleanup-modules'] });
-      await queryClient.invalidateQueries({ queryKey: ['admin'] });
-      await queryClient.invalidateQueries({ queryKey: ['super-admin-summary'] });
-    },
-    onError: (e: unknown) => {
-      toast.error(formatApiError(e));
-    },
   });
 
   const updateSite = useAdminMutation(adminApi.updateSiteSettings, [['admin', 'site-settings']]);
@@ -377,29 +195,14 @@ export default function SettingsModule() {
   );
 
   const analytics = extras.analytics ?? EMPTY_EXTRAS_SECTION;
-  const appearance = extras.appearance ?? EMPTY_EXTRAS_SECTION;
   const emailCfg = extras.email ?? EMPTY_EXTRAS_SECTION;
   const socialCfg = extras.social ?? EMPTY_EXTRAS_SECTION;
-  const envCfg = extras.environment ?? EMPTY_EXTRAS_SECTION;
   const systemCfg = extras.system ?? EMPTY_EXTRAS_SECTION;
 
   const [googleAnalyticsScript, setGoogleAnalyticsScript] = useState('');
   useEffect(() => {
     setGoogleAnalyticsScript(String(analytics.google_analytics_script ?? ''));
   }, [analytics]);
-
-  const [appearanceState, setAppearanceState] = useState({
-    logoUrl: '', faviconUrl: '', primary: '#F59E0B', secondary: '#6B21A8', footerBg: '#1E293B',
-  });
-  useEffect(() => {
-    setAppearanceState({
-      logoUrl: String(appearance.logoUrl ?? ''),
-      faviconUrl: String(appearance.faviconUrl ?? ''),
-      primary: String(appearance.primary ?? '#F59E0B'),
-      secondary: String(appearance.secondary ?? '#6B21A8'),
-      footerBg: String(appearance.footerBg ?? '#1E293B'),
-    });
-  }, [appearance]);
 
   const [emailState, setEmailState] = useState({
     smtpHost: '', smtpPort: '587', user: '', password: '', fromName: '', fromEmail: '', failover: false,
@@ -429,30 +232,10 @@ export default function SettingsModule() {
     });
   }, [socialCfg]);
 
-  const [envState, setEnvState] = useState({ appUrl: '', appMode: 'live' });
-  useEffect(() => {
-    setEnvState({
-      appUrl: String(envCfg.appUrl ?? ''),
-      appMode: String(envCfg.appMode ?? 'live'),
-    });
-  }, [envCfg]);
-
   const [systemNote, setSystemNote] = useState('');
   useEffect(() => {
     setSystemNote(String(systemCfg.note ?? ''));
   }, [systemCfg]);
-
-  useEffect(() => {
-    if (tab === 'clean-db' && adminProfile && !isSuperAdmin) {
-      setTab('general');
-    }
-  }, [tab, adminProfile, isSuperAdmin]);
-
-  const toggleModule = (id: string) => {
-    setSelectedModuleIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    );
-  };
 
   if (isLoading) {
     return <div className="p-4 lg:p-6 text-sm text-muted-foreground">Loading settings…</div>;
@@ -467,15 +250,11 @@ export default function SettingsModule() {
         <TabsList className="mb-4 flex-wrap h-auto gap-1">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
-          <TabsTrigger value="appearance">Appearance</TabsTrigger>
           <TabsTrigger value="email">Email</TabsTrigger>
-          <TabsTrigger value="communication">Communication</TabsTrigger>
           <TabsTrigger value="payment">Payment</TabsTrigger>
           <TabsTrigger value="reels">Reels</TabsTrigger>
           <TabsTrigger value="social">Social Media</TabsTrigger>
-          <TabsTrigger value="environment">Environment</TabsTrigger>
           <TabsTrigger value="system">System</TabsTrigger>
-          {isSuperAdmin ? <TabsTrigger value="clean-db">Clean Database</TabsTrigger> : null}
         </TabsList>
 
         <TabsContent value="general">
@@ -585,24 +364,6 @@ export default function SettingsModule() {
           </div>
         </TabsContent>
 
-        <TabsContent value="appearance">
-          <Card>
-            <CardHeader><CardTitle>Appearance & Branding</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid md:grid-cols-2 gap-4">
-                <div><Label>Logo URL</Label><Input value={appearanceState.logoUrl} onChange={(e) => setAppearanceState((s) => ({ ...s, logoUrl: e.target.value }))} /></div>
-                <div><Label>Favicon URL</Label><Input value={appearanceState.faviconUrl} onChange={(e) => setAppearanceState((s) => ({ ...s, faviconUrl: e.target.value }))} /></div>
-              </div>
-              <div className="grid md:grid-cols-3 gap-4">
-                <div><Label>Primary</Label><Input value={appearanceState.primary} onChange={(e) => setAppearanceState((s) => ({ ...s, primary: e.target.value }))} /></div>
-                <div><Label>Secondary</Label><Input value={appearanceState.secondary} onChange={(e) => setAppearanceState((s) => ({ ...s, secondary: e.target.value }))} /></div>
-                <div><Label>Footer background</Label><Input value={appearanceState.footerBg} onChange={(e) => setAppearanceState((s) => ({ ...s, footerBg: e.target.value }))} /></div>
-              </div>
-              <Button type="button" onClick={() => void saveExtrasSection('appearance', { ...appearance, ...appearanceState })}>Save appearance</Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         <TabsContent value="email">
           <Card>
             <CardHeader><CardTitle>Email Configuration</CardTitle></CardHeader>
@@ -622,13 +383,6 @@ export default function SettingsModule() {
               <Button type="button" onClick={() => void saveExtrasSection('email', { ...emailCfg, ...emailState })}>Save SMTP settings</Button>
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="communication">
-          <CommunicationCenter
-            communication={(extras.communication as Record<string, unknown>) ?? EMPTY_EXTRAS_SECTION}
-            onSave={async (next) => { await saveExtrasSection('communication', next); }}
-          />
         </TabsContent>
 
         <TabsContent value="reels">
@@ -713,27 +467,6 @@ export default function SettingsModule() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="environment">
-          <Card>
-            <CardHeader><CardTitle>Environment</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid md:grid-cols-2 gap-4">
-                <div><Label>Public app URL</Label><Input value={envState.appUrl} onChange={(e) => setEnvState((s) => ({ ...s, appUrl: e.target.value }))} placeholder="https://…" /></div>
-                <div><Label>App mode (label)</Label>
-                  <Select value={envState.appMode} onValueChange={(v) => setEnvState((s) => ({ ...s, appMode: v }))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="live">Live</SelectItem>
-                      <SelectItem value="debug">Debug</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <Button type="button" onClick={() => void saveExtrasSection('environment', { ...envCfg, ...envState })}>Save environment</Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         <TabsContent value="system">
           <Card>
             <CardHeader><CardTitle>System notes</CardTitle></CardHeader>
@@ -743,139 +476,6 @@ export default function SettingsModule() {
             </CardContent>
           </Card>
         </TabsContent>
-
-        {isSuperAdmin ? (
-          <TabsContent value="clean-db">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Database className="w-5 h-5" /> Clean database
-                </CardTitle>
-                <CardDescription>
-                  <span className="text-destructive font-medium flex items-center gap-1">
-                    <AlertTriangle className="w-4 h-4 shrink-0" />
-                    Super admin only. Deletes selected operational data permanently. User accounts and staff data are never available here.
-                  </span>
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {cleanupErr ? (
-                  <p className="text-sm text-destructive">{formatApiError(cleanupErr)}</p>
-                ) : null}
-                {cleanupLoading ? (
-                  <p className="text-sm text-muted-foreground">Loading cleanup modules…</p>
-                ) : null}
-                {!cleanupLoading && !cleanupErr ? (
-                  <>
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          checked={
-                            cleanupModules.length > 0 &&
-                            selectedModuleIds.length === cleanupModules.length
-                          }
-                          onCheckedChange={(c) => {
-                            if (c) {
-                              setSelectedModuleIds(cleanupModules.map((m) => m.id));
-                            } else {
-                              setSelectedModuleIds([]);
-                            }
-                          }}
-                        />
-                        <span className="text-sm font-medium">
-                          Select all ({selectedModuleIds.length}/{cleanupModules.length})
-                        </span>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        disabled={
-                          selectedModuleIds.length === 0 ||
-                          cleanupMutation.isPending ||
-                          cleanupLoading
-                        }
-                        onClick={() => setCleanupConfirmOpen(true)}
-                      >
-                        Delete selected data
-                      </Button>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[520px] overflow-y-auto pr-1">
-                      {cleanupModules.map((mod) => (
-                        <div
-                          key={mod.id}
-                          className="flex gap-3 p-3 border rounded-lg hover:bg-muted/30 cursor-pointer text-left"
-                          onClick={() => toggleModule(mod.id)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              toggleModule(mod.id);
-                            }
-                          }}
-                          role="button"
-                          tabIndex={0}
-                        >
-                          <Checkbox
-                            checked={selectedModuleIds.includes(mod.id)}
-                            className="mt-0.5"
-                            onClick={(e) => e.stopPropagation()}
-                            onCheckedChange={() => toggleModule(mod.id)}
-                          />
-                          <div className="min-w-0 flex-1 space-y-1">
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-sm font-medium leading-tight">{mod.label}</span>
-                              <Badge variant="secondary" className="text-[10px] shrink-0">
-                                ~{mod.approximate_row_count}
-                              </Badge>
-                            </div>
-                            <p className="text-xs text-muted-foreground">{mod.description}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </>
-                ) : null}
-                <AlertDialog open={cleanupConfirmOpen} onOpenChange={setCleanupConfirmOpen}>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle className="flex items-center gap-2 text-destructive">
-                        <AlertTriangle className="w-5 h-5 shrink-0" />
-                        Confirm database cleanup
-                      </AlertDialogTitle>
-                      <AlertDialogDescription asChild>
-                        <div className="space-y-3 text-left text-sm text-muted-foreground">
-                          <p>
-                            This cannot be undone. The following modules will be cleared in a safe order:
-                          </p>
-                          <ul className="list-disc pl-5 space-y-1 text-foreground">
-                            {selectedModuleIds.map((id) => {
-                              const m = cleanupModules.find((x) => x.id === id);
-                              return <li key={id}>{m?.label ?? id}</li>;
-                            })}
-                          </ul>
-                        </div>
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel disabled={cleanupMutation.isPending}>Cancel</AlertDialogCancel>
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        disabled={cleanupMutation.isPending}
-                        onClick={() => {
-                          cleanupMutation.mutate(selectedModuleIds, {
-                            onSettled: () => setCleanupConfirmOpen(false),
-                          });
-                        }}
-                      >
-                        {cleanupMutation.isPending ? 'Deleting…' : 'Delete permanently'}
-                      </Button>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        ) : null}
       </Tabs>
     </div>
   );
