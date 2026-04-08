@@ -998,7 +998,7 @@ function WithdrawalsView() {
     queryKey: ['admin', 'security-settings'],
     queryFn: () => adminApi.securitySettings(),
   });
-  const otpSensitiveCrud = Boolean(secSettings?.otp_sensitive_crud);
+  const otpSensitiveCrud = secSettings?.otp_sensitive_crud !== false;
 
   const { data: withdrawals = [], isLoading, isError } = useAdminList<WithdrawalRow>(
     ['admin', 'withdrawals'],

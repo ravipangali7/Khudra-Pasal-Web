@@ -116,7 +116,7 @@ function WalletOverviewView() {
     queryKey: ['admin', 'security-settings'],
     queryFn: () => adminApi.securitySettings(),
   });
-  const otpSensitiveCrud = Boolean(secSettings?.otp_sensitive_crud);
+  const otpSensitiveCrud = secSettings?.otp_sensitive_crud !== false;
   const adjustMut = useAdminMutation(
     adminApi.walletAdjust,
     [
