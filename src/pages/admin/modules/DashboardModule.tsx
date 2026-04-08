@@ -210,7 +210,7 @@ export default function DashboardModule({ onNavigate }: DashboardModuleProps) {
     retry: false,
   });
 
-  const { data: auditSecResp, isError: auditSecError } = useQuery({
+  const { data: auditSecResp, isError: auditSecError, refetch: refetchAuditSec } = useQuery({
     queryKey: ['admin', 'dashboard', 'audit-security'],
     queryFn: () => adminApi.auditLogs({ type: 'security', page_size: 15, ordering: '-created_at' }),
     staleTime: DASH_STALE,
@@ -580,7 +580,16 @@ export default function DashboardModule({ onNavigate }: DashboardModuleProps) {
           description="Flagged activity and security audit events."
           onCardClick={() => onNavigate('security')}
           headerRight={
-            <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" onClick={() => void refetchFlagged()}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-8 text-xs"
+              onClick={() => {
+                void refetchFlagged();
+                void refetchAuditSec();
+              }}
+            >
               Refresh
             </Button>
           }

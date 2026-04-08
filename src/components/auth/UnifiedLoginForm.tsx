@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowRight, Loader2, Shield } from "lucide-react";
-import { authApi, setAuthToken, type AuthPortalKey } from "@/lib/api";
+import { authApi, getOAuthStartUrl, setAuthToken, type AuthPortalKey } from "@/lib/api";
 import { sanitizeNextPath } from "@/lib/authRedirect";
 import { cn } from "@/lib/utils";
 import PhonePrefixField from "./PhonePrefixField";
@@ -100,6 +100,23 @@ export default function UnifiedLoginForm({
 
   return (
     <div className={cn("space-y-6", className)}>
+      <button
+        type="button"
+        disabled={loading}
+        onClick={() => {
+          window.location.assign(getOAuthStartUrl("google", oauthNext));
+        }}
+        className="w-full py-3.5 rounded-xl border border-neutral-300 bg-white text-neutral-800 font-semibold flex items-center justify-center gap-3 hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+      >
+        <span
+          aria-hidden="true"
+          className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-neutral-300 bg-white text-xs font-bold"
+        >
+          G
+        </span>
+        Continue with Google
+      </button>
+
       <div className="flex items-center gap-4">
         <div className="flex-1 h-px bg-neutral-200" />
         <span className="text-xs text-neutral-500 font-medium whitespace-nowrap">or login with phone</span>
