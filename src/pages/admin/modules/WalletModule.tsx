@@ -1182,7 +1182,7 @@ function WalletSettingsView() {
             {[
               ['Shared', shared, setShared] as const,
               ['Individual', individual, setIndividual] as const,
-              ['Flat', flat, setFlat] as const,
+              ['Flat (reserved — no wallet type)', flat, setFlat] as const,
               ['Vendor', vendorW, setVendorW] as const,
               ['Family', familyW, setFamilyW] as const,
               ['Child', childW, setChildW] as const,

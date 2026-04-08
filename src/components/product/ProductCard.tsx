@@ -333,17 +333,6 @@ const ProductCard = ({
             ) : (
               <p className="mt-2 text-[12px] md:text-[11px] text-muted-foreground">No reviews yet</p>
             )}
-            {product.couponHints && product.couponHints.length > 0 && (
-              <p className="mt-2 text-[11px] md:text-[10px] text-primary font-semibold line-clamp-2">
-                {product.couponHints
-                  .map((h) =>
-                    h.type === 'percentage'
-                      ? `${h.code}: ${h.value}% off`
-                      : `${h.code}: Rs. ${h.value} off`,
-                  )
-                  .join(' · ')}
-              </p>
-            )}
           </Link>
 
           {isSoldOut && (
