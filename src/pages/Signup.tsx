@@ -7,7 +7,6 @@ import { authApi, setAuthToken, type AuthPortalKey } from "@/lib/api";
 import { sanitizeNextPath } from "@/lib/authRedirect";
 import AuthBrandingPanelSignup from "@/components/auth/AuthBrandingPanelSignup";
 import AuthSplitShell from "@/components/auth/AuthSplitShell";
-import SocialAuthButtons from "@/components/auth/SocialAuthButtons";
 import PhonePrefixField from "@/components/auth/PhonePrefixField";
 import { AUTH_ORANGE, SIGNUP_CTA_GRADIENT } from "@/components/auth/constants";
 
@@ -28,10 +27,6 @@ const Signup = () => {
 
   const signupPortal = (searchParams.get("portal") || "portal").trim().toLowerCase() as AuthPortalKey;
   const isFamilySignup = signupPortal === "family-portal" && !isJoinFamilyReturn;
-
-  const oauthNext =
-    nextSanitized ??
-    (isFamilySignup ? "/family-portal/dashboard" : "/portal/dashboard");
 
   const handleInfoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,8 +122,6 @@ const Signup = () => {
                       : "Join KhudraPasal today"}
                 </p>
               </div>
-
-              <SocialAuthButtons mode="signup" oauthNext={oauthNext} />
 
               <div className="flex items-center gap-4 mb-6">
                 <div className="flex-1 h-px bg-neutral-200" />

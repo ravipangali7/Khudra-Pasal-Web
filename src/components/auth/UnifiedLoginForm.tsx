@@ -5,7 +5,6 @@ import { authApi, setAuthToken, type AuthPortalKey } from "@/lib/api";
 import { sanitizeNextPath } from "@/lib/authRedirect";
 import { cn } from "@/lib/utils";
 import PhonePrefixField from "./PhonePrefixField";
-import SocialAuthButtons from "./SocialAuthButtons";
 import { AUTH_ORANGE, LOGIN_CTA_GRADIENT } from "./constants";
 
 export type UnifiedLoginFormProps = {
@@ -101,8 +100,6 @@ export default function UnifiedLoginForm({
 
   return (
     <div className={cn("space-y-6", className)}>
-      <SocialAuthButtons mode="login" oauthNext={oauthNext} />
-
       <div className="flex items-center gap-4">
         <div className="flex-1 h-px bg-neutral-200" />
         <span className="text-xs text-neutral-500 font-medium whitespace-nowrap">or login with phone</span>
