@@ -2167,6 +2167,11 @@ export type PortalCheckoutQuoteLine = {
   line_total: number;
 };
 
+export type PortalCheckoutQuoteCouponApplied = {
+  type: 'percentage' | 'fixed';
+  value: number;
+};
+
 export type PortalCheckoutQuoteResponse = {
   subtotal: number;
   list_subtotal: number;
@@ -2177,6 +2182,7 @@ export type PortalCheckoutQuoteResponse = {
   eligible_subtotal: number;
   total: number;
   coupon_error: string | null;
+  coupon_applied?: PortalCheckoutQuoteCouponApplied | null;
   flash_product_ids: number[];
   lines: PortalCheckoutQuoteLine[];
   stock_warnings: PortalCheckoutQuoteStockWarning[];

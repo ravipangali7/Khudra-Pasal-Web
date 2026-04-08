@@ -1361,7 +1361,13 @@ const Checkout = () => {
                   ) : null}
                   {quoteData && quoteData.coupon_discount > 0 ? (
                     <div className="flex justify-between text-sm text-category-fresh">
-                      <span>Coupon</span>
+                      <span>
+                        {quoteData.coupon_applied?.type === 'percentage'
+                          ? `Promo (−${quoteData.coupon_applied.value.toLocaleString('en-NP', { maximumFractionDigits: 2 })}%)`
+                          : quoteData.coupon_applied?.type === 'fixed'
+                            ? `Promo (flat Rs. ${quoteData.coupon_applied.value.toLocaleString('en-NP', { maximumFractionDigits: 2 })})`
+                            : 'Coupon'}
+                      </span>
                       <span>−{formatPrice(quoteData.coupon_discount)}</span>
                     </div>
                   ) : null}
