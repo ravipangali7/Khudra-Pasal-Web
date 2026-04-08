@@ -983,6 +983,7 @@ function WithdrawalsView() {
   const [confirmAction, setConfirmAction] = useState<{ row: WithdrawalRow; action: 'approved' | 'rejected' } | null>(
     null,
   );
+  const [confirmSensitiveOtp, setConfirmSensitiveOtp] = useState('');
   const [adminNote, setAdminNote] = useState('');
   const [rejectReason, setRejectReason] = useState('');
   const [actionErr, setActionErr] = useState('');
@@ -992,6 +993,12 @@ function WithdrawalsView() {
     queryKey: ['admin', 'withdrawals-summary'],
     queryFn: () => adminApi.withdrawalsSummary(),
   });
+
+  const { data: secSettings } = useQuery({
+    queryKey: ['admin', 'security-settings'],
+    queryFn: () => adminApi.securitySettings(),
+  });
+  const otpSensitiveCrud = Boolean(secSettings?.otp_sensitive_crud);
 
   const { data: withdrawals = [], isLoading, isError } = useAdminList<WithdrawalRow>(
     ['admin', 'withdrawals'],
@@ -1179,6 +1186,7 @@ function WithdrawalsView() {
                           type="button"
                           onClick={() => {
                             setActionErr('');
+                            setConfirmSensitiveOtp('');
                             setAdminNote(w.admin_note ?? '');
                             setRejectReason('');
                             setConfirmAction({ row: w, action: 'approved' });
@@ -1193,6 +1201,7 @@ function WithdrawalsView() {
                           type="button"
                           onClick={() => {
                             setActionErr('');
+                            setConfirmSensitiveOtp('');
                             setAdminNote(w.admin_note ?? '');
                             setRejectReason(w.reject_reason ?? '');
                             setConfirmAction({ row: w, action: 'rejected' });
@@ -1314,7 +1323,15 @@ function WithdrawalsView() {
         )}
       </CRUDModal>
 
-      <AlertDialog open={!!confirmAction} onOpenChange={(o) => !o && setConfirmAction(null)}>
+      <AlertDialog
+        open={!!confirmAction}
+        onOpenChange={(o) => {
+          if (!o) {
+            setConfirmAction(null);
+            setConfirmSensitiveOtp('');
+          }
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -1333,6 +1350,35 @@ function WithdrawalsView() {
                 <Textarea rows={2} value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} />
               </div>
             ) : null}
+            {otpSensitiveCrud ? (
+              <div className="space-y-2 p-3 border rounded-lg">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    try {
+                      await adminApi.sendAdminSensitiveOtp();
+                      toast.success('Verification code sent to your phone.');
+                    } catch (e) {
+                      toast.error(formatApiError(e));
+                    }
+                  }}
+                >
+                  Send verification code
+                </Button>
+                <div>
+                  <Label>Verification code</Label>
+                  <Input
+                    className="font-mono h-8"
+                    placeholder="6-digit OTP"
+                    value={confirmSensitiveOtp}
+                    onChange={(e) => setConfirmSensitiveOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    maxLength={6}
+                  />
+                </div>
+              </div>
+            ) : null}
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel type="button">Cancel</AlertDialogCancel>
@@ -1341,6 +1387,10 @@ function WithdrawalsView() {
               className={confirmAction?.action === 'rejected' ? 'bg-destructive hover:bg-destructive/90' : ''}
               onClick={async () => {
                 if (!confirmAction) return;
+                if (otpSensitiveCrud && !confirmSensitiveOtp.trim()) {
+                  setActionErr('Send a verification code to your phone and enter it above.');
+                  return;
+                }
                 try {
                   const payload: Record<string, unknown> = {
                     status: confirmAction.action,
@@ -1349,14 +1399,19 @@ function WithdrawalsView() {
                   if (confirmAction.action === 'rejected') {
                     payload.reject_reason = rejectReason;
                   }
+                  if (otpSensitiveCrud) {
+                    payload.sensitive_otp = confirmSensitiveOtp.trim();
+                  }
                   await updateMut.mutateAsync({
                     id: confirmAction.row.id,
                     payload,
                   });
                   setConfirmAction(null);
+                  setConfirmSensitiveOtp('');
                 } catch (e) {
                   setActionErr(formatApiError(e));
                   setConfirmAction(null);
+                  setConfirmSensitiveOtp('');
                 }
               }}
             >

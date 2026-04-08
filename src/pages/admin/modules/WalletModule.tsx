@@ -22,6 +22,7 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { adminApi, type AdminLoyaltySummary, type AdminWalletsSummary } from '@/lib/api';
+import { toast } from 'sonner';
 import { useAdminList } from '../hooks/useAdminList';
 import { useAdminMutation } from '../hooks/useAdminMutation';
 import { formatApiError } from '../hooks/adminFormUtils';
@@ -111,6 +112,11 @@ function WalletOverviewView() {
     queryKey: ['admin', 'wallets', 'summary'],
     queryFn: () => adminApi.walletsSummary(),
   });
+  const { data: secSettings } = useQuery({
+    queryKey: ['admin', 'security-settings'],
+    queryFn: () => adminApi.securitySettings(),
+  });
+  const otpSensitiveCrud = Boolean(secSettings?.otp_sensitive_crud);
   const adjustMut = useAdminMutation(
     adminApi.walletAdjust,
     [
@@ -152,10 +158,12 @@ function WalletOverviewView() {
   const [manualReason, setManualReason] = useState('');
   const [manualType, setManualType] = useState<'credit' | 'debit' | null>(null);
   const [manualErr, setManualErr] = useState('');
+  const [manualSensitiveOtp, setManualSensitiveOtp] = useState('');
 
   // Credit/Debit modal state
   const [cdAmount, setCdAmount] = useState('');
   const [cdReason, setCdReason] = useState('');
+  const [cdSensitiveOtp, setCdSensitiveOtp] = useState('');
   const [cdErr, setCdErr] = useState('');
   const [freezeErr, setFreezeErr] = useState('');
   const [editWalletStatus, setEditWalletStatus] = useState('active');
@@ -178,20 +186,35 @@ function WalletOverviewView() {
     ? allTransactions.filter((tx) => tx.user === selected.owner)
     : allTransactions;
 
+  const sendWalletStepUpOtp = async () => {
+    try {
+      await adminApi.sendAdminSensitiveOtp();
+      toast.success('Verification code sent to your phone.');
+    } catch (e) {
+      toast.error(formatApiError(e));
+    }
+  };
+
   const handleManualCreditDebit = async (type: 'credit' | 'debit') => {
     if (!manualUserId || !manualAmount) return;
     setManualErr('');
+    if (otpSensitiveCrud && !manualSensitiveOtp.trim()) {
+      setManualErr('Send a verification code to your phone and enter it here (Security → OTP for sensitive CRUD).');
+      return;
+    }
     try {
       await adjustMut.mutateAsync({
         wallet_id: manualUserId.trim(),
         amount: parseFloat(manualAmount),
         direction: type,
         reason: manualReason || undefined,
+        ...(otpSensitiveCrud ? { sensitive_otp: manualSensitiveOtp.trim() } : {}),
       });
       setManualUserId('');
       setManualWalletLabel('');
       setManualAmount('');
       setManualReason('');
+      setManualSensitiveOtp('');
       setManualType(type);
       setTimeout(() => setManualType(null), 1200);
     } catch (e) {
@@ -238,16 +261,22 @@ function WalletOverviewView() {
   const handleCreditDebitSelected = async (type: 'credit' | 'debit') => {
     if (!selected || !cdAmount) return;
     setCdErr('');
+    if (otpSensitiveCrud && !cdSensitiveOtp.trim()) {
+      setCdErr('Send a verification code to your phone and enter it below.');
+      return;
+    }
     try {
       await adjustMut.mutateAsync({
         wallet_id: selected.id,
         amount: parseFloat(cdAmount),
         direction: type,
         reason: cdReason || undefined,
+        ...(otpSensitiveCrud ? { sensitive_otp: cdSensitiveOtp.trim() } : {}),
       });
       setCreditDebitOpen(false);
       setCdAmount('');
       setCdReason('');
+      setCdSensitiveOtp('');
     } catch (e) {
       setCdErr(formatApiError(e));
     }
@@ -301,7 +330,29 @@ function WalletOverviewView() {
             </div>
             <div><Label>Amount (Rs.)</Label><Input placeholder="0" type="number" value={manualAmount} onChange={e => setManualAmount(e.target.value)} /></div>
             <div><Label>Reason</Label><Input placeholder="Admin adjustment..." value={manualReason} onChange={e => setManualReason(e.target.value)} /></div>
-            <div className="flex gap-2">
+            {otpSensitiveCrud ? (
+              <div className="md:col-span-4 space-y-2 p-3 border rounded-lg bg-muted/30">
+                <p className="text-xs text-muted-foreground">
+                  Sensitive CRUD requires a one-time code sent to your admin phone.
+                </p>
+                <div className="flex flex-wrap gap-2 items-end">
+                  <Button type="button" variant="outline" size="sm" onClick={() => { void sendWalletStepUpOtp(); }}>
+                    Send code
+                  </Button>
+                  <div className="flex-1 min-w-[140px]">
+                    <Label className="text-xs">Verification code</Label>
+                    <Input
+                      className="h-8 font-mono"
+                      placeholder="6-digit OTP"
+                      value={manualSensitiveOtp}
+                      onChange={(e) => setManualSensitiveOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      maxLength={6}
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : null}
+            <div className="flex gap-2 md:col-span-4">
               <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700" size="sm" onClick={() => { void handleManualCreditDebit('credit'); }} disabled={!manualUserId || !manualAmount || adjustMut.isPending}>
                 {manualType === 'credit' ? '✓ Credited' : '+ Credit'}
               </Button>
@@ -371,7 +422,7 @@ function WalletOverviewView() {
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => { setSelected(w); setViewOpen(true); }}><Eye className="w-4 h-4 mr-2" /> View Details</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => { setSelected(w); setEditOpen(true); }}><Edit className="w-4 h-4 mr-2" /> Edit Wallet</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => { setSelected(w); setCdAmount(''); setCdReason(''); setCdErr(''); setCreditDebitOpen(true); }}><DollarSign className="w-4 h-4 mr-2" /> Credit / Debit</DropdownMenuItem>
+                <DropdownMenuItem onClick={() => { setSelected(w); setCdAmount(''); setCdReason(''); setCdSensitiveOtp(''); setCdErr(''); setCreditDebitOpen(true); }}><DollarSign className="w-4 h-4 mr-2" /> Credit / Debit</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => { setSelected(w); setTransactionsOpen(true); }}><History className="w-4 h-4 mr-2" /> Transactions</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={() => { void handleFreezeWallet(w.id, w.status); }} className={w.status === 'active' ? "text-destructive" : "text-emerald-600"}>
@@ -455,7 +506,7 @@ function WalletOverviewView() {
       </CRUDModal>
 
       {/* Credit/Debit Modal for selected wallet */}
-      <CRUDModal open={creditDebitOpen} onClose={() => { setCreditDebitOpen(false); setCdErr(''); }} title={`Manual Credit/Debit — ${selected?.owner}`} size="md" error={cdErr}>
+      <CRUDModal open={creditDebitOpen} onClose={() => { setCreditDebitOpen(false); setCdErr(''); setCdSensitiveOtp(''); }} title={`Manual Credit/Debit — ${selected?.owner}`} size="md" error={cdErr}>
         {selected && (
           <div className="space-y-4">
             <div className="p-3 bg-muted/50 rounded-lg text-center">
@@ -464,6 +515,23 @@ function WalletOverviewView() {
             </div>
             <div><Label>Amount (Rs.)</Label><Input type="number" placeholder="Enter amount" value={cdAmount} onChange={e => setCdAmount(e.target.value)} /></div>
             <div><Label>Reason</Label><Textarea placeholder="Reason for credit/debit..." rows={3} value={cdReason} onChange={e => setCdReason(e.target.value)} /></div>
+            {otpSensitiveCrud ? (
+              <div className="space-y-2 p-3 border rounded-lg">
+                <Button type="button" variant="outline" size="sm" onClick={() => { void sendWalletStepUpOtp(); }}>
+                  Send verification code
+                </Button>
+                <div>
+                  <Label>Verification code</Label>
+                  <Input
+                    className="font-mono"
+                    placeholder="6-digit OTP"
+                    value={cdSensitiveOtp}
+                    onChange={(e) => setCdSensitiveOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    maxLength={6}
+                  />
+                </div>
+              </div>
+            ) : null}
             <div className="grid grid-cols-2 gap-3">
               <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => { void handleCreditDebitSelected('credit'); }} disabled={!cdAmount || adjustMut.isPending}>
                 + Credit

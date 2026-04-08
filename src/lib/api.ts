@@ -1650,8 +1650,13 @@ export const adminApi = {
   deleteWeightRule: (id: string) => adminWrite<{ ok: true }>(`weight-rules/${id}`, "DELETE"),
   walletsSummary: () =>
     apiFetch<AdminWalletsSummary>("/admin/wallets/summary/", undefined, true),
-  walletAdjust: (payload: { wallet_id: string; amount: number; direction: string; reason?: string }) =>
-    adminWrite<{ ok: boolean; balance: number }>("wallets/adjust", "POST", payload),
+  walletAdjust: (payload: {
+    wallet_id: string;
+    amount: number;
+    direction: string;
+    reason?: string;
+    sensitive_otp?: string;
+  }) => adminWrite<{ ok: boolean; balance: number }>("wallets/adjust", "POST", payload),
   updateWallet: (id: string, payload: Record<string, unknown>) =>
     adminWrite<Record<string, unknown>>(`wallets/${id}`, "PATCH", payload),
   walletSettings: () => apiFetch<Record<string, unknown>>("/admin/wallet-settings/", undefined, true),
@@ -1693,6 +1698,13 @@ export const adminApi = {
   securitySettings: () => apiFetch<Record<string, unknown>>("/admin/security-settings/", undefined, true),
   updateSecuritySettings: (payload: Record<string, unknown>) =>
     adminWrite<Record<string, unknown>>("security-settings", "PATCH", payload),
+  /** Step-up OTP for wallet adjust / withdrawal when Security → OTP for sensitive CRUD is on. */
+  sendAdminSensitiveOtp: () =>
+    apiFetch<{ detail: string; debug_otp?: string }>(
+      "/auth/otp/send/",
+      { method: "POST", body: JSON.stringify({ purpose: "admin_sensitive" }) },
+      true,
+    ),
   siteSettings: () => apiFetch<Record<string, unknown>>("/admin/site-settings/", undefined, true),
   updateSiteSettings: (payload: Record<string, unknown> | FormData) =>
     adminWrite<Record<string, unknown>>("site-settings", "PATCH", payload),
