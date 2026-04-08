@@ -116,6 +116,12 @@ function WalletOverviewView() {
     queryKey: ['admin', 'security-settings'],
     queryFn: () => adminApi.securitySettings(),
   });
+  const { data: adminProfile } = useQuery({
+    queryKey: ['admin', 'profile'],
+    queryFn: () => adminApi.profile(),
+  });
+  const canManageWalletFreeze =
+    Boolean(adminProfile?.is_superuser) || adminProfile?.role === 'super_admin';
   const otpSensitiveCrud = secSettings?.otp_sensitive_crud !== false;
   const adjustMut = useAdminMutation(
     adminApi.walletAdjust,
@@ -133,7 +139,7 @@ function WalletOverviewView() {
   const updateWalletMut = useAdminMutation(
     ({ id, payload }: { id: string; payload: Record<string, unknown> }) =>
       adminApi.updateWallet(id, payload),
-    [['admin', 'wallets'], ['admin', 'wallets', 'summary']],
+    [['admin', 'wallets'], ['admin', 'wallets', 'summary'], ['admin', 'wallets', 'family-only'], ['admin', 'wallet']],
     () => [
       ['admin', 'audit-logs'],
       ['admin', 'employee-audit-logs'],
@@ -223,15 +229,23 @@ function WalletOverviewView() {
   };
 
   const handleFreezeWallet = async (id: string, currentStatus: string) => {
+    if (!canManageWalletFreeze) {
+      toast.error('Only super admins can freeze or unfreeze wallets.');
+      return;
+    }
     const next = currentStatus === 'active' ? 'frozen' : 'active';
     try {
       await updateWalletMut.mutateAsync({ id, payload: { status: next } });
-    } catch {
-      /* list refetches */
+    } catch (e) {
+      toast.error(formatApiError(e));
     }
   };
 
   const handleFreezeAll = async () => {
+    if (!canManageWalletFreeze) {
+      setFreezeErr('Only super admins can freeze wallets.');
+      return;
+    }
     setFreezeErr('');
     try {
       for (const w of walletsData) {
@@ -246,6 +260,10 @@ function WalletOverviewView() {
   };
 
   const handleUnfreezeAll = async () => {
+    if (!canManageWalletFreeze) {
+      setFreezeErr('Only super admins can unfreeze wallets.');
+      return;
+    }
     setFreezeErr('');
     try {
       for (const w of walletsData) {
@@ -284,6 +302,10 @@ function WalletOverviewView() {
 
   const saveEditWallet = async () => {
     if (!selected) return;
+    if (!canManageWalletFreeze) {
+      setEditErr('Only super admins can change wallet status.');
+      return;
+    }
     setEditErr('');
     try {
       await updateWalletMut.mutateAsync({
@@ -367,12 +389,18 @@ function WalletOverviewView() {
 
       {/* Freeze All + Filters */}
       <div className="flex flex-wrap gap-2 items-center">
-        <Button variant="destructive" size="sm" onClick={() => { setFreezeErr(''); setFreezeAllOpen(true); }} disabled={updateWalletMut.isPending}>
-          <Lock className="w-3 h-3 mr-1" /> Freeze All Wallets
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => { void handleUnfreezeAll(); }} disabled={updateWalletMut.isPending}>
-          <Unlock className="w-3 h-3 mr-1" /> Unfreeze All
-        </Button>
+        {canManageWalletFreeze ? (
+          <>
+            <Button variant="destructive" size="sm" onClick={() => { setFreezeErr(''); setFreezeAllOpen(true); }} disabled={updateWalletMut.isPending}>
+              <Lock className="w-3 h-3 mr-1" /> Freeze All Wallets
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => { void handleUnfreezeAll(); }} disabled={updateWalletMut.isPending}>
+              <Unlock className="w-3 h-3 mr-1" /> Unfreeze All
+            </Button>
+          </>
+        ) : (
+          <p className="text-xs text-muted-foreground">Wallet freeze/unfreeze requires super admin.</p>
+        )}
         {freezeErr ? <span className="text-xs text-destructive">{freezeErr}</span> : null}
         <div className="flex-1" />
         <Select value={typeFilter} onValueChange={setTypeFilter}>
@@ -421,13 +449,19 @@ function WalletOverviewView() {
               <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => { setSelected(w); setViewOpen(true); }}><Eye className="w-4 h-4 mr-2" /> View Details</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => { setSelected(w); setEditOpen(true); }}><Edit className="w-4 h-4 mr-2" /> Edit Wallet</DropdownMenuItem>
+                {canManageWalletFreeze ? (
+                  <DropdownMenuItem onClick={() => { setSelected(w); setEditOpen(true); }}><Edit className="w-4 h-4 mr-2" /> Edit Wallet</DropdownMenuItem>
+                ) : null}
                 <DropdownMenuItem onClick={() => { setSelected(w); setCdAmount(''); setCdReason(''); setCdSensitiveOtp(''); setCdErr(''); setCreditDebitOpen(true); }}><DollarSign className="w-4 h-4 mr-2" /> Credit / Debit</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => { setSelected(w); setTransactionsOpen(true); }}><History className="w-4 h-4 mr-2" /> Transactions</DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => { void handleFreezeWallet(w.id, w.status); }} className={w.status === 'active' ? "text-destructive" : "text-emerald-600"}>
-                  {w.status === 'active' ? <><Lock className="w-4 h-4 mr-2" /> Freeze Wallet</> : <><Unlock className="w-4 h-4 mr-2" /> Unfreeze Wallet</>}
-                </DropdownMenuItem>
+                {canManageWalletFreeze ? (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => { void handleFreezeWallet(w.id, w.status); }} className={w.status === 'active' ? "text-destructive" : "text-emerald-600"}>
+                      {w.status === 'active' ? <><Lock className="w-4 h-4 mr-2" /> Freeze Wallet</> : <><Unlock className="w-4 h-4 mr-2" /> Unfreeze Wallet</>}
+                    </DropdownMenuItem>
+                  </>
+                ) : null}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
@@ -472,12 +506,17 @@ function WalletOverviewView() {
               ))}
             </TabsContent>
             <TabsContent value="actions" className="space-y-3">
+              {!canManageWalletFreeze ? (
+                <p className="text-xs text-muted-foreground">Freeze/unfreeze requires super admin.</p>
+              ) : null}
               <div className="grid grid-cols-2 gap-3">
                 <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => { setViewOpen(false); setCreditDebitOpen(true); }}><Plus className="w-4 h-4 mr-2" /> Credit Wallet</Button>
                 <Button variant="destructive" onClick={() => { setViewOpen(false); setCreditDebitOpen(true); }}><Ban className="w-4 h-4 mr-2" /> Debit Wallet</Button>
-                <Button variant="outline" onClick={() => { void handleFreezeWallet(selected.id, selected.status); }} className={selected.status === 'active' ? "text-destructive" : "text-emerald-600"}>
-                  {selected.status === 'active' ? <><Lock className="w-4 h-4 mr-2" /> Freeze Wallet</> : <><Unlock className="w-4 h-4 mr-2" /> Unfreeze Wallet</>}
-                </Button>
+                {canManageWalletFreeze ? (
+                  <Button variant="outline" onClick={() => { void handleFreezeWallet(selected.id, selected.status); }} className={selected.status === 'active' ? "text-destructive" : "text-emerald-600"}>
+                    {selected.status === 'active' ? <><Lock className="w-4 h-4 mr-2" /> Freeze Wallet</> : <><Unlock className="w-4 h-4 mr-2" /> Unfreeze Wallet</>}
+                  </Button>
+                ) : null}
                 <Button variant="outline"><History className="w-4 h-4 mr-2" /> Reverse Last Tx</Button>
               </div>
             </TabsContent>

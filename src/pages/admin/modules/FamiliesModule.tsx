@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Eye, Edit, Lock, Unlock, History, MoreVertical, Wallet, TrendingUp,
+  ArrowLeft, Eye, Edit, Lock, Unlock, History, MoreVertical, Wallet, TrendingUp,
   AlertTriangle, Plus, Trash2, Users, CheckCircle, Ban, Shield, User, X,
   DollarSign, Phone
 } from 'lucide-react';
@@ -21,7 +21,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { cn } from '@/lib/utils';
-import { adminApi } from '@/lib/api';
+import { adminApi, type AdminWalletTransactionRow } from '@/lib/api';
 import { toast } from 'sonner';
 import { useAdminList } from '../hooks/useAdminList';
 import { useAdminMutation } from '../hooks/useAdminMutation';
@@ -31,6 +31,17 @@ import {
   fetchUserAdminOptions,
   fetchWalletAdminOptions,
 } from '@/components/admin/adminRelationalPickers';
+import { useAdminRouteContext } from '../adminRouteContext';
+
+type FamilyLinkedWalletRow = {
+  id: string;
+  owner: string;
+  type: string;
+  balance: number;
+  status: string;
+  family: string;
+  lastActivity: string;
+};
 
 type FamilyRow = {
   id: string;
@@ -687,7 +698,159 @@ function FamiliesView() {
   );
 }
 
+function FamilyWalletDetailView({ walletId }: { walletId: string }) {
+  const routeCtx = useAdminRouteContext();
+  const { data: adminProfile } = useQuery({
+    queryKey: ['admin', 'profile'],
+    queryFn: () => adminApi.profile(),
+  });
+  const canManageWalletFreeze =
+    Boolean(adminProfile?.is_superuser) || adminProfile?.role === 'super_admin';
+
+  const { data: detail, isLoading, isError, error } = useQuery({
+    queryKey: ['admin', 'wallet', walletId],
+    queryFn: () => adminApi.getAdminWallet(walletId),
+    retry: false,
+  });
+  const { data: txns = [], isLoading: txLoading } = useAdminList<AdminWalletTransactionRow>(
+    ['admin', 'wallet-transactions', 'wallet', walletId],
+    () => adminApi.walletTransactions({ wallet_id: walletId, page_size: 200 }),
+  );
+  const updateWalletMut = useAdminMutation(
+    ({ id, payload }: { id: string; payload: Record<string, unknown> }) =>
+      adminApi.updateWallet(id, payload),
+    [
+      ['admin', 'wallets'],
+      ['admin', 'wallets', 'family-only'],
+      ['admin', 'wallets', 'summary'],
+      ['admin', 'wallet', walletId],
+      ['admin', 'wallet-transactions', 'wallet', walletId],
+    ],
+    () => [
+      ['admin', 'audit-logs'],
+      ['admin', 'employee-audit-logs'],
+      ['admin', 'audit-logs-count'],
+    ],
+  );
+
+  const toggleFreeze = () => {
+    if (!detail) return;
+    const next = detail.status === 'active' ? 'frozen' : 'active';
+    void (async () => {
+      try {
+        await updateWalletMut.mutateAsync({ id: walletId, payload: { status: next } });
+        toast.success(next === 'frozen' ? 'Wallet frozen.' : 'Wallet is now active.');
+      } catch (e) {
+        toast.error(formatApiError(e));
+      }
+    })();
+  };
+
+  if (isLoading) {
+    return <div className="p-4 lg:p-6 text-sm text-muted-foreground">Loading wallet…</div>;
+  }
+  if (isError || !detail) {
+    return (
+      <div className="p-4 lg:p-6 space-y-4">
+        <Button variant="outline" size="sm" onClick={() => routeCtx?.navigateToList()}>
+          <ArrowLeft className="w-4 h-4 mr-1" /> Back to list
+        </Button>
+        <p className="text-sm text-destructive">
+          {formatApiError(error) || 'Could not load wallet.'}
+        </p>
+      </div>
+    );
+  }
+
+  const walletStatusLabel = detail.status === 'active' ? 'Active' : 'Frozen';
+
+  return (
+    <div className="p-4 lg:p-6 space-y-6">
+      <div className="flex flex-wrap items-center gap-3">
+        <Button variant="outline" size="sm" onClick={() => routeCtx?.navigateToList()}>
+          <ArrowLeft className="w-4 h-4 mr-1" /> Back to list
+        </Button>
+        <Badge
+          variant={detail.status === 'active' ? 'default' : 'destructive'}
+          className={cn('text-xs', detail.status === 'active' && 'bg-emerald-500')}
+        >
+          {detail.status === 'frozen' ? <Lock className="w-3 h-3 mr-1 inline" /> : null}
+          Wallet: {walletStatusLabel}
+        </Badge>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">{detail.owner}</CardTitle>
+            <p className="text-xs text-muted-foreground font-normal">
+              Wallet #{detail.id} · {detail.type}
+              {detail.label ? ` · ${detail.label}` : ''}
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-2xl font-bold">{formatCompactRs(detail.balance)}</p>
+            <p className="text-xs text-muted-foreground">Group / family: {detail.family}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Admin actions</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            {canManageWalletFreeze ? (
+              detail.status === 'active' ? (
+                <Button variant="destructive" size="sm" onClick={toggleFreeze} disabled={updateWalletMut.isPending}>
+                  <Lock className="w-3 h-3 mr-1" /> Freeze wallet
+                </Button>
+              ) : (
+                <Button size="sm" className="bg-emerald-500 hover:bg-emerald-600" onClick={toggleFreeze} disabled={updateWalletMut.isPending}>
+                  <Unlock className="w-3 h-3 mr-1" /> Unfreeze wallet
+                </Button>
+              )
+            ) : (
+              <p className="text-xs text-muted-foreground">Only super admins can freeze or unfreeze wallets.</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="space-y-2">
+        <h4 className="text-sm font-medium">Transaction history</h4>
+        {txLoading ? (
+          <p className="text-xs text-muted-foreground">Loading transactions…</p>
+        ) : txns.length === 0 ? (
+          <p className="text-xs text-muted-foreground">No transactions for this wallet.</p>
+        ) : (
+          <div className="space-y-1 max-h-[480px] overflow-y-auto border rounded-lg p-2">
+            {txns.map((tx) => (
+              <div key={tx.id} className="flex justify-between items-center p-2 border-b last:border-0 text-sm">
+                <div>
+                  <p className="font-medium">{tx.item}</p>
+                  <p className="text-[10px] text-muted-foreground">{tx.type} · {tx.time}</p>
+                </div>
+                <div className="text-right">
+                  <span className={cn('font-bold', tx.amount >= 0 ? 'text-emerald-600' : 'text-destructive')}>
+                    {formatCompactRs(tx.amount)}
+                  </span>
+                  <p className="text-[10px] text-muted-foreground">{tx.status}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function FamilyWalletControl() {
+  const routeCtx = useAdminRouteContext();
+  const viewWalletId =
+    routeCtx?.action === 'view' && routeCtx.itemId?.trim() && /^\d+$/.test(routeCtx.itemId.trim())
+      ? routeCtx.itemId.trim()
+      : '';
+
   const [viewOpen, setViewOpen] = useState(false);
   const [creditOpen, setCreditOpen] = useState(false);
   const [selected, setSelected] = useState<FamilyRow | null>(null);
@@ -703,6 +866,7 @@ function FamilyWalletControl() {
   const { data: allFamilies = [], isLoading, isError } = useAdminList<FamilyRow>(
     ['admin', 'families'],
     () => adminApi.families({ page_size: 200 }),
+    { enabled: !viewWalletId },
   );
   const { data: summary } = useQuery({
     queryKey: ['admin', 'wallets', 'summary'],
@@ -746,6 +910,34 @@ function FamilyWalletControl() {
       ['admin', 'audit-logs-count'],
     ],
   );
+  const { data: adminProfile } = useQuery({
+    queryKey: ['admin', 'profile'],
+    queryFn: () => adminApi.profile(),
+  });
+  const canManageWalletFreeze =
+    Boolean(adminProfile?.is_superuser) || adminProfile?.role === 'super_admin';
+  const { data: familyWallets = [] } = useAdminList<FamilyLinkedWalletRow>(
+    ['admin', 'wallets', 'family-only'],
+    () => adminApi.wallets({ page_size: 500, family_only: true }),
+    { enabled: !viewWalletId },
+  );
+  const updateWalletMut = useAdminMutation(
+    ({ id, payload }: { id: string; payload: Record<string, unknown> }) =>
+      adminApi.updateWallet(id, payload),
+    [
+      ['admin', 'wallets'],
+      ['admin', 'wallets', 'family-only'],
+      ['admin', 'wallets', 'summary'],
+      ['admin', 'family-members'],
+    ],
+    (_, v) => [
+      ['admin', 'audit-logs'],
+      ['admin', 'employee-audit-logs'],
+      ['admin', 'audit-logs-count'],
+      ['admin', 'wallet', v.id],
+      ['admin', 'wallet-transactions', 'wallet', v.id],
+    ],
+  );
 
   const sendFamilyWalletSensitiveOtp = async () => {
     try {
@@ -755,6 +947,10 @@ function FamilyWalletControl() {
       toast.error(formatApiError(e));
     }
   };
+
+  if (viewWalletId) {
+    return <FamilyWalletDetailView walletId={viewWalletId} />;
+  }
 
   const filtered = allFamilies.filter(f => {
     if (statusFilter !== 'all' && f.status !== statusFilter) return false;
@@ -769,16 +965,99 @@ function FamilyWalletControl() {
     return <div className="p-4 lg:p-6 text-sm text-destructive">Could not load family groups.</div>;
   }
 
+  const frozenFamilyWalletCount = familyWallets.filter((w) => w.status === 'frozen').length;
+
+  const freezeWalletRow = (id: string, current: string) => {
+    if (!canManageWalletFreeze) {
+      toast.error('Only super admins can freeze or unfreeze wallets.');
+      return;
+    }
+    const next = current === 'active' ? 'frozen' : 'active';
+    void (async () => {
+      try {
+        await updateWalletMut.mutateAsync({ id, payload: { status: next } });
+        toast.success(next === 'frozen' ? 'Wallet frozen.' : 'Wallet active.');
+      } catch (e) {
+        toast.error(formatApiError(e));
+      }
+    })();
+  };
+
   return (
     <div className="p-4 lg:p-6 space-y-6">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <AdminStatCard icon={Wallet} title="Groups" value={String(allFamilies.length)} color="blue" />
-        <AdminStatCard icon={TrendingUp} title="Total balance (groups)" value={formatCompactRs(allFamilies.reduce((a, f) => a + f.totalBalance, 0))} color="green" />
-        <AdminStatCard icon={Lock} title="Frozen groups" value={String(allFamilies.filter((f) => f.status === 'frozen').length)} color="red" />
+        <AdminStatCard icon={Users} title="Family-linked wallets" value={String(familyWallets.length)} color="green" />
+        <AdminStatCard icon={Lock} title="Frozen wallets" value={String(frozenFamilyWalletCount)} color="red" />
         <AdminStatCard icon={AlertTriangle} title="Flagged wallet txns" value={summary != null ? String(summary.flagged_transactions) : '—'} color="orange" />
       </div>
 
-      <div className="flex gap-2">
+      <AdminTable
+        title="Family-linked wallets"
+        subtitle="Wallet status (Active/Frozen) is independent of family group status. Use Actions for freeze/unfreeze or open the detail page."
+        data={familyWallets}
+        columns={[
+          { key: 'family', label: 'Group', render: (w) => <span className="font-medium">{w.family}</span> },
+          { key: 'owner', label: 'Owner / label' },
+          { key: 'type', label: 'Type', render: (w) => <Badge variant="outline" className="text-xs capitalize">{w.type}</Badge> },
+          { key: 'balance', label: 'Balance', render: (w) => <span className="font-bold">Rs. {w.balance.toLocaleString()}</span> },
+          {
+            key: 'status',
+            label: 'Wallet status',
+            render: (w) => (
+              <Badge
+                variant={w.status === 'active' ? 'default' : 'destructive'}
+                className={cn('text-xs', w.status === 'active' && 'bg-emerald-500')}
+              >
+                {w.status === 'frozen' ? <Lock className="w-3 h-3 mr-1" /> : null}
+                {w.status === 'active' ? 'Active' : 'Frozen'}
+              </Badge>
+            ),
+          },
+          {
+            key: 'actions',
+            label: '',
+            render: (w) => (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Wallet actions">
+                    <MoreVertical className="w-4 h-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => routeCtx?.navigateToView(w.id)}>
+                    <Eye className="w-4 h-4 mr-2" /> Details
+                  </DropdownMenuItem>
+                  {canManageWalletFreeze ? (
+                    <>
+                      <DropdownMenuSeparator />
+                      {w.status === 'active' ? (
+                        <DropdownMenuItem
+                          className="text-destructive"
+                          onClick={() => freezeWalletRow(w.id, w.status)}
+                        >
+                          <Lock className="w-4 h-4 mr-2" /> Freeze
+                        </DropdownMenuItem>
+                      ) : (
+                        <DropdownMenuItem
+                          className="text-emerald-600"
+                          onClick={() => freezeWalletRow(w.id, w.status)}
+                        >
+                          <Unlock className="w-4 h-4 mr-2" /> Unfreeze
+                        </DropdownMenuItem>
+                      )}
+                    </>
+                  ) : null}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ),
+          },
+        ]}
+        onExport={() => {}}
+      />
+
+      <div className="flex flex-wrap gap-2 items-center">
+        <p className="text-xs text-muted-foreground w-full sm:w-auto sm:mr-2">Filters apply to family groups below.</p>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="h-8 w-32 text-xs"><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -799,7 +1078,7 @@ function FamilyWalletControl() {
         </Select>
       </div>
 
-      <AdminTable title="Family Wallet Overview" subtitle="Control parent & child wallets per group"
+      <AdminTable title="Family groups" subtitle="Group status (freeze group) syncs linked wallets via system rules. Use the table above for per-wallet freeze."
         data={filtered}
         columns={[
           { key: 'name', label: 'Group', render: (f) => <span className="font-medium">{f.name}</span> },
@@ -807,14 +1086,14 @@ function FamilyWalletControl() {
           { key: 'leader', label: 'Leader' },
           { key: 'members', label: 'Members' },
           { key: 'totalBalance', label: 'Total Balance', render: (f) => <span className="font-bold">Rs. {f.totalBalance.toLocaleString()}</span> },
-          { key: 'status', label: 'Status', render: (f) => (
+          { key: 'status', label: 'Group status', render: (f) => (
             <Badge variant={f.status === 'active' ? 'default' : 'destructive'}
               className={cn("text-xs", f.status === 'active' && "bg-emerald-500")}>{f.status}</Badge>
           )},
           { key: 'actions', label: '', render: (f) => (
             <div className="flex gap-1">
               <Button size="sm" variant="outline" className="h-7" onClick={() => { setSelected(f); setViewOpen(true); }}>
-                <Eye className="w-3 h-3 mr-1" /> Details
+                <Eye className="w-3 h-3 mr-1" /> Group details
               </Button>
               <Button size="sm" variant="outline" className="h-7" onClick={() => { setSelected(f); setCdErr(''); setCdSensitiveOtp(''); setCreditOpen(true); }}>
                 <DollarSign className="w-3 h-3 mr-1" /> Credit/Debit
@@ -851,12 +1130,51 @@ function FamilyWalletControl() {
               ) : (
                 <div className="space-y-1">
                   {groupWallets.map((w) => (
-                    <div key={w.id} className="flex items-center justify-between p-2 border rounded-lg text-sm">
-                      <div>
+                    <div key={w.id} className="flex items-center justify-between gap-2 p-2 border rounded-lg text-sm">
+                      <div className="min-w-0">
                         <p className="font-medium">Rs. {w.balance.toLocaleString()}</p>
                         <p className="text-[10px] text-muted-foreground capitalize">{w.type}{w.label ? ` · ${w.label}` : ''}{w.owner_name ? ` · ${w.owner_name}` : ''}</p>
                       </div>
-                      <Badge variant="outline" className="text-[10px]">{w.status}</Badge>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Badge
+                          variant={w.status === 'active' ? 'default' : 'destructive'}
+                          className={cn('text-[10px]', w.status === 'active' && 'bg-emerald-500')}
+                        >
+                          {w.status === 'active' ? 'Active' : 'Frozen'}
+                        </Badge>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Wallet actions">
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => routeCtx?.navigateToView(String(w.id))}>
+                              <Eye className="w-4 h-4 mr-2" /> Details
+                            </DropdownMenuItem>
+                            {canManageWalletFreeze ? (
+                              <>
+                                <DropdownMenuSeparator />
+                                {w.status === 'active' ? (
+                                  <DropdownMenuItem
+                                    className="text-destructive"
+                                    onClick={() => freezeWalletRow(String(w.id), w.status)}
+                                  >
+                                    <Lock className="w-4 h-4 mr-2" /> Freeze
+                                  </DropdownMenuItem>
+                                ) : (
+                                  <DropdownMenuItem
+                                    className="text-emerald-600"
+                                    onClick={() => freezeWalletRow(String(w.id), w.status)}
+                                  >
+                                    <Unlock className="w-4 h-4 mr-2" /> Unfreeze
+                                  </DropdownMenuItem>
+                                )}
+                              </>
+                            ) : null}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
                   ))}
                 </div>

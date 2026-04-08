@@ -514,6 +514,20 @@ export type AdminWalletTransactionRow = {
   family: string;
 };
 
+/** GET /admin/wallets/:id/ */
+export type AdminWalletDetail = {
+  id: string;
+  owner: string;
+  type: string;
+  label: string;
+  balance: number;
+  currency: string;
+  status: string;
+  family: string;
+  family_group_id: number | null;
+  lastActivity: string;
+};
+
 /** Row from GET /admin/flagged/ */
 export type AdminFlaggedActivityRow = {
   id: string;
@@ -1675,6 +1689,8 @@ export const adminApi = {
     reason?: string;
     sensitive_otp?: string;
   }) => adminWrite<{ ok: boolean; balance: number }>("wallets/adjust", "POST", payload),
+  getAdminWallet: (id: string) =>
+    apiFetch<AdminWalletDetail>(`/admin/wallets/${encodeURIComponent(id)}/`, undefined, true),
   updateWallet: (id: string, payload: Record<string, unknown>) =>
     adminWrite<Record<string, unknown>>(`wallets/${id}`, "PATCH", payload),
   walletSettings: () => apiFetch<Record<string, unknown>>("/admin/wallet-settings/", undefined, true),
