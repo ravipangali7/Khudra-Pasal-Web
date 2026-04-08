@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { User, ArrowRight, Shield, ChevronLeft, Loader2, CheckCircle } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { cn } from "@/lib/utils";
-import { authApi, setAuthToken, type AuthPortalKey } from "@/lib/api";
+import { authApi, getOAuthStartUrl, setAuthToken, type AuthPortalKey } from "@/lib/api";
 import { sanitizeNextPath } from "@/lib/authRedirect";
 import AuthBrandingPanelSignup from "@/components/auth/AuthBrandingPanelSignup";
 import AuthSplitShell from "@/components/auth/AuthSplitShell";
@@ -22,6 +22,7 @@ const Signup = () => {
   const digits = formData.phone.replace(/\D/g, "").slice(0, 10);
 
   const nextSanitized = sanitizeNextPath(searchParams.get("next"));
+  const oauthNext = nextSanitized ?? "/portal/dashboard";
   const nextPathOnly = (nextSanitized?.split("?")[0] ?? "").split("#")[0] ?? "";
   const isJoinFamilyReturn = nextPathOnly.startsWith("/join-family/");
 
@@ -122,6 +123,35 @@ const Signup = () => {
                       : "Join KhudraPasal today"}
                 </p>
               </div>
+
+              <button
+                type="button"
+                disabled={isLoading}
+                onClick={() => {
+                  window.location.assign(getOAuthStartUrl("google", oauthNext));
+                }}
+                className="w-full py-3.5 rounded-xl border border-neutral-300 bg-white text-[#3C4043] font-medium flex items-center justify-center gap-3 hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors mb-6"
+              >
+                <svg aria-hidden="true" className="h-5 w-5 shrink-0" viewBox="0 0 48 48" focusable="false">
+                  <path
+                    fill="#FFC107"
+                    d="M43.611 20.083H42V20H24v8h11.303C33.654 32.657 29.229 36 24 36c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.84 1.153 7.96 3.04l5.657-5.657C34.046 6.053 29.27 4 24 4 12.954 4 4 12.954 4 24s8.954 20 20 20 20-8.954 20-20c0-1.341-.138-2.65-.389-3.917z"
+                  />
+                  <path
+                    fill="#FF3D00"
+                    d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.84 1.153 7.96 3.04l5.657-5.657C34.046 6.053 29.27 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"
+                  />
+                  <path
+                    fill="#4CAF50"
+                    d="M24 44c5.229 0 10.005-2.01 13.574-5.278l-6.273-5.308C29.291 34.962 26.745 36 24 36c-5.209 0-9.622-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"
+                  />
+                  <path
+                    fill="#1976D2"
+                    d="M43.611 20.083H42V20H24v8h11.303a11.983 11.983 0 0 1-4.002 5.414h.003l6.273 5.308C37.129 39.13 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"
+                  />
+                </svg>
+                Continue with Google
+              </button>
 
               <div className="flex items-center gap-4 mb-6">
                 <div className="flex-1 h-px bg-neutral-200" />
