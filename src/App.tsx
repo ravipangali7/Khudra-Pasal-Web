@@ -7,6 +7,7 @@ import { ChildShoppingRulesProvider } from "@/contexts/ChildShoppingRulesContext
 import { CartProvider } from "@/contexts/CartContext";
 import CartDrawer from "@/components/cart/CartDrawer";
 import { AuthUiProvider } from "@/contexts/AuthUiContext";
+import FcmTokenRegistrar from "@/components/FcmTokenRegistrar";
 import ScrollToTopOnNavigate from "@/components/ScrollToTopOnNavigate";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
@@ -91,6 +92,7 @@ const App = () => (
           <Sonner />
           <AuthUiProvider>
             <ScrollToTopOnNavigate />
+            <FcmTokenRegistrar />
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/homepage" element={<Navigate to="/" replace />} />
