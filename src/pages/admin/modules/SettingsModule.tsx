@@ -383,15 +383,9 @@ export default function SettingsModule() {
   const envCfg = extras.environment ?? EMPTY_EXTRAS_SECTION;
   const systemCfg = extras.system ?? EMPTY_EXTRAS_SECTION;
 
-  const [fbPixel, setFbPixel] = useState({ enabled: true, id: '', gtm: '', ga4: '', ga4Enabled: false });
+  const [googleAnalyticsScript, setGoogleAnalyticsScript] = useState('');
   useEffect(() => {
-    setFbPixel({
-      enabled: analytics.fbEnabled !== false,
-      id: String(analytics.pixelId ?? ''),
-      gtm: String(analytics.gtmId ?? ''),
-      ga4: String(analytics.ga4Id ?? ''),
-      ga4Enabled: !!analytics.ga4Enabled,
-    });
+    setGoogleAnalyticsScript(String(analytics.google_analytics_script ?? ''));
   }, [analytics]);
 
   const [appearanceState, setAppearanceState] = useState({
@@ -561,20 +555,31 @@ export default function SettingsModule() {
         <TabsContent value="analytics">
           <div className="space-y-4">
             <Card>
-              <CardHeader><CardTitle>Facebook Pixel & tags</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle>Google Analytics</CardTitle>
+                <CardDescription>Paste your tracking snippet (for example the gtag.js block from Google Analytics).</CardDescription>
+              </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <span className="font-medium text-sm">Enable Facebook Pixel</span>
-                  <Switch checked={fbPixel.enabled} onCheckedChange={(v) => setFbPixel((p) => ({ ...p, enabled: v }))} />
+                <div>
+                  <Label htmlFor="google-analytics-script">Google Analytics script</Label>
+                  <Textarea
+                    id="google-analytics-script"
+                    className="mt-2 font-mono text-sm"
+                    rows={10}
+                    value={googleAnalyticsScript}
+                    onChange={(e) => setGoogleAnalyticsScript(e.target.value)}
+                    placeholder="<!-- Paste script tags here -->"
+                  />
                 </div>
-                <div><Label>Pixel ID</Label><Input className="font-mono" value={fbPixel.id} onChange={(e) => setFbPixel((p) => ({ ...p, id: e.target.value }))} /></div>
-                <div><Label>GTM Container ID</Label><Input className="font-mono" value={fbPixel.gtm} onChange={(e) => setFbPixel((p) => ({ ...p, gtm: e.target.value }))} /></div>
-                <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <span className="font-medium text-sm">Google Analytics 4</span>
-                  <Switch checked={fbPixel.ga4Enabled} onCheckedChange={(v) => setFbPixel((p) => ({ ...p, ga4Enabled: v }))} />
-                </div>
-                <div><Label>GA4 Measurement ID</Label><Input className="font-mono" value={fbPixel.ga4} onChange={(e) => setFbPixel((p) => ({ ...p, ga4: e.target.value }))} /></div>
-                <Button type="button" onClick={() => void saveExtrasSection('analytics', { ...analytics, fbEnabled: fbPixel.enabled, pixelId: fbPixel.id, gtmId: fbPixel.gtm, ga4Id: fbPixel.ga4, ga4Enabled: fbPixel.ga4Enabled })}>Save analytics</Button>
+                <Button
+                  type="button"
+                  onClick={() =>
+                    void saveExtrasSection('analytics', { ...analytics, google_analytics_script: googleAnalyticsScript })
+                  }
+                  disabled={updateSite.isPending}
+                >
+                  {updateSite.isPending ? 'Saving…' : 'Save analytics'}
+                </Button>
               </CardContent>
             </Card>
           </div>
