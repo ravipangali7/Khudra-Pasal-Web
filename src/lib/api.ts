@@ -1099,7 +1099,15 @@ export const authApi = {
     }),
   sendOtp: (
     payload:
-      | { phone: string; purpose: "login" | "signup"; name?: string; portal?: AuthPortalKey }
+      | {
+          phone: string;
+          purpose: "login" | "signup";
+          name?: string;
+          portal?: AuthPortalKey;
+          ref?: string;
+          referrer_id?: number;
+          referrer_kid?: string;
+        }
       | { phone: string; purpose: "family_invite"; invite_token: string },
   ) =>
     apiFetch<{ detail: string; debug_otp?: string }>("/auth/otp/send/", {
@@ -1113,6 +1121,10 @@ export const authApi = {
     name?: string;
     portal?: AuthPortalKey;
     family_name?: string;
+    /** Referrer user id, KID (e.g. KP123456), or short `ref` from signup link */
+    ref?: string;
+    referrer_id?: number;
+    referrer_kid?: string;
   }) =>
     apiFetch<UnifiedAuthSuccess>("/auth/otp/verify/", {
       method: "POST",

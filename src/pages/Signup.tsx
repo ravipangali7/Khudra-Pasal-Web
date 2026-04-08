@@ -28,6 +28,7 @@ const Signup = () => {
 
   const signupPortal = (searchParams.get("portal") || "portal").trim().toLowerCase() as AuthPortalKey;
   const isFamilySignup = signupPortal === "family-portal" && !isJoinFamilyReturn;
+  const referralRef = (searchParams.get("ref") ?? "").trim().slice(0, 32) || undefined;
 
   const handleInfoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,6 +48,7 @@ const Signup = () => {
         purpose: "signup",
         name: formData.name.trim(),
         ...(isFamilySignup ? { portal: "family-portal" as const } : {}),
+        ...(referralRef ? { ref: referralRef } : {}),
       });
       if (r.debug_otp) console.info("[dev] signup OTP:", r.debug_otp);
       setStep("otp");
@@ -81,6 +83,7 @@ const Signup = () => {
                 : {}),
             }
           : {}),
+        ...(referralRef ? { ref: referralRef } : {}),
       });
       setAuthToken(r.token, r.surface);
       const target =
