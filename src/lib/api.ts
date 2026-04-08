@@ -2947,6 +2947,75 @@ export const portalApi = {
       { method: "POST", body: JSON.stringify(payload) },
       true,
     ),
+  walletSettingsPublic: (portalPrefix: "portal" | "family-portal" | "child-portal") =>
+    portalFetch<{
+      max_balance_per_user: number;
+      daily_transfer_limit: number;
+      min_withdrawal: number;
+      max_withdrawal_per_day: number;
+      otp_for_transfers_above: number;
+      individual_wallet_enabled: boolean;
+      shared_wallet_enabled: boolean;
+      child_wallet_enabled: boolean;
+      family_wallet_enabled: boolean;
+      vendor_wallet_enabled: boolean;
+      cross_portal_transfer_by_code_enabled: boolean;
+    }>(`/${portalPrefix}/wallet/settings-public/`, undefined, true),
+  walletHubTransferIdMe: () =>
+    portalFetch<{
+      code: string;
+      qr_image_url: string;
+      created_at: string;
+      updated_at: string;
+    }>("/wallet-hub/transfer-id/me/", undefined, true),
+  walletHubTransferIdCreate: (fd: FormData) =>
+    portalFetchMultipart<{
+      code: string;
+      qr_image_url: string;
+      created_at: string;
+      updated_at: string;
+    }>("/wallet-hub/transfer-id/create/", { method: "POST", body: fd }, true),
+  walletHubTransferIdLookup: (code: string) =>
+    portalFetch<{
+      code: string;
+      display_name: string;
+      avatar_url: string;
+    }>(`/wallet-hub/transfer-id/${encodeURIComponent(code)}/`, undefined, true),
+  walletHubWalletTransfer: (
+    payload: { transfer_id: string; amount: number; otp?: string },
+    idempotencyKey: string,
+  ) => {
+    const headers = new Headers();
+    headers.set("Content-Type", "application/json");
+    headers.set("Idempotency-Key", idempotencyKey);
+    const token = getAuthToken();
+    if (token) headers.set("Authorization", buildAuthHeaderValue(token));
+    return fetch(`${API_BASE}/wallet-hub/wallet/transfer/`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        transfer_id: payload.transfer_id,
+        amount: payload.amount,
+        ...(payload.otp ? { otp: payload.otp } : {}),
+      }),
+    }).then(async (response) => {
+      const body = (await response.json().catch(() => ({}))) as PortalErrorBody;
+      if (!response.ok) {
+        throw new PortalApiError(
+          formatPortalValidationMessage(body, response.status),
+          response.status,
+          body,
+        );
+      }
+      return body as { ok: boolean; balance: number; outbound_txn_id: string };
+    });
+  },
+  walletOtpForTransfer: (portalPrefix: "portal" | "family-portal" | "child-portal") =>
+    portalFetch<{ ok: boolean }>(
+      `/${portalPrefix}/wallet/otp/transfer/`,
+      { method: "POST", body: JSON.stringify({}) },
+      true,
+    ),
   walletWithdraw: (payload: { amount: number; payout_account_id: number | string }) =>
     portalFetch<{ id: string; withdrawal_number: string; status: string }>(
       "/portal/wallet/withdraw/",

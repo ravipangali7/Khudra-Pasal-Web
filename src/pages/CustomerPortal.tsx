@@ -56,6 +56,7 @@ import {
 import PortalSidebar from '@/components/portal/PortalSidebar';
 import UnifiedAuthLoginPage from '@/components/auth/UnifiedAuthLoginPage';
 import WalletTransfer from '@/components/wallet/WalletTransfer';
+import WalletHubPanel from '@/components/wallet/WalletHubPanel';
 import PayoutAccountsManager from '@/components/wallet/PayoutAccountsManager';
 import WalletWithdraw from '@/components/wallet/WalletWithdraw';
 import WalletAddMoney from '@/components/wallet/WalletAddMoney';
@@ -1451,6 +1452,13 @@ const CustomerPortal = () => {
                 </div>
               </div>
 
+              <WalletHubPanel
+                portalPrefix="portal"
+                onSent={() => {
+                  invalidatePortalWallet();
+                  void queryClient.invalidateQueries({ queryKey: ['wallet-hub'] });
+                }}
+              />
             </div>
           )}
 

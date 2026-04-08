@@ -27,6 +27,7 @@ import { PORTAL_LOGIN_PATH, navigateToPortalLogin, setPostLogoutLoginPath } from
 import { useSessionHomeRedirect } from '@/lib/sessionHomeRedirect';
 import { usePortalSectionPath } from '@/lib/portalNavigation';
 import PortalMyOrdersSection from '@/components/portal/PortalMyOrdersSection';
+import WalletHubPanel from '@/components/wallet/WalletHubPanel';
 import PortalLayout from '@/components/portal/PortalLayout';
 import PortalSidebar from '@/components/portal/PortalSidebar';
 import DataTable from '@/components/portal/DataTable';
@@ -1102,6 +1103,15 @@ const ChildPortal = () => {
             </div>
           </CardContent>
         </Card>
+
+        <WalletHubPanel
+          portalPrefix="child-portal"
+          onSent={() => {
+            void qc.invalidateQueries({ queryKey: ['portal', 'child', 'summary'] });
+            void qc.invalidateQueries({ queryKey: ['portal', 'child', 'txns'] });
+            void qc.invalidateQueries({ queryKey: ['wallet-hub'] });
+          }}
+        />
       </div>
     );
   }

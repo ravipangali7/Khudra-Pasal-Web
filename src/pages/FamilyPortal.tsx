@@ -102,6 +102,7 @@ import PortalKycSection from '@/components/portal/PortalKycSection';
 import PortalNotificationsModal from '@/components/portal/PortalNotificationsModal';
 import FloatingCart from '@/components/cart/FloatingCart';
 import PayoutAccountsManager from '@/components/wallet/PayoutAccountsManager';
+import WalletHubPanel from '@/components/wallet/WalletHubPanel';
 
 function FamilyPortalSupportFaqs() {
   const { data: faqData, isLoading, isError, error } = useQuery({
@@ -1844,6 +1845,14 @@ export function FamilyPortal() {
             <div
               className="h-px w-full bg-amber-300/70 dark:bg-amber-700/45"
               role="presentation"
+            />
+
+            <WalletHubPanel
+              portalPrefix="family-portal"
+              onSent={() => {
+                invFamily();
+                void qc.invalidateQueries({ queryKey: ['wallet-hub'] });
+              }}
             />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-5 items-start">
