@@ -403,8 +403,6 @@ const Checkout = () => {
       : quoteData && !quoteData.delivery_error
         ? quoteData.delivery_fee
         : deliveryFee;
-  const couponEntered = couponCode.trim().length > 0;
-
   const checkoutWalletsTotalBalance = useMemo(() => {
     const list = walletCheckoutCtx?.payable_wallets;
     if (!list?.length) return 0;
@@ -727,6 +725,7 @@ const Checkout = () => {
           );
           clearCart();
           void queryClient.invalidateQueries({ queryKey: ['portal'] });
+          void queryClient.invalidateQueries({ queryKey: ['portal', 'checkout-quote'] });
           navigate(postCheckoutPath, { replace: true });
           return;
         }
@@ -749,6 +748,7 @@ const Checkout = () => {
       );
       clearCart();
       void queryClient.invalidateQueries({ queryKey: ['portal'] });
+      void queryClient.invalidateQueries({ queryKey: ['portal', 'checkout-quote'] });
       navigate(postCheckoutPath, { replace: true });
     } catch (e) {
       const raw =
@@ -1327,7 +1327,7 @@ const Checkout = () => {
                       </span>
                     </div>
                     <div className="flex justify-between text-sm text-category-fresh">
-                      <span>Offers &amp; discounts (in prices)</span>
+                      <span>Offers and discounts (in prices)</span>
                       <span>−{formatPrice(displaySavingsVsList)}</span>
                     </div>
                   </>
