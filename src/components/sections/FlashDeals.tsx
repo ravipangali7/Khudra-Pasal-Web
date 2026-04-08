@@ -46,21 +46,21 @@ const FlashDeals = ({ products, categoryTheme = 'cafe', listingScope, endsAt }: 
 
   return (
     <section className={`theme-${theme}`}>
-      <div className="rounded-2xl overflow-hidden border border-storefront-orange/25 shadow-card">
-        <div className="bg-gradient-to-r from-storefront-orange via-amber-500 to-storefront-orange-deep text-white px-4 py-3 md:px-5 md:py-3.5 flex flex-wrap items-center justify-between gap-3">
+      <div className="rounded-2xl overflow-hidden border border-border/60 shadow-card">
+        <div className="bg-[hsl(0_72%_51%)] text-white px-4 py-3 md:px-5 md:py-3.5 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
-            <div className="w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center shrink-0">
+            <div className="w-9 h-9 rounded-lg bg-white/15 flex items-center justify-center shrink-0">
               <Zap className="w-5 h-5 text-white fill-white" />
             </div>
             <div className="min-w-0">
               <h2 className="text-base md:text-lg font-bold truncate">Flash Sale</h2>
-              <p className="text-xs text-white/85 truncate">Limited-time prices</p>
+              <p className="text-xs text-white/90 truncate">Limited-time prices</p>
             </div>
           </div>
 
           <div className="flex items-center gap-3 shrink-0">
             {timeLeft && !timeLeft.expired ? (
-              <div className="flex items-center gap-2 bg-black/15 px-3 py-1.5 rounded-full">
+              <div className="flex items-center gap-2 bg-black/20 px-3 py-1.5 rounded-full">
                 <Clock className="w-4 h-4 text-white" />
                 <div className="flex items-center gap-1 font-mono font-bold text-white text-sm">
                   <span className="bg-white/20 px-1.5 py-0.5 rounded">{formatNumber(timeLeft.hours)}</span>
@@ -75,7 +75,7 @@ const FlashDeals = ({ products, categoryTheme = 'cafe', listingScope, endsAt }: 
             )}
             <Link
               to="/products/flash-deals"
-              className="text-xs md:text-sm font-bold bg-white text-storefront-orange-deep px-3 py-1.5 rounded-full hover:bg-white/90 transition-colors whitespace-nowrap shadow-sm"
+              className="text-xs md:text-sm font-bold bg-white text-[hsl(0_72%_42%)] px-3 py-1.5 rounded-full hover:bg-white/95 transition-colors whitespace-nowrap shadow-sm"
             >
               View all deals
             </Link>

@@ -56,9 +56,9 @@ const Footer = () => {
 
   const features = [
     { icon: Truck, wrap: 'bg-storefront-green/15 text-storefront-green', title: 'Free Delivery', desc: 'Orders above Rs. 500' },
-    { icon: CreditCard, wrap: 'bg-storefront-orange/15 text-storefront-orange', title: 'Secure Payment', desc: '100% Protected' },
-    { icon: Shield, wrap: 'bg-sky-500/15 text-sky-600', title: 'Quality Assured', desc: 'Genuine Products' },
-    { icon: HeadphonesIcon, wrap: 'bg-primary/15 text-primary', title: '24/7 Support', desc: 'Dedicated Help' },
+    { icon: CreditCard, wrap: 'bg-primary/12 text-primary', title: 'Secure Payment', desc: '100% Protected' },
+    { icon: Shield, wrap: 'bg-storefront-green/15 text-storefront-green', title: 'Quality Assured', desc: 'Genuine Products' },
+    { icon: HeadphonesIcon, wrap: 'bg-primary/12 text-primary', title: '24/7 Support', desc: 'Dedicated Help' },
   ];
 
   return (

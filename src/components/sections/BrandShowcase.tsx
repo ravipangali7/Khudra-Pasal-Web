@@ -14,18 +14,18 @@ const BrandShowcase = () => {
   if (!isLoading && !brands.length) return null;
 
   return (
-    <section>
+    <section className="rounded-2xl bg-muted/40 py-6 md:py-8 -mx-4 px-4 md:mx-0 md:px-6">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg md:text-xl font-bold text-category-cafe">Brands</h2>
+        <h2 className="text-lg md:text-xl font-bold text-foreground">Brands</h2>
         <Link
           to={storefrontRoutes.brands()}
-          className="flex items-center gap-1 text-sm font-semibold text-category-cafe hover:underline"
+          className="flex items-center gap-1 text-sm font-semibold text-primary hover:underline"
         >
           View all <ChevronRight className="w-4 h-4" />
         </Link>
       </div>
 
-      <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4">
+      <div className="flex gap-3 overflow-x-auto pb-1 scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
         {isLoading &&
           Array.from({ length: 8 }).map((_, idx) => (
             <div key={idx} className="h-24 w-24 rounded-full bg-muted animate-pulse flex-shrink-0" />

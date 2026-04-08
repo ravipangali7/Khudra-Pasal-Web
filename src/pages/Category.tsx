@@ -7,6 +7,7 @@ import Footer from '@/components/layout/Footer';
 import MobileFooterNav from '@/components/layout/MobileFooterNav';
 import ScrollToTop from '@/components/ui/ScrollToTop';
 import AIChatbot from '@/components/chat/AIChatbot';
+import StorefrontTextNav from '@/components/layout/StorefrontTextNav';
 import CategoryNav from '@/components/layout/CategoryNav';
 import HeroBanner from '@/components/banners/HeroBanner';
 import ProductGrid from '@/components/product/ProductGrid';
@@ -81,6 +82,7 @@ const Category = () => {
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
       <Header />
+      <StorefrontTextNav activeCategory={activeCategory} onCategoryChange={handleCategoryChange} />
       <CategoryNav activeCategory={activeCategory} onCategoryChange={handleCategoryChange} />
 
       <main className="container mx-auto space-y-6 px-4 py-4">
