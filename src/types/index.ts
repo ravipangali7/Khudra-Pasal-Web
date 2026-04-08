@@ -39,6 +39,10 @@ export interface Product {
   /** Unit short name and/or stock hint for cards. */
   unit?: string;
   isBestseller?: boolean;
+  /** Active flash deal PK when product is in a live flash promotion. */
+  flashDealId?: number | null;
+  /** Active coupons that could apply (from server hints). */
+  couponHints?: { code: string; type: string; value: string }[];
 }
 
 export interface Vendor {

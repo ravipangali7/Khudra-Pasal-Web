@@ -214,6 +214,8 @@ export type WebsiteProduct = {
   seller?: WebsiteVendorMini | null;
   /** Present on GET /website/products/:id/ when the user is authenticated. */
   can_submit_review?: boolean;
+  flash_deal_id?: number | null;
+  coupon_hints?: { code: string; type: string; value: string }[];
 };
 
 export type PagedResponse<T> = {
@@ -810,6 +812,9 @@ export const mapWebsiteProductToUi = (item: WebsiteProduct): Product => {
           isVerified: item.seller.is_verified,
         }
       : undefined,
+    flashDealId: item.flash_deal_id ?? undefined,
+    couponHints:
+      item.coupon_hints && item.coupon_hints.length > 0 ? item.coupon_hints : undefined,
   };
 };
 
@@ -2150,16 +2155,30 @@ export type PortalCheckoutQuoteStockWarning = {
   available: number;
 };
 
+export type PortalCheckoutQuoteLine = {
+  product_id: number;
+  quantity: number;
+  list_unit: number;
+  unit_after_product_sale: number;
+  unit_after_flash: number;
+  line_subtotal_after_flash: number;
+  flash_deal_id: number | null;
+  coupon_discount: number;
+  line_total: number;
+};
+
 export type PortalCheckoutQuoteResponse = {
   subtotal: number;
   list_subtotal: number;
   savings_vs_list: number;
+  savings_flash: number;
   delivery_fee: number;
   coupon_discount: number;
   eligible_subtotal: number;
   total: number;
   coupon_error: string | null;
   flash_product_ids: number[];
+  lines: PortalCheckoutQuoteLine[];
   stock_warnings: PortalCheckoutQuoteStockWarning[];
   delivery_error: string | null;
 };

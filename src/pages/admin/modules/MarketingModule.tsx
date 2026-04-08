@@ -70,6 +70,10 @@ type CouponRow = {
   category: string;
   vendor_id?: string;
   category_id?: string;
+  products?: number;
+  product_ids?: string[];
+  products_preview?: FlashProductPreview[];
+  products_preview_more?: number;
 };
 type NotificationRow = {
   id: string;
@@ -627,6 +631,10 @@ function CouponsView() {
   const [vendorLabel, setVendorLabel] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [categoryLabel, setCategoryLabel] = useState('');
+  const [couponProductIds, setCouponProductIds] = useState<string[]>([]);
+  const [couponProductPick, setCouponProductPick] = useState('');
+  const [couponProductSummaries, setCouponProductSummaries] = useState<Record<string, FlashProductPreview>>({});
+  const couponProductSearchCache = useRef<Record<string, FlashProductPreview>>({});
   const [formError, setFormError] = useState('');
   const { data: coupons = [], isLoading, isError } = useAdminList<CouponRow>(
     ['admin', 'coupons'],
@@ -638,6 +646,26 @@ function CouponsView() {
     [['admin', 'coupons']],
   );
   const deleteMut = useAdminMutation(adminApi.deleteCoupon, [['admin', 'coupons']]);
+
+  const fetchCouponProductSearchOptions = useCallback(async (search: string): Promise<AdminSearchOption[]> => {
+    const res = await adminApi.products({ search: search.trim() || undefined, page_size: 20 });
+    const rows = (res.results || []) as Record<string, unknown>[];
+    const opts: AdminSearchOption[] = [];
+    for (const p of rows) {
+      const id = String(p.id ?? '');
+      if (!id) continue;
+      const name = String(p.name ?? id);
+      const price = Number(p.price ?? 0);
+      const image_url = typeof p.image_url === 'string' ? p.image_url : '';
+      couponProductSearchCache.current[id] = { id, name, price, image_url };
+      opts.push({
+        value: id,
+        label: name,
+        description: `Rs. ${price.toLocaleString()}`,
+      });
+    }
+    return opts;
+  }, []);
 
   const openCoupon = (c: CouponRow | null) => {
     setFormError('');
@@ -654,6 +682,16 @@ function CouponsView() {
       setVendorLabel(c.vendor_id ? c.vendor : '');
       setCategoryId(c.category_id || '');
       setCategoryLabel(c.category_id ? c.category : '');
+      const cpids = c.product_ids ?? [];
+      setCouponProductIds(cpids);
+      const csm: Record<string, FlashProductPreview> = {};
+      for (const pr of c.products_preview || []) {
+        csm[pr.id] = pr;
+      }
+      for (const id of cpids) {
+        if (!csm[id]) csm[id] = { id, name: `Product #${id}`, price: 0, image_url: '' };
+      }
+      setCouponProductSummaries(csm);
     } else {
       setCode('');
       setCtype('percentage');
@@ -666,7 +704,10 @@ function CouponsView() {
       setVendorLabel('');
       setCategoryId('');
       setCategoryLabel('');
+      setCouponProductIds([]);
+      setCouponProductSummaries({});
     }
+    setCouponProductPick('');
     setModalOpen(true);
   };
 
@@ -686,6 +727,7 @@ function CouponsView() {
       expires_at: expires ? new Date(`${expires}T12:00:00`).toISOString() : null,
       vendor_id: vendorId || null,
       category_id: categoryId || null,
+      product_ids: couponProductIds.map((x) => Number(x)).filter((n) => !Number.isNaN(n)),
     };
     try {
       if (editItem?.id) {
@@ -705,7 +747,7 @@ function CouponsView() {
 
   return (
     <div className="p-4 lg:p-6">
-      <AdminTable title="Coupons" subtitle="Manage discount coupons with vendor & category targeting"
+      <AdminTable title="Coupons" subtitle="Vendor, category, and optional product whitelist"
         data={coupons}
         columns={[
           { key: 'code', label: 'Code', render: (c) => <span className="font-mono font-bold text-primary">{c.code}</span> },
@@ -713,6 +755,16 @@ function CouponsView() {
           { key: 'value', label: 'Value', render: (c) => <span className="font-medium">{c.type === 'percentage' ? `${c.value}%` : `Rs. ${c.value}`}</span> },
           { key: 'minOrder', label: 'Min Order', render: (c) => `Rs. ${c.minOrder}` },
           { key: 'usage', label: 'Usage', render: (c) => `${c.used}/${c.limit ?? '∞'}` },
+          {
+            key: 'products',
+            label: 'Products',
+            render: (c) =>
+              c.products && c.products > 0 ? (
+                <span className="text-xs">{c.products} selected</span>
+              ) : (
+                <span className="text-xs text-muted-foreground">All in scope</span>
+              ),
+          },
           { key: 'vendor', label: 'Vendor' },
           { key: 'expires', label: 'Expires' },
           { key: 'status', label: 'Status', render: (c) => (
@@ -781,6 +833,71 @@ function CouponsView() {
                 placeholder="Search category…"
                 clearable
               />
+            </div>
+          </div>
+          <div>
+            <Label>Restrict to products (optional)</Label>
+            <p className="text-xs text-muted-foreground mb-2">
+              Leave empty to use vendor/category only. If you add products, the coupon applies only to those SKUs
+              (and still must match vendor/category).
+            </p>
+            <AdminSearchCombobox
+              key={`coupon-pick-${couponProductIds.join(',')}`}
+              value={couponProductPick}
+              queryKeyPrefix="coupon-product"
+              placeholder="Search products…"
+              fetchOptions={fetchCouponProductSearchOptions}
+              onChange={(value, label) => {
+                if (!value || couponProductIds.includes(value)) {
+                  setCouponProductPick('');
+                  return;
+                }
+                const cached = couponProductSearchCache.current[value];
+                setCouponProductIds((prev) => [...prev, value]);
+                setCouponProductSummaries((s) => ({
+                  ...s,
+                  [value]: cached || { id: value, name: label || `Product ${value}`, price: 0, image_url: '' },
+                }));
+                setCouponProductPick('');
+              }}
+            />
+            <div className="mt-3 flex flex-wrap gap-2">
+              {couponProductIds.map((id) => {
+                const s = couponProductSummaries[id];
+                return (
+                  <div
+                    key={id}
+                    className="flex items-center gap-2 pl-1 pr-2 py-1 rounded-md border bg-muted/40 text-xs max-w-[220px]"
+                  >
+                    <div className="w-8 h-8 rounded overflow-hidden bg-muted shrink-0">
+                      {s?.image_url ? (
+                        <img src={resolveMediaUrl(s.image_url)} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-muted-foreground">—</div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium truncate">{s?.name ?? id}</p>
+                      <p className="text-muted-foreground">Rs. {(s?.price ?? 0).toLocaleString()}</p>
+                    </div>
+                    <button
+                      type="button"
+                      className="shrink-0 p-1 rounded hover:bg-destructive/10 text-destructive"
+                      aria-label="Remove"
+                      onClick={() => {
+                        setCouponProductIds((prev) => prev.filter((x) => x !== id));
+                        setCouponProductSummaries((prev) => {
+                          const next = { ...prev };
+                          delete next[id];
+                          return next;
+                        });
+                      }}
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </div>
           <div><Label>Status</Label>

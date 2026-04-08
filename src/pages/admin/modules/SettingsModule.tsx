@@ -195,7 +195,6 @@ export default function SettingsModule() {
   );
 
   const analytics = extras.analytics ?? EMPTY_EXTRAS_SECTION;
-  const emailCfg = extras.email ?? EMPTY_EXTRAS_SECTION;
   const socialCfg = extras.social ?? EMPTY_EXTRAS_SECTION;
   const systemCfg = extras.system ?? EMPTY_EXTRAS_SECTION;
 
@@ -205,19 +204,28 @@ export default function SettingsModule() {
   }, [analytics]);
 
   const [emailState, setEmailState] = useState({
-    smtpHost: '', smtpPort: '587', user: '', password: '', fromName: '', fromEmail: '', failover: false,
+    smtpHost: '',
+    smtpPort: '587',
+    smtpUsername: '',
+    password: '',
+    fromName: '',
+    fromEmail: '',
   });
+  const [smtpPasswordSet, setSmtpPasswordSet] = useState(false);
+  const [emailErr, setEmailErr] = useState('');
   useEffect(() => {
+    if (!site) return;
     setEmailState({
-      smtpHost: String(emailCfg.smtpHost ?? ''),
-      smtpPort: String(emailCfg.smtpPort ?? '587'),
-      user: String(emailCfg.user ?? ''),
-      password: String(emailCfg.password ?? ''),
-      fromName: String(emailCfg.fromName ?? 'Khudra Pasal'),
-      fromEmail: String(emailCfg.fromEmail ?? ''),
-      failover: !!emailCfg.failover,
+      smtpHost: String(site.smtp_host ?? ''),
+      smtpPort: site.smtp_port != null && site.smtp_port !== '' ? String(site.smtp_port) : '587',
+      smtpUsername: String(site.smtp_username ?? ''),
+      password: '',
+      fromName: String(site.smtp_from_name ?? ''),
+      fromEmail: String(site.smtp_from_email ?? ''),
     });
-  }, [emailCfg]);
+    setSmtpPasswordSet(!!site.smtp_password_set);
+    setEmailErr('');
+  }, [site]);
 
   const [socialState, setSocialState] = useState({
     facebook: '', instagram: '', twitter: '', youtube: '', tiktok: '',
@@ -366,21 +374,60 @@ export default function SettingsModule() {
 
         <TabsContent value="email">
           <Card>
-            <CardHeader><CardTitle>Email Configuration</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle>Email configuration</CardTitle>
+              <CardDescription>SMTP is stored on site settings (not in admin extras). Order and KYC notifications use these credentials.</CardDescription>
+            </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid md:grid-cols-2 gap-4">
-                <div><Label>SMTP Host</Label><Input value={emailState.smtpHost} onChange={(e) => setEmailState((s) => ({ ...s, smtpHost: e.target.value }))} /></div>
-                <div><Label>SMTP Port</Label><Input value={emailState.smtpPort} onChange={(e) => setEmailState((s) => ({ ...s, smtpPort: e.target.value }))} /></div>
-                <div><Label>Username</Label><Input value={emailState.user} onChange={(e) => setEmailState((s) => ({ ...s, user: e.target.value }))} /></div>
-                <div><Label>Password</Label><Input type="password" value={emailState.password} onChange={(e) => setEmailState((s) => ({ ...s, password: e.target.value }))} /></div>
-                <div><Label>From Name</Label><Input value={emailState.fromName} onChange={(e) => setEmailState((s) => ({ ...s, fromName: e.target.value }))} /></div>
-                <div><Label>From Email</Label><Input value={emailState.fromEmail} onChange={(e) => setEmailState((s) => ({ ...s, fromEmail: e.target.value }))} /></div>
+                <div><Label>SMTP host</Label><Input value={emailState.smtpHost} onChange={(e) => setEmailState((s) => ({ ...s, smtpHost: e.target.value }))} /></div>
+                <div><Label>SMTP port</Label><Input value={emailState.smtpPort} onChange={(e) => setEmailState((s) => ({ ...s, smtpPort: e.target.value }))} /></div>
+                <div><Label>Username</Label><Input value={emailState.smtpUsername} onChange={(e) => setEmailState((s) => ({ ...s, smtpUsername: e.target.value }))} /></div>
+                <div>
+                  <Label>Password</Label>
+                  <Input
+                    type="password"
+                    autoComplete="new-password"
+                    placeholder={smtpPasswordSet ? '•••••••• (leave blank to keep current)' : ''}
+                    value={emailState.password}
+                    onChange={(e) => setEmailState((s) => ({ ...s, password: e.target.value }))}
+                  />
+                </div>
+                <div><Label>From name</Label><Input value={emailState.fromName} onChange={(e) => setEmailState((s) => ({ ...s, fromName: e.target.value }))} /></div>
+                <div><Label>From email</Label><Input value={emailState.fromEmail} onChange={(e) => setEmailState((s) => ({ ...s, fromEmail: e.target.value }))} /></div>
               </div>
-              <div className="flex items-center justify-between p-3 border rounded-lg">
-                <span className="font-medium text-sm">Email failover</span>
-                <Switch checked={emailState.failover} onCheckedChange={(v) => setEmailState((s) => ({ ...s, failover: v }))} />
-              </div>
-              <Button type="button" onClick={() => void saveExtrasSection('email', { ...emailCfg, ...emailState })}>Save SMTP settings</Button>
+              {emailErr ? <p className="text-sm text-destructive">{emailErr}</p> : null}
+              <Button
+                type="button"
+                disabled={updateSite.isPending}
+                onClick={async () => {
+                  setEmailErr('');
+                  const portRaw = emailState.smtpPort.trim();
+                  let smtp_port: number | null = null;
+                  if (portRaw !== '') {
+                    const p = parseInt(portRaw, 10);
+                    if (!Number.isNaN(p)) smtp_port = p;
+                  }
+                  const payload: Record<string, unknown> = {
+                    smtp_host: emailState.smtpHost.trim(),
+                    smtp_port,
+                    smtp_username: emailState.smtpUsername.trim(),
+                    smtp_from_name: emailState.fromName.trim(),
+                    smtp_from_email: emailState.fromEmail.trim(),
+                  };
+                  if (emailState.password.trim() !== '') {
+                    payload.smtp_password = emailState.password;
+                  }
+                  try {
+                    await updateSite.mutateAsync(payload);
+                    setEmailState((s) => ({ ...s, password: '' }));
+                  } catch (e) {
+                    setEmailErr(formatApiError(e));
+                  }
+                }}
+              >
+                {updateSite.isPending ? 'Saving…' : 'Save SMTP settings'}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>

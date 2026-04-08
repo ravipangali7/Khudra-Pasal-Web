@@ -1312,8 +1312,8 @@ const Checkout = () => {
 
               {flashItemsInCart > 0 ? (
                 <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-950 dark:text-amber-100">
-                  Flash deal pricing on {flashItemsInCart} item{flashItemsInCart === 1 ? '' : 's'} (override
-                  price; promo codes do not stack on those lines).
+                  Flash deal pricing on {flashItemsInCart} item{flashItemsInCart === 1 ? '' : 's'}. Valid promo
+                  codes stack on eligible lines at checkout.
                 </div>
               ) : null}
 
@@ -1331,6 +1331,12 @@ const Checkout = () => {
                       <span>−{formatPrice(displaySavingsVsList)}</span>
                     </div>
                   </>
+                ) : null}
+                {quoteData && (quoteData.savings_flash ?? 0) > 0 ? (
+                  <div className="flex justify-between text-sm text-amber-800 dark:text-amber-200">
+                    <span>Flash deal (vs sale price)</span>
+                    <span>−{formatPrice(quoteData.savings_flash)}</span>
+                  </div>
                 ) : null}
                 <div className="flex justify-between text-sm font-medium">
                   <span className="text-muted-foreground">Subtotal ({baseCount} items)</span>
@@ -1388,8 +1394,27 @@ const Checkout = () => {
                 {quoteData?.eligible_subtotal != null && debouncedCoupon && !quoteData.coupon_error ? (
                   <p className="text-xs text-muted-foreground">
                     Promo applies to Rs. {quoteData.eligible_subtotal.toLocaleString('en-NP')} of eligible
-                    items (excludes flash override lines).
+                    merchandise (after flash pricing).
                   </p>
+                ) : null}
+                {quoteData?.lines && quoteData.lines.length > 0 ? (
+                  <details className="text-xs text-muted-foreground border-t border-border pt-2 mt-2">
+                    <summary className="cursor-pointer font-medium text-foreground">
+                      Per-item pricing
+                    </summary>
+                    <ul className="mt-2 space-y-2 max-h-48 overflow-y-auto">
+                      {quoteData.lines.map((ln) => (
+                        <li key={`${ln.product_id}-${ln.quantity}-${ln.line_subtotal_after_flash}`}>
+                          <span className="font-mono text-[11px]">#{ln.product_id}</span> ×{ln.quantity}: list{' '}
+                          {formatPrice(ln.list_unit * ln.quantity)} → after offers{' '}
+                          {formatPrice(ln.line_subtotal_after_flash)}
+                          {ln.coupon_discount > 0
+                            ? ` → after coupon ${formatPrice(ln.line_total)}`
+                            : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
                 ) : null}
                 {quoteData?.stock_warnings && quoteData.stock_warnings.length > 0 ? (
                   <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-2 text-xs text-destructive">
