@@ -204,7 +204,11 @@ export default function AdminTable<T extends Record<string, any>>({
                 </tr>
               ) : (
                 filteredData.map((item, idx) => (
-                  <tr key={item[rowKey] || idx} className="hover:bg-muted/30 transition-colors">
+                  <tr
+                    key={item[rowKey] || idx}
+                    data-admin-row-key={String(item[rowKey] ?? idx)}
+                    className="hover:bg-muted/30 transition-colors"
+                  >
                     {bulkActions.length > 0 && (
                       <td className="px-4 py-3">
                         <Checkbox

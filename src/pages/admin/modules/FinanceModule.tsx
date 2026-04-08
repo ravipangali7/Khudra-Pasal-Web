@@ -1,11 +1,25 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useSearchParams } from 'react-router-dom';
 import { useAdminList } from '../hooks/useAdminList';
 import { useAdminMutation } from '../hooks/useAdminMutation';
 import { adminApi, type AdminCommissionSettlementRow } from '@/lib/api';
 import { formatApiError } from '../hooks/adminFormUtils';
 import { AdminStatCard } from '@/components/admin/AdminStats';
-import { CheckCircle, Ban, Filter, X, Eye, Clock, UserCheck, Landmark } from 'lucide-react';
+import {
+  Baby,
+  Ban,
+  CheckCircle,
+  Clock,
+  Eye,
+  Filter,
+  Landmark,
+  User,
+  UserCheck,
+  Users,
+  Wallet,
+  X,
+} from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,6 +40,8 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -69,6 +85,7 @@ type RefundRow = {
   order_pk?: number;
   customer: string;
   customer_phone?: string;
+  customer_avatar?: string;
   placed_portal?: string;
   amount: number;
   gross_amount?: number;
@@ -509,7 +526,75 @@ function TransactionsView() {
   );
 }
 
+function refundCustomerInitials(name: string) {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length >= 2) {
+    return `${parts[0][0] ?? ''}${parts[parts.length - 1][0] ?? ''}`.toUpperCase() || '?';
+  }
+  if (parts.length === 1 && parts[0].length) {
+    return parts[0].slice(0, 2).toUpperCase();
+  }
+  return '?';
+}
+
+function portalProfileMeta(placedPortal: string | undefined): { Icon: typeof User; label: string } {
+  switch (placedPortal) {
+    case 'portal_family':
+      return { Icon: Users, label: 'Family portal' };
+    case 'portal_child':
+      return { Icon: Baby, label: 'Child portal' };
+    case 'portal_main':
+      return { Icon: User, label: 'Customer portal' };
+    default:
+      return { Icon: User, label: placedPortal ? placedPortal.replace(/_/g, ' ') : 'Portal' };
+  }
+}
+
+function deductionShortLabel(summary: string | undefined): string {
+  if (!summary) return 'Details';
+  if (summary.includes('Platform pool')) return 'Platform pool';
+  return 'Settlement';
+}
+
+function RefundFinancialSummaryCard({ r }: { r: RefundRow }) {
+  return (
+    <div className="rounded-md border bg-muted/40 p-3 space-y-2 text-foreground">
+      <div className="flex justify-between text-sm">
+        <span className="text-muted-foreground">Gross</span>
+        <span className="font-mono font-medium tabular-nums">
+          Rs. {Number(r.gross_amount ?? r.amount).toLocaleString()}
+        </span>
+      </div>
+      <div className="flex justify-between text-sm">
+        <span className="text-muted-foreground">Platform retention (3% of commission)</span>
+        <span className="font-mono tabular-nums">
+          Rs.{' '}
+          {Number(r.platform_fee ?? 0).toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
+        </span>
+      </div>
+      <div className="flex justify-between text-sm font-medium pt-1 border-t">
+        <span>Credit to customer</span>
+        <span className="font-mono text-primary tabular-nums">
+          Rs.{' '}
+          {Number(r.net_credit ?? r.amount).toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}
+        </span>
+      </div>
+      <p className="text-xs text-muted-foreground pt-1 border-t">
+        {r.deduction_summary || 'Wallet clawback per order settlement.'}
+      </p>
+    </div>
+  );
+}
+
 function RefundsView() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const highlightDoneRef = useRef<string | null>(null);
   const [filters, setFilters] = useState({ period: 'all', refund_status: 'all', customer: 'all' });
   const [rejectOpen, setRejectOpen] = useState(false);
   const [approveOpen, setApproveOpen] = useState(false);
@@ -534,11 +619,52 @@ function RefundsView() {
     [['admin', 'refunds']],
   );
 
-  const filtered = apiRefunds.filter(r => {
-    if (filters.refund_status !== 'all' && r.status !== filters.refund_status) return false;
-    if (filters.customer !== 'all' && r.customer !== filters.customer) return false;
-    return true;
-  });
+  const filtered = useMemo(
+    () =>
+      apiRefunds.filter((r) => {
+        if (filters.refund_status !== 'all' && r.status !== filters.refund_status) return false;
+        if (filters.customer !== 'all' && r.customer !== filters.customer) return false;
+        return true;
+      }),
+    [apiRefunds, filters.refund_status, filters.customer],
+  );
+
+  useEffect(() => {
+    const raw = (searchParams.get('highlightRefund') || '').trim();
+    if (!raw) {
+      highlightDoneRef.current = null;
+      return;
+    }
+    if (isLoading || isError) return;
+    if (!filtered.some((r) => r.id === raw)) return;
+    if (highlightDoneRef.current === raw) return;
+    highlightDoneRef.current = raw;
+    requestAnimationFrame(() => {
+      const el = document.querySelector(`tr[data-admin-row-key="${raw.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"]`);
+      if (el) {
+        el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        el.classList.add(
+          'ring-2',
+          'ring-primary',
+          'ring-offset-2',
+          'ring-offset-background',
+          'bg-primary/5',
+        );
+        window.setTimeout(() => {
+          el.classList.remove(
+            'ring-2',
+            'ring-primary',
+            'ring-offset-2',
+            'ring-offset-background',
+            'bg-primary/5',
+          );
+        }, 4500);
+      }
+    });
+    const next = new URLSearchParams(searchParams);
+    next.delete('highlightRefund');
+    setSearchParams(next, { replace: true });
+  }, [isLoading, isError, filtered, searchParams, setSearchParams]);
 
   if (isLoading) return <div className="p-4 lg:p-6 text-sm text-muted-foreground">Loading refunds…</div>;
   if (isError) return <div className="p-4 lg:p-6 text-sm text-destructive">Could not load refunds.</div>;
@@ -576,21 +702,52 @@ function RefundsView() {
   return (
     <div className="p-4 lg:p-6">
       <FilterBar filters={filters} onChange={setFilter} />
-      <AdminTable title="Refund Requests" subtitle="Super Admin approves or rejects; 3% applies to the commission portion only"
+      <AdminTable
+        title="Refund Requests"
+        subtitle="Super Admin approves or rejects; 3% applies to the commission portion only"
         data={filtered}
+        rowKey="id"
         columns={[
           { key: 'id', label: 'Refund ID' },
           { key: 'order', label: 'Order' },
           {
-            key: 'placed_portal',
-            label: 'Portal',
-            render: (r) => (
-              <span className="text-xs text-muted-foreground font-mono">
-                {(r.placed_portal || '—').replace(/_/g, ' ')}
-              </span>
-            ),
+            key: 'customer',
+            label: 'Customer',
+            className: 'min-w-[200px]',
+            render: (r) => {
+              const { Icon: PortalIcon, label: portalLabel } = portalProfileMeta(r.placed_portal);
+              return (
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="min-w-0 flex-1 text-left">
+                    <p className="font-medium truncate">{r.customer}</p>
+                    {r.customer_phone ? (
+                      <p className="text-xs text-muted-foreground truncate">{r.customer_phone}</p>
+                    ) : null}
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Avatar className="h-9 w-9 border border-border">
+                      {r.customer_avatar ? (
+                        <AvatarImage src={r.customer_avatar} alt="" className="object-cover" />
+                      ) : null}
+                      <AvatarFallback className="text-xs font-medium">
+                        {refundCustomerInitials(r.customer)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                          <PortalIcon className="h-4 w-4" aria-hidden />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-xs">
+                        {portalLabel}
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                </div>
+              );
+            },
           },
-          { key: 'customer', label: 'Customer' },
           {
             key: 'gross',
             label: 'Gross',
@@ -619,22 +776,63 @@ function RefundsView() {
           {
             key: 'deduction_summary',
             label: 'Deduction',
+            className: 'max-w-[140px]',
+            render: (r) => {
+              const full = r.deduction_summary || '—';
+              const short = deductionShortLabel(r.deduction_summary);
+              return (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      className={cn(
+                        'inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/50 px-2.5 py-1 text-left text-xs font-medium',
+                        'text-foreground hover:bg-muted/80 transition-colors max-w-full',
+                      )}
+                    >
+                      <Wallet className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                      <span className="truncate">{short}</span>
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-sm text-left">
+                    {full}
+                  </TooltipContent>
+                </Tooltip>
+              );
+            },
+          },
+          {
+            key: 'reason',
+            label: 'Reason',
+            className: 'max-w-[220px]',
             render: (r) => (
-              <span className="text-[10px] text-muted-foreground max-w-[140px] inline-block leading-tight">
-                {r.deduction_summary || '—'}
-              </span>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <p className="text-sm line-clamp-2 cursor-default text-left">{r.reason || '—'}</p>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-md text-left">
+                  {r.reason || '—'}
+                </TooltipContent>
+              </Tooltip>
             ),
           },
-          { key: 'reason', label: 'Reason' },
-          { key: 'status', label: 'Status', render: (r) => (
-            <Badge variant={r.status === 'approved' ? 'default' : r.status === 'rejected' ? 'destructive' : 'secondary'}
-              className={cn("text-xs capitalize", r.status === 'approved' && "bg-emerald-500")}>{r.status}</Badge>
-          )},
+          {
+            key: 'status',
+            label: 'Status',
+            render: (r) => (
+              <Badge
+                variant={r.status === 'approved' ? 'default' : r.status === 'rejected' ? 'destructive' : 'secondary'}
+                className={cn('text-xs capitalize', r.status === 'approved' && 'bg-emerald-500')}
+              >
+                {r.status}
+              </Badge>
+            ),
+          },
           {
             key: 'when',
             label: 'When',
             render: (r) => (
-              <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+              <span className="text-xs text-muted-foreground whitespace-nowrap">
                 {r.processed_at
                   ? new Date(r.processed_at).toLocaleString()
                   : r.created_at
@@ -643,64 +841,61 @@ function RefundsView() {
               </span>
             ),
           },
-          { key: 'actions', label: '', render: (r) => r.status === 'pending' ? (
-            <div className="flex gap-1">
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 text-emerald-600"
-                disabled={approveMut.isPending || rejectMut.isPending}
-                onClick={() => { setApproveTarget(r); setApproveOpen(true); }}
-              >
-                <CheckCircle className="w-3 h-3 mr-1" /> Approve
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 text-destructive"
-                disabled={approveMut.isPending || rejectMut.isPending}
-                onClick={() => { setSelected(r); setRejectOpen(true); }}
-              >
-                <Ban className="w-3 h-3 mr-1" /> Reject
-              </Button>
-            </div>
-          ) : null}
+          {
+            key: 'actions',
+            label: '',
+            render: (r) =>
+              r.status === 'pending' ? (
+                <div className="inline-flex gap-1.5 rounded-lg border border-border bg-muted/30 p-0.5">
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="h-8 text-emerald-700 bg-background shadow-none hover:bg-emerald-50 dark:hover:bg-emerald-950/30"
+                    disabled={approveMut.isPending || rejectMut.isPending}
+                    onClick={() => {
+                      setApproveTarget(r);
+                      setApproveOpen(true);
+                    }}
+                  >
+                    <CheckCircle className="w-3.5 h-3.5 mr-1" /> Approve
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    className="h-8 text-destructive bg-background shadow-none hover:bg-destructive/10"
+                    disabled={approveMut.isPending || rejectMut.isPending}
+                    onClick={() => {
+                      setSelected(r);
+                      setRejectOpen(true);
+                    }}
+                  >
+                    <Ban className="w-3.5 h-3.5 mr-1" /> Reject
+                  </Button>
+                </div>
+              ) : null,
+          },
         ]}
         onFilter={() => {}}
       />
 
       <AlertDialog open={approveOpen} onOpenChange={(o) => { if (!o) { setApproveOpen(false); setApproveTarget(null); } }}>
-        <AlertDialogContent>
+        <AlertDialogContent className="sm:max-w-lg">
           <AlertDialogHeader>
-            <AlertDialogTitle>Approve refund?</AlertDialogTitle>
+            <AlertDialogTitle className="flex items-center gap-2 text-left">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300">
+                <CheckCircle className="h-5 w-5" aria-hidden />
+              </span>
+              Approve refund?
+            </AlertDialogTitle>
             <AlertDialogDescription asChild>
-              <div className="text-sm text-muted-foreground space-y-2 pt-2">
+              <div className="text-sm text-muted-foreground space-y-3 pt-1 text-left">
                 {approveTarget ? (
                   <>
-                    <p>This credits the customer wallet and debits vendor plus platform commission per settlement (3% of commission slice retained).</p>
-                    <div className="rounded-md border bg-muted/40 p-3 space-y-1 text-foreground">
-                      <div className="flex justify-between text-xs">
-                        <span>Gross</span>
-                        <span className="font-mono font-medium">
-                          Rs. {Number(approveTarget.gross_amount ?? approveTarget.amount).toLocaleString()}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-xs">
-                        <span>Platform retention (3% of commission)</span>
-                        <span className="font-mono">
-                          Rs. {Number(approveTarget.platform_fee ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                      </div>
-                      <div className="flex justify-between text-xs font-medium pt-1 border-t">
-                        <span>Credit to customer</span>
-                        <span className="font-mono text-primary">
-                          Rs. {Number(approveTarget.net_credit ?? approveTarget.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground pt-1">
-                        {approveTarget.deduction_summary || 'Wallet clawback per order settlement.'}
-                      </p>
-                    </div>
+                    <p>
+                      This credits the customer wallet and debits vendor plus platform commission per settlement (3% of
+                      commission slice retained).
+                    </p>
+                    <RefundFinancialSummaryCard r={approveTarget} />
                   </>
                 ) : null}
               </div>
@@ -722,22 +917,41 @@ function RefundsView() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <CRUDModal open={rejectOpen} onClose={() => setRejectOpen(false)} title="Reject Refund Request" onSave={handleRejectSave} saveLabel="Reject Refund">
+      <CRUDModal
+        open={rejectOpen}
+        onClose={() => setRejectOpen(false)}
+        title="Reject refund request"
+        description="Review the amounts below, then enter a reason visible to your audit trail."
+        size="lg"
+        loading={rejectMut.isPending}
+        onSave={handleRejectSave}
+        saveLabel="Reject refund"
+      >
         {selected && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
-              <div className="p-3 bg-muted/50 rounded-lg"><p className="text-xs text-muted-foreground">Refund ID</p><p className="font-bold">{selected.id}</p></div>
-              <div className="p-3 bg-muted/50 rounded-lg"><p className="text-xs text-muted-foreground">Gross</p><p className="font-bold">Rs. {selected.gross_amount ?? selected.amount}</p></div>
-              <div className="p-3 bg-muted/50 rounded-lg"><p className="text-xs text-muted-foreground">Customer</p><p className="font-bold">{selected.customer}</p></div>
-              <div className="p-3 bg-muted/50 rounded-lg"><p className="text-xs text-muted-foreground">Reason</p><p className="font-bold">{selected.reason}</p></div>
+              <div className="p-3 bg-muted/50 rounded-lg col-span-2 sm:col-span-1">
+                <p className="text-xs text-muted-foreground">Refund ID</p>
+                <p className="font-mono font-semibold text-sm">{selected.id}</p>
+              </div>
+              <div className="p-3 bg-muted/50 rounded-lg col-span-2 sm:col-span-1">
+                <p className="text-xs text-muted-foreground">Order</p>
+                <p className="font-semibold text-sm">{selected.order}</p>
+              </div>
+            </div>
+            <RefundFinancialSummaryCard r={selected} />
+            <div className="rounded-lg border bg-muted/30 p-3">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Customer request</p>
+              <p className="text-sm mt-1">{selected.reason || '—'}</p>
             </div>
             <div>
-              <Label>Rejection Reason <span className="text-destructive">*</span></Label>
-              <Textarea 
-                rows={3} 
-                placeholder="Explain why this refund is being rejected..." 
+              <Label>Rejection reason <span className="text-destructive">*</span></Label>
+              <Textarea
+                rows={3}
+                className="mt-1.5"
+                placeholder="Explain why this refund is being rejected…"
                 value={rejectionReason}
-                onChange={e => setRejectionReason(e.target.value)}
+                onChange={(e) => setRejectionReason(e.target.value)}
               />
             </div>
           </div>
