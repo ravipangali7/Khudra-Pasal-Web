@@ -80,7 +80,7 @@ const EmojiPickerOverlay: React.FC<Props> = ({ open, onClose, onSelectEmoji }) =
     <AnimatePresence>
       {open && (
         <motion.div
-          className="fixed inset-0 z-[260] bg-zinc-950/95 backdrop-blur-sm"
+          className="fixed inset-0 z-[10060] bg-zinc-950/95 backdrop-blur-sm"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}

@@ -4,6 +4,7 @@ import { Home, TrendingUp, ShoppingCart, User } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { isMobileProfileShellRoute, navigateToMobileProfile } from '@/lib/mobileProfileNav';
+import { useCart } from '@/contexts/CartContext';
 import '../reels-theme.css';
 
 const FOOTER_HEIGHT = 64;
@@ -19,6 +20,7 @@ const tabs = [
 const ReelsMobileFooter: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { cartCount } = useCart();
 
   useEffect(() => {
     document.body.style.paddingBottom = `${FOOTER_HEIGHT + 16}px`;
@@ -79,7 +81,6 @@ const ReelsMobileFooter: React.FC = () => {
           }
 
           const Icon = tab.icon!;
-          const cartCount = tab.id === 'cart' ? 3 : 0;
 
           return (
             <button
@@ -97,8 +98,8 @@ const ReelsMobileFooter: React.FC = () => {
                 <Icon className="w-5 h-5" style={{ color: active ? '#F59E0B' : 'rgba(85,85,85,1)' }} />
               </motion.div>
               {tab.id === 'cart' && cartCount > 0 && (
-                <span className="absolute -top-0.5 right-1 w-4 h-4 rounded-full bg-amber-500 text-white text-[9px] font-bold flex items-center justify-center">
-                  {cartCount}
+                <span className="absolute -top-0.5 right-0.5 flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold leading-none text-white">
+                  {cartCount > 9 ? '9+' : cartCount}
                 </span>
               )}
               <span
