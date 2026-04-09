@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   BadgeCheck,
   Camera,
+  LogOut,
   MapPin,
   Package,
   Star,
@@ -50,7 +51,12 @@ function formatRating(r: number): string {
   return r.toFixed(1);
 }
 
-export default function PortalCustomerProfileModule() {
+type Props = {
+  /** Opens portal logout confirm (parent shell); keeps logout off the public storefront. */
+  onSignOutClick?: () => void;
+};
+
+export default function PortalCustomerProfileModule({ onSignOutClick }: Props) {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const bannerInputRef = useRef<HTMLInputElement>(null);
@@ -439,6 +445,19 @@ export default function PortalCustomerProfileModule() {
           </div>
         )}
       </div>
+
+      {onSignOutClick ? (
+        <div className="rounded-2xl border border-border bg-card shadow-sm p-4 sm:p-5">
+          <h3 className="text-sm font-semibold text-foreground mb-1">Account</h3>
+          <p className="text-xs text-muted-foreground mb-4">
+            Sign out when you are finished on this device.
+          </p>
+          <Button type="button" variant="outline" className="w-full gap-2" onClick={onSignOutClick}>
+            <LogOut className="h-4 w-4" />
+            Sign out
+          </Button>
+        </div>
+      ) : null}
     </div>
   );
 }

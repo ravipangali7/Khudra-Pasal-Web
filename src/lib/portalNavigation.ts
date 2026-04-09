@@ -9,6 +9,13 @@ export function portalDashboardHrefForRole(role: string | undefined): string {
   return "/portal/dashboard";
 }
 
+/** Profile section URL for a portal user from `/portal/me/` `role`. */
+export function portalProfileHrefForRole(role: string | undefined): string {
+  if (role === "parent") return "/family-portal/profile";
+  if (role === "child") return "/child-portal/profile";
+  return "/portal/profile";
+}
+
 /** Find a sidebar node by its route id (API `id` / nav `key`). */
 export function findSidebarNodeById(
   items: SidebarItem[],

@@ -1614,7 +1614,9 @@ const CustomerPortal = () => {
             </div>
           )}
 
-          {activeSection === 'profile' && <PortalCustomerProfileModule />}
+          {activeSection === 'profile' && (
+            <PortalCustomerProfileModule onSignOutClick={() => setLogoutConfirmOpen(true)} />
+          )}
 
           {activeSection === 'support' && <PortalSupportSection />}
 

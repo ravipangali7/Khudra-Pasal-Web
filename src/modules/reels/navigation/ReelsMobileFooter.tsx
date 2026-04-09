@@ -1,8 +1,9 @@
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Home, TrendingUp, ShoppingCart, LogIn } from 'lucide-react';
+import { Home, TrendingUp, ShoppingCart, User } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { isMobileProfileShellRoute, navigateToMobileProfile } from '@/lib/mobileProfileNav';
 import '../reels-theme.css';
 
 const FOOTER_HEIGHT = 64;
@@ -12,7 +13,7 @@ const tabs = [
   { id: 'trending', icon: TrendingUp, label: 'Trending', path: '/category/all' },
   { id: 'reels', icon: null, label: 'Reels', path: '/reels' },
   { id: 'cart', icon: ShoppingCart, label: 'Cart', path: '/checkout' },
-  { id: 'login', icon: LogIn, label: 'Login', path: '/login' },
+  { id: 'profile', icon: User, label: 'Profile', path: '/signup' },
 ];
 
 const ReelsMobileFooter: React.FC = () => {
@@ -39,7 +40,10 @@ const ReelsMobileFooter: React.FC = () => {
     >
       <div className="flex items-center justify-around h-full">
         {tabs.map(tab => {
-          const active = isActive(tab.path);
+          const active =
+            tab.id === 'profile'
+              ? isMobileProfileShellRoute(location.pathname)
+              : isActive(tab.path);
 
           if (tab.id === 'reels') {
             return (
@@ -80,7 +84,13 @@ const ReelsMobileFooter: React.FC = () => {
           return (
             <button
               key={tab.id}
-              onClick={() => navigate(tab.path)}
+              onClick={() => {
+                if (tab.id === 'profile') {
+                  void navigateToMobileProfile(navigate, location.pathname);
+                  return;
+                }
+                navigate(tab.path);
+              }}
               className="flex flex-col items-center gap-0.5 py-2 px-3 relative"
             >
               <motion.div animate={active ? { scale: 1.1 } : { scale: 1 }}>

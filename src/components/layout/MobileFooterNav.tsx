@@ -1,11 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Home, TrendingUp, LogIn, LogOut, Tag } from 'lucide-react';
+import { Home, TrendingUp, User, Tag } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useCart } from '@/contexts/CartContext';
-import LogoutConfirmDialog from '@/components/auth/LogoutConfirmDialog';
-import { clearAllAuthTokens, getAuthToken } from '@/lib/api';
+import { isMobileProfileShellRoute, navigateToMobileProfile } from '@/lib/mobileProfileNav';
 
 const FOOTER_HEIGHT = 64;
 
@@ -13,19 +12,10 @@ const MobileFooterNav = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { cartCount } = useCart();
-  const [isLoggedIn, setIsLoggedIn] = useState(() => Boolean(getAuthToken()));
-  const [logoutOpen, setLogoutOpen] = useState(false);
 
   useEffect(() => {
     document.body.style.paddingBottom = `${FOOTER_HEIGHT + 16}px`;
     return () => { document.body.style.paddingBottom = ''; };
-  }, []);
-
-  useEffect(() => {
-    const sync = () => setIsLoggedIn(Boolean(getAuthToken()));
-    sync();
-    window.addEventListener('khudra-auth-changed', sync);
-    return () => window.removeEventListener('khudra-auth-changed', sync);
   }, []);
 
   const isActive = (path: string) => location.pathname === path;
@@ -35,11 +25,9 @@ const MobileFooterNav = () => {
       { id: 'trending', icon: TrendingUp, label: 'Trending', path: '/category/all' },
       { id: 'reels', icon: null, label: 'Reels', path: '/reels' },
       { id: 'offers', icon: Tag, label: 'Offers', path: '/products' },
-      isLoggedIn
-        ? { id: 'logout', icon: LogOut, label: 'Logout', path: '#' }
-        : { id: 'login', icon: LogIn, label: 'Login', path: '/login' },
+      { id: 'profile', icon: User, label: 'Profile', path: '/signup' },
     ],
-    [isLoggedIn],
+    [],
   );
 
   const content = (
@@ -55,7 +43,10 @@ const MobileFooterNav = () => {
     >
       <div className="flex items-center justify-around h-full px-1">
         {tabs.map(tab => {
-          const active = isActive(tab.path);
+          const active =
+            tab.id === 'profile'
+              ? isMobileProfileShellRoute(location.pathname)
+              : isActive(tab.path);
 
           if (tab.id === 'reels') {
             return (
@@ -97,8 +88,8 @@ const MobileFooterNav = () => {
             <button
               key={tab.id}
               onClick={() => {
-                if (tab.id === 'logout') {
-                  setLogoutOpen(true);
+                if (tab.id === 'profile') {
+                  void navigateToMobileProfile(navigate, location.pathname);
                   return;
                 }
                 navigate(tab.path);
@@ -135,19 +126,7 @@ const MobileFooterNav = () => {
     </nav>
   );
 
-  return (
-    <>
-      {createPortal(content, document.body)}
-      <LogoutConfirmDialog
-        open={logoutOpen}
-        onOpenChange={setLogoutOpen}
-        onConfirm={() => {
-          clearAllAuthTokens();
-          setLogoutOpen(false);
-        }}
-      />
-    </>
-  );
+  return createPortal(content, document.body);
 };
 
 export default MobileFooterNav;
