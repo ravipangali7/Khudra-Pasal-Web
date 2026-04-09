@@ -26,6 +26,7 @@
   --reels-safe-bottom: env(safe-area-inset-bottom, 0px);
   --reels-actions-bottom: calc(var(--reels-mobile-footer-height) + var(--reels-safe-bottom) + 12px);
   --reels-overlay-bottom: calc(var(--reels-mobile-footer-height) + var(--reels-safe-bottom) + 16px);
+  --reels-overlay-bottom-compact: calc(var(--reels-mobile-footer-height) + var(--reels-safe-bottom) + 8px);
   --reels-mute-bottom: calc(var(--reels-mobile-footer-height) + var(--reels-safe-bottom) + 84px);
 }
 
@@ -110,6 +111,7 @@
   :root {
     --reels-actions-bottom: 16px;
     --reels-overlay-bottom: 24px;
+    --reels-overlay-bottom-compact: 12px;
     --reels-mute-bottom: 112px;
   }
 }

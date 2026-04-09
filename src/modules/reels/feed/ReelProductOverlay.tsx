@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import ReelsPriceTag from '../shared/ReelsPriceTag';
@@ -31,14 +31,46 @@ const ReelProductOverlay: React.FC<ReelProductOverlayProps> = ({
   const { product, vendor, caption } = reel;
   const productLinked = Boolean(reel.product?.id);
 
+  const captionText = (caption ?? '').trim();
+  const hasCaption = captionText.length > 0;
+
+  const captionRef = useRef<HTMLParagraphElement>(null);
+  const [captionOverflows, setCaptionOverflows] = useState(false);
+
+  useLayoutEffect(() => {
+    if (!hasCaption) {
+      setCaptionOverflows(false);
+      return;
+    }
+    if (expanded) {
+      return;
+    }
+    const el = captionRef.current;
+    if (!el) {
+      return;
+    }
+    setCaptionOverflows(el.scrollHeight > el.clientHeight + 1);
+  }, [hasCaption, expanded, captionText]);
+
   const padClass = immersive ? 'p-4 pr-16 md:pr-4' : 'p-4';
+
+  const paddingBottom = immersive
+    ? hasCaption
+      ? 'var(--reels-overlay-bottom)'
+      : 'var(--reels-overlay-bottom-compact)'
+    : hasCaption
+      ? 'max(1.5rem, var(--reels-safe-bottom))'
+      : 'max(1rem, var(--reels-safe-bottom))';
+
+  const captionId = `reel-caption-${reel.id}`;
+  const showCaptionToggle = expanded || captionOverflows;
 
   return (
     <motion.div
       className={`absolute bottom-0 left-0 right-0 z-[4] ${padClass}`}
       style={{
         background: 'var(--reels-overlay-gradient)',
-        paddingBottom: immersive ? 'var(--reels-overlay-bottom)' : 'max(1.5rem, var(--reels-safe-bottom))',
+        paddingBottom,
       }}
       initial={{ y: 20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
@@ -82,7 +114,7 @@ const ReelProductOverlay: React.FC<ReelProductOverlayProps> = ({
       </div>
 
       {/* Vendor */}
-      <div className="mb-2">
+      <div className={hasCaption ? 'mb-2' : ''}>
         {storeSlug ? (
           <button
             type="button"
@@ -99,20 +131,33 @@ const ReelProductOverlay: React.FC<ReelProductOverlayProps> = ({
         )}
       </div>
 
-      {/* Caption */}
-      <div>
-        <p
-          className={`reels-font-body text-xs leading-relaxed ${expanded ? '' : 'line-clamp-2'}`}
-          style={{ color: 'var(--reels-text-secondary)' }}
-        >
-          {caption}
-        </p>
-        {caption.length > 80 && (
-          <button onClick={onToggleCaption} className="reels-font-body text-xs font-semibold mt-0.5" style={{ color: 'var(--reels-text-primary)' }}>
-            {expanded ? 'less' : 'more'}
-          </button>
-        )}
-      </div>
+      {hasCaption ? (
+        <div>
+          <p
+            ref={captionRef}
+            id={captionId}
+            className={`reels-font-body text-xs leading-relaxed ${expanded ? '' : 'line-clamp-2'}`}
+            style={{ color: 'var(--reels-text-secondary)' }}
+          >
+            {captionText}
+          </p>
+          {showCaptionToggle ? (
+            <button
+              type="button"
+              aria-expanded={expanded}
+              aria-controls={captionId}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleCaption();
+              }}
+              className="reels-font-body text-xs font-semibold mt-0.5"
+              style={{ color: 'var(--reels-text-primary)' }}
+            >
+              {expanded ? 'See less' : 'See more'}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
     </motion.div>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import ReelVideoPlayer from './ReelVideoPlayer';
 import ReelProductOverlay from './ReelProductOverlay';
@@ -43,6 +43,11 @@ const ReelCard: React.FC<ReelCardProps> = ({
   const [localIsMuted, setLocalIsMuted] = useState(true);
   const [captionExpanded, setCaptionExpanded] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+
+  useEffect(() => {
+    setCaptionExpanded(false);
+  }, [reel.id]);
+
   const isMuted = controlledIsMuted ?? localIsMuted;
   const handleToggleMute = onToggleMute ?? (() => setLocalIsMuted((prev) => !prev));
   const immersive = variant === 'immersive';
