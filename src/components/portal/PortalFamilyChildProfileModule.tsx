@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import PortalSavedReelsCard from '@/components/portal/PortalSavedReelsCard';
 
 type Props = {
   variant: 'family' | 'child';
@@ -98,6 +99,8 @@ export default function PortalFamilyChildProfileModule({ variant, onLogoutClick 
         <h1 className="text-2xl font-bold text-foreground">{title}</h1>
         <p className="text-sm text-muted-foreground mt-1">Keep your profile up to date.</p>
       </div>
+
+      <PortalSavedReelsCard />
 
       <div className={cn('grid min-w-0 gap-6', onLogoutClick && 'xl:grid-cols-[2fr_1fr]')}>
         <Card className="min-w-0 border-primary/10 shadow-sm">

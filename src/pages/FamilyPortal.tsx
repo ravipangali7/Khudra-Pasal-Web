@@ -11,7 +11,7 @@ import {
   MoreVertical, Lock, Unlock, Eye, Edit, Trash2, 
   UserPlus, CheckCircle, XCircle, Clock, AlertTriangle,
   TrendingUp, CreditCard, History, Filter, Download,
-  Home, Banknote, ShieldCheck, Cog, FileText, Store,
+  Home, Banknote, ShieldCheck, Cog, FileText, Store, ShoppingCart,
   Send, UserCog, Folder, Loader2, Link2, Copy
 } from 'lucide-react';
 import PortalLayout from '@/components/portal/PortalLayout';
@@ -101,6 +101,7 @@ import PortalProductsCatalogSection from '@/components/portal/PortalProductsCata
 import PortalKycSection from '@/components/portal/PortalKycSection';
 import PortalNotificationsModal from '@/components/portal/PortalNotificationsModal';
 import FloatingCart from '@/components/cart/FloatingCart';
+import { useCart } from '@/contexts/CartContext';
 import PayoutAccountsManager from '@/components/wallet/PayoutAccountsManager';
 import WalletHubPanel from '@/components/wallet/WalletHubPanel';
 
@@ -234,6 +235,7 @@ export function FamilyPortal() {
   });
 
   const notificationUnread = portalSummary?.notifications_count ?? 0;
+  const { setIsCartOpen, cartCount } = useCart();
 
   const { data: txResp } = useQuery({
     queryKey: ['portal', 'family', 'txns', sessionTick],
@@ -307,17 +309,50 @@ export function FamilyPortal() {
 
   const headerActions = (
     <div className="flex items-center gap-2">
-      <ProfileMenu
-        onProfileClick={() => goTo('profile')}
-        onLogout={() => setLogoutConfirmOpen(true)}
-        avatarImageUrl={
-          (selfProfile?.avatar_url || selfProfile?.logo_url)?.trim()
-            ? String(selfProfile.avatar_url || selfProfile.logo_url)
-            : null
-        }
-        avatarFallback="SA"
-        align="end"
-      />
+      {activeSection === 'profile' ? (
+        <>
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon"
+            className="relative h-9 w-9 lg:hidden"
+            aria-label="Open shopping cart"
+            onClick={() => setIsCartOpen(true)}
+          >
+            <ShoppingCart className="w-5 h-5" />
+            {cartCount > 0 ? (
+              <span className="absolute -top-1 -right-1 min-w-[1.25rem] h-5 px-1 bg-primary text-primary-foreground text-[10px] rounded-full flex items-center justify-center font-bold">
+                {cartCount > 99 ? '99+' : cartCount}
+              </span>
+            ) : null}
+          </Button>
+          <div className="hidden lg:block">
+            <ProfileMenu
+              onProfileClick={() => goTo('profile')}
+              onLogout={() => setLogoutConfirmOpen(true)}
+              avatarImageUrl={
+                (selfProfile?.avatar_url || selfProfile?.logo_url)?.trim()
+                  ? String(selfProfile.avatar_url || selfProfile.logo_url)
+                  : null
+              }
+              avatarFallback="SA"
+              align="end"
+            />
+          </div>
+        </>
+      ) : (
+        <ProfileMenu
+          onProfileClick={() => goTo('profile')}
+          onLogout={() => setLogoutConfirmOpen(true)}
+          avatarImageUrl={
+            (selfProfile?.avatar_url || selfProfile?.logo_url)?.trim()
+              ? String(selfProfile.avatar_url || selfProfile.logo_url)
+              : null
+          }
+          avatarFallback="SA"
+          align="end"
+        />
+      )}
       <Link
         to="/homepage"
         className="relative shrink-0 rounded-lg p-2 text-foreground hover:bg-muted"

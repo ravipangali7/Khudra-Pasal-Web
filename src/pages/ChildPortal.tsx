@@ -79,6 +79,7 @@ import PortalFamilyChildProfileModule from '@/components/portal/PortalFamilyChil
 import PortalProductsCatalogSection from '@/components/portal/PortalProductsCatalogSection';
 import PortalNotificationsModal from '@/components/portal/PortalNotificationsModal';
 import FloatingCart from '@/components/cart/FloatingCart';
+import { useCart } from '@/contexts/CartContext';
 import PayoutAccountsManager from '@/components/wallet/PayoutAccountsManager';
 import { toast } from 'sonner';
 
@@ -219,6 +220,7 @@ const ChildPortal = () => {
   });
 
   const notificationUnread = portalSummary?.notifications_count ?? 0;
+  const { setIsCartOpen, cartCount } = useCart();
 
   const childTxQuery = useQuery({
     queryKey: ['portal', 'child', 'txns', sessionTick],
@@ -359,17 +361,50 @@ const ChildPortal = () => {
 
   const headerActions = (
     <div className="flex items-center gap-2">
-      <ProfileMenu
-        onProfileClick={() => goTo('profile')}
-        onLogout={() => setLogoutConfirmOpen(true)}
-        avatarImageUrl={
-          (selfProfile?.avatar_url || selfProfile?.logo_url)?.trim()
-            ? String(selfProfile.avatar_url || selfProfile.logo_url)
-            : null
-        }
-        avatarFallback="SA"
-        align="end"
-      />
+      {activeSection === 'profile' ? (
+        <>
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon"
+            className="relative h-9 w-9 lg:hidden"
+            aria-label="Open shopping cart"
+            onClick={() => setIsCartOpen(true)}
+          >
+            <ShoppingCart className="w-5 h-5" />
+            {cartCount > 0 ? (
+              <span className="absolute -top-1 -right-1 min-w-[1.25rem] h-5 px-1 bg-primary text-primary-foreground text-[10px] rounded-full flex items-center justify-center font-bold">
+                {cartCount > 99 ? '99+' : cartCount}
+              </span>
+            ) : null}
+          </Button>
+          <div className="hidden lg:block">
+            <ProfileMenu
+              onProfileClick={() => goTo('profile')}
+              onLogout={() => setLogoutConfirmOpen(true)}
+              avatarImageUrl={
+                (selfProfile?.avatar_url || selfProfile?.logo_url)?.trim()
+                  ? String(selfProfile.avatar_url || selfProfile.logo_url)
+                  : null
+              }
+              avatarFallback="SA"
+              align="end"
+            />
+          </div>
+        </>
+      ) : (
+        <ProfileMenu
+          onProfileClick={() => goTo('profile')}
+          onLogout={() => setLogoutConfirmOpen(true)}
+          avatarImageUrl={
+            (selfProfile?.avatar_url || selfProfile?.logo_url)?.trim()
+              ? String(selfProfile.avatar_url || selfProfile.logo_url)
+              : null
+          }
+          avatarFallback="SA"
+          align="end"
+        />
+      )}
       <Link
         to="/homepage"
         className="relative shrink-0 rounded-lg p-2 text-foreground hover:bg-muted"
@@ -446,7 +481,7 @@ const ChildPortal = () => {
       case 'help':
         return <HelpContent />;
       case 'profile':
-        return <PortalFamilyChildProfileModule variant="child" />;
+        return <PortalFamilyChildProfileModule variant="child" onLogoutClick={performPortalLogout} />;
       default:
         return <DashboardContent />;
     }

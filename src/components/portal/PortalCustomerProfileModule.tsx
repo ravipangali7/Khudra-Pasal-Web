@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
 import {
   BadgeCheck,
   Camera,
@@ -19,7 +18,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { extractResults, portalApi } from '@/lib/api';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-import { mapApiReelToUi } from '@/modules/reels/api/reelMappers';
+import PortalSavedReelsCard from '@/components/portal/PortalSavedReelsCard';
 
 function splitDescription(desc: string): { highlights: string[]; bio: string } {
   const t = desc.trim();
@@ -58,7 +57,6 @@ type Props = {
 
 export default function PortalCustomerProfileModule({ onSignOutClick }: Props) {
   const qc = useQueryClient();
-  const navigate = useNavigate();
   const bannerInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const bannerObjectUrlRef = useRef<string | null>(null);
@@ -71,7 +69,7 @@ export default function PortalCustomerProfileModule({ onSignOutClick }: Props) {
 
   const { data: favouriteReelsResp } = useQuery({
     queryKey: ['portal', 'reels-favourites'],
-    queryFn: () => portalApi.favouriteReels({ page_size: 8 }),
+    queryFn: () => portalApi.favouriteReels({ page_size: 24 }),
   });
 
   const [storeName, setStoreName] = useState('');
@@ -148,9 +146,8 @@ export default function PortalCustomerProfileModule({ onSignOutClick }: Props) {
   const isVerified = Boolean(data?.is_verified);
   const descSource = description || (data?.description ?? '');
   const { highlights, bio } = splitDescription(descSource);
-  const favouriteReels = extractResults(favouriteReelsResp).map(mapApiReelToUi);
-  const favStat =
-    typeof favCountApi === 'number' ? favCountApi : favouriteReels.length;
+  const favouriteReelsLen = extractResults(favouriteReelsResp).length;
+  const favStat = typeof favCountApi === 'number' ? favCountApi : favouriteReelsLen;
 
   if (isLoading && !data) {
     return <div className="p-6 text-muted-foreground">Loading profile…</div>;
@@ -190,6 +187,8 @@ export default function PortalCustomerProfileModule({ onSignOutClick }: Props) {
           }
         }}
       />
+
+      <PortalSavedReelsCard />
 
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
         <div
@@ -411,39 +410,6 @@ export default function PortalCustomerProfileModule({ onSignOutClick }: Props) {
             <span className="text-xs font-medium text-muted-foreground">{item.label}</span>
           </div>
         ))}
-      </div>
-
-      <div className="rounded-2xl border border-border bg-card shadow-sm p-4 sm:p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-foreground">Favourite reels</h3>
-          <span className="text-xs text-muted-foreground">{favouriteReels.length} saved</span>
-        </div>
-        {favouriteReels.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No favourite reels yet.</p>
-        ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {favouriteReels.map((reel) => (
-              <button
-                key={reel.id}
-                type="button"
-                onClick={() => navigate(`/reels?reel=${reel.id}`)}
-                className="text-left rounded-xl overflow-hidden border border-border bg-muted/20 hover:border-primary/40 transition-colors"
-              >
-                <div className="aspect-[9/16]">
-                  <img
-                    src={reel.thumbnail || reel.product.image}
-                    alt={reel.product.name}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="p-2">
-                  <p className="text-xs font-medium line-clamp-1">{reel.product.name}</p>
-                  <p className="text-[11px] text-muted-foreground">{reel.views.toLocaleString()} views</p>
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
       </div>
 
       {onSignOutClick ? (

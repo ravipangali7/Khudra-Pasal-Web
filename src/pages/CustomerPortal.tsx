@@ -642,16 +642,31 @@ const CustomerPortal = () => {
                   </span>
                 )}
               </button>
-              <ProfileMenu
-                onProfileClick={() => goTo('profile')}
-                avatarImageUrl={
-                  (selfProfile?.logo_url || selfProfile?.avatar_url)?.trim()
-                    ? String(selfProfile.logo_url || selfProfile.avatar_url)
-                    : null
-                }
-                avatarFallback={displayInitials(me?.name)}
-                align="end"
-              />
+              {activeSection === 'profile' ? (
+                <div className="hidden lg:block">
+                  <ProfileMenu
+                    onProfileClick={() => goTo('profile')}
+                    avatarImageUrl={
+                      (selfProfile?.logo_url || selfProfile?.avatar_url)?.trim()
+                        ? String(selfProfile.logo_url || selfProfile.avatar_url)
+                        : null
+                    }
+                    avatarFallback={displayInitials(me?.name)}
+                    align="end"
+                  />
+                </div>
+              ) : (
+                <ProfileMenu
+                  onProfileClick={() => goTo('profile')}
+                  avatarImageUrl={
+                    (selfProfile?.logo_url || selfProfile?.avatar_url)?.trim()
+                      ? String(selfProfile.logo_url || selfProfile.avatar_url)
+                      : null
+                  }
+                  avatarFallback={displayInitials(me?.name)}
+                  align="end"
+                />
+              )}
               <button
                 type="button"
                 className="relative p-2 hover:bg-muted rounded-lg"
