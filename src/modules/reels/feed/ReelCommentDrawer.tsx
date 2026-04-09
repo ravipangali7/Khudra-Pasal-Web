@@ -1,4 +1,5 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -65,8 +66,15 @@ const ReelCommentDrawer: React.FC<Props> = ({ reelId, open, onClose, onCommentAd
   const nextTempIdRef = useRef(-1);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const listScrollRef = useRef<HTMLDivElement>(null);
+  const [portalEl, setPortalEl] = useState<HTMLElement | null>(null);
+  const [keyboardInset, setKeyboardInset] = useState(0);
 
   const hasSession = isStorefrontCustomerSession();
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    setPortalEl(document.body);
+  }, []);
 
   const commentsQuery = useQuery({
     queryKey: ['reel-comments', reelId],
@@ -87,6 +95,35 @@ const ReelCommentDrawer: React.FC<Props> = ({ reelId, open, onClose, onCommentAd
     mq.addEventListener('change', sync);
     return () => mq.removeEventListener('change', sync);
   }, []);
+
+  useEffect(() => {
+    if (!open || typeof window === 'undefined') {
+      setKeyboardInset(0);
+      return;
+    }
+    const vv = window.visualViewport;
+    if (!vv) return;
+
+    const update = () => {
+      if (window.matchMedia('(min-width: 640px)').matches) {
+        setKeyboardInset(0);
+        return;
+      }
+      const overlap = Math.max(0, window.innerHeight - (vv.height + vv.offsetTop));
+      setKeyboardInset(overlap > 12 ? overlap : 0);
+    };
+
+    update();
+    vv.addEventListener('resize', update);
+    vv.addEventListener('scroll', update);
+    window.addEventListener('resize', update);
+    return () => {
+      vv.removeEventListener('resize', update);
+      vv.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+      setKeyboardInset(0);
+    };
+  }, [open]);
 
   const comments = useMemo(() => {
     const serverRows = commentsQuery.data?.results ?? [];
@@ -159,40 +196,47 @@ const ReelCommentDrawer: React.FC<Props> = ({ reelId, open, onClose, onCommentAd
   };
 
   const composerSafePadding = { paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' as const };
+  const composerLiftStyle: React.CSSProperties =
+    keyboardInset > 0
+      ? {
+          ...composerSafePadding,
+          transform: `translateY(-${keyboardInset}px)`,
+          transition: 'transform 0.15s ease-out',
+        }
+      : { ...composerSafePadding, transition: 'transform 0.15s ease-out' };
 
-  return (
-    <AnimatePresence>
-      {open && reelId != null ? (
-        <motion.div
-          key="reel-comments-overlay"
-          className="fixed inset-0 z-[10050]"
+  const drawerTree =
+    open && reelId != null ? (
+      <motion.div
+        key="reel-comments-overlay"
+        className="fixed inset-0 z-[10050]"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.2 }}
+      >
+        <motion.button
+          type="button"
+          className="absolute inset-0 bg-black/60"
+          aria-label="Close comments"
+          onClick={onClose}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-        >
-          <motion.button
-            type="button"
-            className="absolute inset-0 bg-black/60"
-            aria-label="Close comments"
-            onClick={onClose}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-          />
+        />
 
-          <motion.div
-            className="absolute bottom-0 left-0 right-0 flex h-[min(92dvh,100%)] max-h-[min(92dvh,100%)] flex-col rounded-t-2xl border-t border-white/10 bg-zinc-950 shadow-[0_-8px_32px_rgba(0,0,0,0.45)] sm:bottom-auto sm:left-auto sm:right-0 sm:top-0 sm:h-full sm:max-h-none sm:w-full sm:max-w-[420px] sm:rounded-none sm:border-l sm:border-t-0 sm:shadow-none"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="reel-comments-title"
-            initial={isSmUp ? { x: '100%', y: 0 } : { y: '100%', x: 0 }}
-            animate={{ x: 0, y: 0 }}
-            exit={isSmUp ? { x: '100%', y: 0 } : { y: '100%', x: 0 }}
-            transition={{ type: 'spring', damping: 32, stiffness: 320 }}
-            style={{ willChange: 'transform' }}
-          >
+        <motion.div
+          className="absolute bottom-0 left-0 right-0 flex h-[min(92dvh,100%)] max-h-[min(92dvh,100%)] flex-col rounded-t-2xl border-t border-white/10 bg-zinc-950 shadow-[0_-8px_32px_rgba(0,0,0,0.45)] sm:bottom-auto sm:left-auto sm:right-0 sm:top-0 sm:h-full sm:max-h-none sm:w-full sm:max-w-[420px] sm:rounded-none sm:border-l sm:border-t-0 sm:shadow-none"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reel-comments-title"
+          initial={isSmUp ? { x: '100%', y: 0 } : { y: '100%', x: 0 }}
+          animate={{ x: 0, y: 0 }}
+          exit={isSmUp ? { x: '100%', y: 0 } : { y: '100%', x: 0 }}
+          transition={{ type: 'spring', damping: 32, stiffness: 320 }}
+          style={{ willChange: 'transform' }}
+        >
             <div className="flex shrink-0 flex-col items-center pt-2 sm:pt-0">
               <div className="mb-2 h-1 w-10 shrink-0 rounded-full bg-white/25 sm:hidden" aria-hidden />
               <div className="flex w-full items-center justify-between border-b border-white/10 px-4 py-3 sm:py-4">
@@ -258,7 +302,7 @@ const ReelCommentDrawer: React.FC<Props> = ({ reelId, open, onClose, onCommentAd
             {hasSession ? (
               <form
                 className="shrink-0 border-t border-white/10 bg-zinc-950 px-3 pt-3"
-                style={composerSafePadding}
+                style={composerLiftStyle}
                 onSubmit={(e) => {
                   e.preventDefault();
                   const body = draft.trim();
@@ -308,7 +352,7 @@ const ReelCommentDrawer: React.FC<Props> = ({ reelId, open, onClose, onCommentAd
                 </div>
               </form>
             ) : (
-              <div className="shrink-0 space-y-3 border-t border-white/10 px-4 pt-4" style={composerSafePadding}>
+              <div className="shrink-0 space-y-3 border-t border-white/10 px-4 pt-4" style={composerLiftStyle}>
                 <p className="text-center text-xs text-white/65">Sign in to post a comment.</p>
                 <button
                   type="button"
@@ -322,15 +366,15 @@ const ReelCommentDrawer: React.FC<Props> = ({ reelId, open, onClose, onCommentAd
             )}
           </motion.div>
 
-          <EmojiPickerOverlay
-            open={showEmojiPicker}
-            onClose={() => setShowEmojiPicker(false)}
-            onSelectEmoji={handleInsertEmoji}
-          />
-        </motion.div>
-      ) : null}
-    </AnimatePresence>
-  );
+        <EmojiPickerOverlay
+          open={showEmojiPicker}
+          onClose={() => setShowEmojiPicker(false)}
+          onSelectEmoji={handleInsertEmoji}
+        />
+      </motion.div>
+    ) : null;
+
+  return portalEl ? createPortal(<AnimatePresence>{drawerTree}</AnimatePresence>, portalEl) : null;
 };
 
 export default ReelCommentDrawer;
