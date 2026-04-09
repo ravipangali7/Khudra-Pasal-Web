@@ -93,13 +93,20 @@ export default function POSSystem({ variant = 'admin' }: POSSystemProps) {
   const [selectedPayment, setSelectedPayment] = useState<string | null>(null);
   const adminCheckout = useAdminMutation(
     (payload: Parameters<typeof adminApi.adminPosCheckout>[0]) => adminApi.adminPosCheckout(payload),
-    [['admin', 'purchase-orders', 'po'], ['admin', 'products', 'pos']],
+    [
+      ['admin', 'purchase-orders', 'po'],
+      ['admin', 'products', 'pos'],
+      ['vendor', 'products', 'pos'],
+    ],
   );
 
   const vendorCheckout = useMutation({
     mutationFn: (payload: Record<string, unknown>) => vendorApi.posCheckout(payload),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['vendor'] });
+      void Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['vendor'] }),
+        queryClient.invalidateQueries({ queryKey: ['admin', 'products', 'pos'] }),
+      ]);
     },
   });
 
