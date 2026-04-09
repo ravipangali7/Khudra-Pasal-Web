@@ -1,5 +1,6 @@
 import { CartItem, Product } from "@/types";
 import type { ApiReelPublicRow } from "@/modules/reels/api/apiTypes";
+import { clearFcmTokenRegistrationDedup } from "@/lib/firebaseMessaging";
 
 export const API_BASE = import.meta.env.VITE_API_BASE ?? "/api";
 
@@ -96,6 +97,7 @@ export function clearAllAuthTokens() {
     localStorage.removeItem(k),
   );
   clearLoginSurface();
+  clearFcmTokenRegistrationDedup();
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent("khudra-auth-changed"));
   }

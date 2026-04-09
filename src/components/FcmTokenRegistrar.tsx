@@ -1,14 +1,14 @@
 import { useEffect, useRef, type MutableRefObject } from "react";
 import { useLocation } from "react-router-dom";
 import { authApi, getAuthToken } from "@/lib/api";
-import { getFcmRegistrationToken } from "@/lib/firebaseMessaging";
+import { FCM_LAST_SENT_TOKEN_STORAGE_KEY, getFcmRegistrationToken } from "@/lib/firebaseMessaging";
 
-const LAST_SENT_KEY = "khudrapasal_last_sent_fcm_token";
+const VISIBILITY_RESYNC_MS = 400;
 
+/** Sync when authenticated except on auth entry pages (no session yet). */
 function shouldSyncFcmForPath(pathname: string): boolean {
-  if (pathname === "/") return true;
-  const prefixes = ["/portal", "/family-portal", "/child-portal", "/vendor"];
-  return prefixes.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  if (pathname === "/login" || pathname === "/signup") return false;
+  return true;
 }
 
 async function syncFcmIfNeeded(busyRef: MutableRefObject<boolean>): Promise<void> {
@@ -19,14 +19,14 @@ async function syncFcmIfNeeded(busyRef: MutableRefObject<boolean>): Promise<void
     if (!token) return;
     let prev = "";
     try {
-      prev = localStorage.getItem(LAST_SENT_KEY) ?? "";
+      prev = localStorage.getItem(FCM_LAST_SENT_TOKEN_STORAGE_KEY) ?? "";
     } catch {
       /* ignore */
     }
     if (token === prev) return;
     await authApi.registerFcmToken({ fcm_token: token });
     try {
-      localStorage.setItem(LAST_SENT_KEY, token);
+      localStorage.setItem(FCM_LAST_SENT_TOKEN_STORAGE_KEY, token);
     } catch {
       /* ignore */
     }
@@ -38,11 +38,13 @@ async function syncFcmIfNeeded(busyRef: MutableRefObject<boolean>): Promise<void
 }
 
 /**
- * When the user is signed in on home or a portal route, registers the FCM web token with the API (deduped).
+ * When the user is signed in, registers the FCM web token with the API (deduped).
+ * Re-syncs on route change, auth change, and when the tab becomes visible (token rotation / permission edge cases).
  */
 export default function FcmTokenRegistrar() {
   const location = useLocation();
   const busyRef = useRef(false);
+  const visibilityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!getAuthToken() || !shouldSyncFcmForPath(location.pathname)) return;
@@ -56,6 +58,23 @@ export default function FcmTokenRegistrar() {
     };
     window.addEventListener("khudra-auth-changed", onAuth);
     return () => window.removeEventListener("khudra-auth-changed", onAuth);
+  }, []);
+
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState !== "visible") return;
+      if (!getAuthToken() || !shouldSyncFcmForPath(window.location.pathname)) return;
+      if (visibilityTimerRef.current) clearTimeout(visibilityTimerRef.current);
+      visibilityTimerRef.current = setTimeout(() => {
+        visibilityTimerRef.current = null;
+        void syncFcmIfNeeded(busyRef);
+      }, VISIBILITY_RESYNC_MS);
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      if (visibilityTimerRef.current) clearTimeout(visibilityTimerRef.current);
+    };
   }, []);
 
   return null;
