@@ -77,7 +77,6 @@ const ReelCard: React.FC<ReelCardProps> = ({
           isMuted={isMuted}
           onProgress={onProgress}
           thumbnail={reel.thumbnail}
-          minimalChrome={immersive}
           preload={videoPreload}
         />
       ) : (

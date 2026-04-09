@@ -96,17 +96,6 @@
   position: relative;
 }
 
-/* Immersive /reels: one slide fits above fixed mobile bottom nav (ReelsMobileFooter is md:hidden). */
-@media (max-width: 767px) {
-  .reels-snap-container.reels-snap-container--with-mobile-nav {
-    height: calc(100dvh - var(--reels-mobile-footer-height) - var(--reels-safe-bottom));
-  }
-  .reels-snap-container.reels-snap-container--with-mobile-nav .reels-snap-item {
-    height: calc(100dvh - var(--reels-mobile-footer-height) - var(--reels-safe-bottom));
-    min-height: calc(100dvh - var(--reels-mobile-footer-height) - var(--reels-safe-bottom));
-  }
-}
-
 @media (min-width: 768px) {
   :root {
     --reels-actions-bottom: 16px;

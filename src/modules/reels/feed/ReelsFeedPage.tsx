@@ -183,7 +183,6 @@ const ReelsFeedPage: React.FC = () => {
               onProgress: setActivePlaybackProgress,
               onComplete: scrollToNextReel,
             }}
-            className="reels-snap-container--with-mobile-nav"
           />
 
           {isFetchingNextPage ? (
