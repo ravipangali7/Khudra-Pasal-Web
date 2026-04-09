@@ -93,19 +93,19 @@ export default function PortalFamilyChildProfileModule({ variant, onLogoutClick 
   const title = variant === 'family' ? 'Family portal profile' : 'My profile';
 
   return (
-    <div className="p-4 lg:p-6 max-w-5xl space-y-6">
-      <div>
+    <div className="w-full min-w-0 max-w-5xl space-y-6 p-4 lg:p-6">
+      <div className="min-w-0">
         <h1 className="text-2xl font-bold text-foreground">{title}</h1>
         <p className="text-sm text-muted-foreground mt-1">Keep your profile up to date.</p>
       </div>
 
-      <div className={cn('grid gap-6', onLogoutClick && 'xl:grid-cols-[2fr_1fr]')}>
-        <Card className="border-primary/10 shadow-sm">
-          <CardHeader>
-            <CardTitle>Profile details</CardTitle>
+      <div className={cn('grid min-w-0 gap-6', onLogoutClick && 'xl:grid-cols-[2fr_1fr]')}>
+        <Card className="min-w-0 border-primary/10 shadow-sm">
+          <CardHeader className="p-4 sm:p-6">
+            <CardTitle className="text-lg sm:text-2xl">Profile details</CardTitle>
             <CardDescription>Your account information on KhudraPasal.</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
             <form onSubmit={submit} className="space-y-6">
               <input
                 ref={fileRef}
@@ -123,21 +123,27 @@ export default function PortalFamilyChildProfileModule({ variant, onLogoutClick 
                   }
                 }}
               />
-              <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-muted/30 p-4">
-                <div className="flex items-center gap-4">
-                  <div className="relative h-20 w-20 rounded-full overflow-hidden border border-border bg-muted shrink-0">
+              <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <div className="flex min-w-0 items-center gap-4">
+                  <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full border border-border bg-muted">
                     {avatarPreview ? (
                       <img src={avatarPreview} alt="" className="h-full w-full object-cover" />
                     ) : (
                       <div className="h-full w-full flex items-center justify-center text-muted-foreground text-xs">—</div>
                     )}
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{name || 'Account photo'}</p>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground break-words">{name || 'Account photo'}</p>
                     <p className="text-xs text-muted-foreground">PNG or JPG up to your system limit.</p>
                   </div>
                 </div>
-                <Button type="button" variant="outline" size="sm" className="gap-2" onClick={() => fileRef.current?.click()}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-full gap-2 sm:w-auto"
+                  onClick={() => fileRef.current?.click()}
+                >
                   <Camera className="h-4 w-4" />
                   Change photo
                 </Button>
@@ -190,12 +196,12 @@ export default function PortalFamilyChildProfileModule({ variant, onLogoutClick 
         </Card>
 
         {onLogoutClick ? (
-          <Card className="h-fit border-primary/10 shadow-sm">
-            <CardHeader>
-              <CardTitle>Session</CardTitle>
+          <Card className="h-fit min-w-0 border-primary/10 shadow-sm">
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="text-lg sm:text-2xl">Session</CardTitle>
               <CardDescription>Sign out when you are finished on this device.</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button type="button" variant="outline" className="w-full justify-start gap-2 text-destructive">
