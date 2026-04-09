@@ -71,7 +71,7 @@ export default function PortalCustomerProfileModule({ onSignOutClick }: Props) {
 
   const { data: favouriteReelsResp } = useQuery({
     queryKey: ['portal', 'reels-favourites'],
-    queryFn: () => portalApi.favouriteReels({ page_size: 8 }),
+    queryFn: () => portalApi.favouriteReels({ page_size: 32 }),
   });
 
   const [storeName, setStoreName] = useState('');
@@ -151,6 +151,8 @@ export default function PortalCustomerProfileModule({ onSignOutClick }: Props) {
   const favouriteReels = extractResults(favouriteReelsResp).map(mapApiReelToUi);
   const favStat =
     typeof favCountApi === 'number' ? favCountApi : favouriteReels.length;
+  const favListTruncated =
+    typeof favCountApi === 'number' && favouriteReels.length < favCountApi;
 
   if (isLoading && !data) {
     return <div className="p-6 text-muted-foreground">Loading profile…</div>;
@@ -414,20 +416,38 @@ export default function PortalCustomerProfileModule({ onSignOutClick }: Props) {
       </div>
 
       <div className="rounded-2xl border border-border bg-card shadow-sm p-4 sm:p-5">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between gap-2 mb-4">
           <h3 className="text-sm font-semibold text-foreground">Favourite reels</h3>
-          <span className="text-xs text-muted-foreground">{favouriteReels.length} saved</span>
+          <span className="text-xs text-muted-foreground text-right shrink-0">
+            <span className="tabular-nums">{favStat.toLocaleString()}</span> saved
+            {favListTruncated ? (
+              <span className="text-muted-foreground/85">
+                {' '}
+                · first {favouriteReels.length.toLocaleString()} shown
+              </span>
+            ) : null}
+          </span>
         </div>
         {favouriteReels.length === 0 ? (
           <p className="text-sm text-muted-foreground">No favourite reels yet.</p>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div
+            className={cn(
+              'flex gap-3 overflow-x-auto pb-2 -mx-1 px-1 sm:mx-0 sm:px-0',
+              'scrollbar-hide snap-x snap-mandatory sm:grid sm:grid-cols-4 sm:gap-3',
+              'sm:overflow-visible sm:snap-none sm:pb-0',
+            )}
+          >
             {favouriteReels.map((reel) => (
               <button
                 key={reel.id}
                 type="button"
                 onClick={() => navigate(`/reels?reel=${reel.id}`)}
-                className="text-left rounded-xl overflow-hidden border border-border bg-muted/20 hover:border-primary/40 transition-colors"
+                className={cn(
+                  'text-left rounded-xl overflow-hidden border border-border bg-muted/20',
+                  'hover:border-primary/40 transition-colors',
+                  'shrink-0 w-[42vw] max-w-[160px] snap-start sm:max-w-none sm:w-auto sm:shrink',
+                )}
               >
                 <div className="aspect-[9/16]">
                   <img
