@@ -341,10 +341,10 @@ const ReelVideoPlayer: React.FC<ReelVideoPlayerProps> = ({
   const tiktokCropStyle: React.CSSProperties = {
     pointerEvents: 'none',
     position: 'absolute',
-    width: '118%',
-    height: '108%',
-    left: '-10%',
-    top: '-4%',
+    width: '130%',
+    height: '120%',
+    left: '-14%',
+    top: '-8%',
     border: 'none',
   };
 
@@ -360,6 +360,10 @@ const ReelVideoPlayer: React.FC<ReelVideoPlayerProps> = ({
             allow="autoplay; fullscreen; encrypted-media; picture-in-picture"
             title="Reel video"
           />
+          {/* Hide TikTok-owned edge chrome so only Khudrapasal controls are visible. */}
+          <div className="absolute right-0 top-0 h-full w-16 z-[1] bg-[var(--reels-bg)]/70 pointer-events-none" />
+          <div className="absolute top-0 left-0 w-full h-12 z-[1] bg-gradient-to-b from-[var(--reels-bg)]/65 to-transparent pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-full h-16 z-[1] bg-gradient-to-t from-[var(--reels-bg)]/80 to-transparent pointer-events-none" />
         </div>
       ) : (
         <iframe

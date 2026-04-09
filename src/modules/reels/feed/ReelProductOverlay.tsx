@@ -31,14 +31,15 @@ const ReelProductOverlay: React.FC<ReelProductOverlayProps> = ({
   const { product, vendor, caption } = reel;
   const productLinked = Boolean(reel.product?.id);
 
-  const padClass = immersive
-    ? 'p-4 pr-16 pb-28 max-md:pb-32 md:pb-8 md:pr-4'
-    : 'p-4 pb-20 md:pb-6';
+  const padClass = immersive ? 'p-4 pr-16 md:pr-4' : 'p-4';
 
   return (
     <motion.div
       className={`absolute bottom-0 left-0 right-0 z-[4] ${padClass}`}
-      style={{ background: 'var(--reels-overlay-gradient)' }}
+      style={{
+        background: 'var(--reels-overlay-gradient)',
+        paddingBottom: immersive ? 'var(--reels-overlay-bottom)' : 'max(1.5rem, var(--reels-safe-bottom))',
+      }}
       initial={{ y: 20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ delay: 0.4, duration: 0.3 }}

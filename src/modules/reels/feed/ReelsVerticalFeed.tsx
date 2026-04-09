@@ -117,7 +117,7 @@ const ReelsVerticalFeed: React.FC<ReelsVerticalFeedProps> = ({
           {activeReel ? (
             <ReelActionsSidebar
               layout="floating"
-              className="absolute z-[45] right-1 top-[40%] -translate-y-1/2 sm:right-2"
+              className="absolute z-[45] right-2 sm:right-3 bottom-[var(--reels-actions-bottom)]"
               disabled={railDisabled}
               views={activeReel.views}
               likes={activeReel.likes}

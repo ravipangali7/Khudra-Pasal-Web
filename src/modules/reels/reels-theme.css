@@ -22,6 +22,11 @@
   --reels-glass-border: rgba(255, 255, 255, 0.12);
   --reels-on-accent: #ffffff;
   --reels-step-on-accent: #ffffff;
+  --reels-mobile-footer-height: 64px;
+  --reels-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --reels-actions-bottom: calc(var(--reels-mobile-footer-height) + var(--reels-safe-bottom) + 12px);
+  --reels-overlay-bottom: calc(var(--reels-mobile-footer-height) + var(--reels-safe-bottom) + 16px);
+  --reels-mute-bottom: calc(var(--reels-mobile-footer-height) + var(--reels-safe-bottom) + 84px);
 }
 
 /*
@@ -93,11 +98,19 @@
 /* Immersive /reels: one slide fits above fixed mobile bottom nav (ReelsMobileFooter is md:hidden). */
 @media (max-width: 767px) {
   .reels-snap-container.reels-snap-container--with-mobile-nav {
-    height: calc(100dvh - 64px - env(safe-area-inset-bottom, 0px));
+    height: calc(100dvh - var(--reels-mobile-footer-height) - var(--reels-safe-bottom));
   }
   .reels-snap-container.reels-snap-container--with-mobile-nav .reels-snap-item {
-    height: calc(100dvh - 64px - env(safe-area-inset-bottom, 0px));
-    min-height: calc(100dvh - 64px - env(safe-area-inset-bottom, 0px));
+    height: calc(100dvh - var(--reels-mobile-footer-height) - var(--reels-safe-bottom));
+    min-height: calc(100dvh - var(--reels-mobile-footer-height) - var(--reels-safe-bottom));
+  }
+}
+
+@media (min-width: 768px) {
+  :root {
+    --reels-actions-bottom: 16px;
+    --reels-overlay-bottom: 24px;
+    --reels-mute-bottom: 112px;
   }
 }
 

@@ -93,10 +93,12 @@ const ReelCard: React.FC<ReelCardProps> = ({
       <button
         type="button"
         onClick={handleToggleMute}
-        className={`absolute z-[30] w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md ${
-          immersive ? 'bottom-28 left-4 max-md:bottom-36' : 'bottom-28 left-4'
-        }`}
-        style={{ background: 'var(--reels-glass)', border: '1px solid var(--reels-glass-border)' }}
+        className="absolute z-[30] left-4 w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md"
+        style={{
+          bottom: immersive ? 'var(--reels-mute-bottom)' : '7rem',
+          background: 'var(--reels-glass)',
+          border: '1px solid var(--reels-glass-border)',
+        }}
         aria-label={isMuted ? 'Enable sound' : 'Mute sound'}
         title={isMuted ? 'Enable sound' : 'Mute sound'}
       >

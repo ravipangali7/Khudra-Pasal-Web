@@ -32,10 +32,11 @@ const ActionButton: React.FC<{
   active?: boolean;
   index: number;
   disabled?: boolean;
-}> = ({ icon, label, onClick, active, index, disabled }) => (
+  floating?: boolean;
+}> = ({ icon, label, onClick, active, index, disabled, floating = false }) => (
   <motion.button
     type="button"
-    className="flex flex-col items-center gap-1 disabled:opacity-40 disabled:pointer-events-none"
+    className={`flex flex-col items-center ${floating ? 'gap-0.5' : 'gap-1'} disabled:opacity-40 disabled:pointer-events-none`}
     onClick={onClick}
     disabled={disabled}
     initial={{ opacity: 0, x: 8 }}
@@ -44,38 +45,48 @@ const ActionButton: React.FC<{
     whileTap={{ scale: disabled ? 1 : 0.9 }}
   >
     <div
-      className="w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center backdrop-blur-md"
+      className={`rounded-full flex items-center justify-center backdrop-blur-md ${
+        floating ? 'w-12 h-12 sm:w-[52px] sm:h-[52px]' : 'w-11 h-11 sm:w-12 sm:h-12'
+      }`}
       style={{
-        background: active ? 'var(--reels-accent)' : 'var(--reels-glass)',
-        border: `1px solid ${active ? 'var(--reels-accent)' : 'var(--reels-glass-border)'}`,
+        background: active ? 'var(--reels-accent)' : floating ? 'rgba(0,0,0,0.46)' : 'var(--reels-glass)',
+        border: `1px solid ${active ? 'var(--reels-accent)' : floating ? 'rgba(255,255,255,0.24)' : 'var(--reels-glass-border)'}`,
       }}
     >
       {icon}
     </div>
-    <span className="reels-font-mono text-[9px] sm:text-[10px] font-medium text-white max-w-[4rem] text-center leading-tight">
+    <span className={`reels-font-mono font-medium text-white max-w-[4rem] text-center leading-tight ${floating ? 'text-[10px]' : 'text-[9px] sm:text-[10px]'}`}>
       {label}
     </span>
   </motion.button>
 );
 
-const ViewsStat: React.FC<{ views: number; index: number }> = ({ views, index }) => (
+const ViewsStat: React.FC<{ views: number; index: number; floating?: boolean }> = ({
+  views,
+  index,
+  floating = false,
+}) => (
   <motion.div
-    className="flex flex-col items-center gap-1 pointer-events-none select-none"
+    className={`flex flex-col items-center ${floating ? 'gap-0.5' : 'gap-1'} pointer-events-none select-none`}
     aria-hidden
     initial={{ opacity: 0, x: 8 }}
     animate={{ opacity: 1, x: 0 }}
     transition={{ delay: 0.08 + index * 0.05, type: 'spring', stiffness: 320 }}
   >
     <div
-      className="w-11 h-11 sm:w-12 sm:h-12 rounded-full flex items-center justify-center backdrop-blur-md"
+      className={`rounded-full flex items-center justify-center backdrop-blur-md ${
+        floating ? 'w-12 h-12 sm:w-[52px] sm:h-[52px]' : 'w-11 h-11 sm:w-12 sm:h-12'
+      }`}
       style={{
-        background: 'var(--reels-glass)',
-        border: '1px solid var(--reels-glass-border)',
+        background: floating ? 'rgba(0,0,0,0.46)' : 'var(--reels-glass)',
+        border: floating ? '1px solid rgba(255,255,255,0.24)' : '1px solid var(--reels-glass-border)',
       }}
     >
       <Eye className="w-5 h-5 text-white" />
     </div>
-    <span className="reels-font-mono text-[9px] sm:text-[10px] font-medium text-white">{formatCount(views)}</span>
+    <span className={`reels-font-mono font-medium text-white ${floating ? 'text-[10px]' : 'text-[9px] sm:text-[10px]'}`}>
+      {formatCount(views)}
+    </span>
   </motion.div>
 );
 
@@ -98,7 +109,7 @@ const ReelActionsSidebar: React.FC<ReelActionsSidebarProps> = ({
     <aside
       className={
         floating
-          ? `pointer-events-auto flex flex-col items-center justify-center gap-3 sm:gap-4 py-0 shrink-0 w-14 sm:w-16 ${className}`.trim()
+          ? `pointer-events-auto flex flex-col items-center justify-end gap-3 py-0 shrink-0 w-14 sm:w-16 ${className}`.trim()
           : `flex h-full min-h-0 flex-col items-center justify-center gap-3 sm:gap-4 border-l py-4 sm:py-6 shrink-0 w-14 sm:w-16 ${className}`.trim()
       }
       style={
@@ -122,14 +133,16 @@ const ReelActionsSidebar: React.FC<ReelActionsSidebarProps> = ({
         label={formatCount(likes)}
         onClick={onLike}
         active={liked}
+        floating={floating}
       />
-      <ViewsStat views={views} index={1} />
+      <ViewsStat views={views} index={1} floating={floating} />
       <ActionButton
         index={2}
         disabled={disabled}
         icon={<MessageCircle className="w-5 h-5 text-white" />}
         label={formatCount(commentsCount)}
         onClick={onComment}
+        floating={floating}
       />
       <ActionButton
         index={3}
@@ -138,6 +151,7 @@ const ReelActionsSidebar: React.FC<ReelActionsSidebarProps> = ({
         label="Fav"
         onClick={onSave || (() => {})}
         active={saved}
+        floating={floating}
       />
       <ActionButton
         index={4}
@@ -145,6 +159,7 @@ const ReelActionsSidebar: React.FC<ReelActionsSidebarProps> = ({
         icon={<Share2 className="w-5 h-5 text-white" />}
         label="Share"
         onClick={onShare}
+        floating={floating}
       />
     </aside>
   );
