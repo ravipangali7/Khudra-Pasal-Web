@@ -32,7 +32,7 @@ const MobileReelsFooter: React.FC = () => {
 
   return (
     <motion.nav
-      className="fixed bottom-0 left-0 right-0 z-[9999] md:hidden"
+      className="mobile-tabbar-fixed md:hidden"
       style={{
         background: 'rgba(10, 10, 10, 0.95)',
         backdropFilter: 'blur(20px)',

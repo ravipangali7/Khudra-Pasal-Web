@@ -32,7 +32,7 @@ const MobileFooterNav = () => {
 
   const content = (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-[9999] md:hidden"
+      className="mobile-tabbar-fixed md:hidden"
       style={{
         background: 'linear-gradient(135deg, hsl(270 80% 20%) 0%, hsl(270 60% 12%) 50%, hsl(220 40% 10%) 100%)',
         backdropFilter: 'blur(20px)',

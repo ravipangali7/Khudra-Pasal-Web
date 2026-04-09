@@ -76,7 +76,7 @@ const SearchDropdown = ({ isOpen, onClose, searchQuery, onSearchChange }: Search
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm animate-fade-in">
+    <div className="fixed inset-0 z-[10060] bg-background/95 backdrop-blur-sm animate-fade-in">
       <div className="container mx-auto px-4 py-4">
         <div className="flex items-center gap-3 mb-6">
           <div className="flex-1 flex items-center gap-3 bg-card rounded-xl px-4 py-3 border border-border shadow-sm">

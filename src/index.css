@@ -145,6 +145,13 @@
     scroll-behavior: smooth;
   }
 
+  /* Reduce rubber-band coupling between page scroll and fixed mobile chrome (iOS/WebView). */
+  @media (max-width: 767px) {
+    html {
+      overscroll-behavior-y: contain;
+    }
+  }
+
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', system-ui, sans-serif;
@@ -359,6 +366,21 @@
 
   .rating-star {
     color: hsl(36 100% 50%);
+  }
+
+  /**
+   * Storefront / reels mobile tab bars (portaled to body).
+   * Compositor promotion + isolation keeps the bar anchored to the viewport while the document scrolls.
+   */
+  .mobile-tabbar-fixed {
+    @apply fixed bottom-0 left-0 right-0 z-[9999];
+    width: 100%;
+    max-width: 100vw;
+    transform: translateZ(0);
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    isolation: isolate;
+    touch-action: manipulation;
   }
 }
 
