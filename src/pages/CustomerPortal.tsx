@@ -62,7 +62,7 @@ import PayoutAccountsManager from '@/components/wallet/PayoutAccountsManager';
 import WalletWithdraw from '@/components/wallet/WalletWithdraw';
 import WalletAddMoney from '@/components/wallet/WalletAddMoney';
 import AIChatbot from '@/components/chat/AIChatbot';
-import MobileFooterNav from '@/components/layout/MobileFooterNav';
+import MobileFooterNav, { MOBILE_TABBAR_SCROLL_PADDING } from '@/components/layout/MobileFooterNav';
 import AdminTable from '@/components/admin/AdminTable';
 import PortalMyOrdersSection from '@/components/portal/PortalMyOrdersSection';
 import PortalDashboardReelsStrip from '@/modules/reels/portal/PortalDashboardReelsStrip';
@@ -530,7 +530,7 @@ const CustomerPortal = () => {
 
   return (
     <>
-    <div className="min-h-screen bg-muted/30 flex">
+    <div className="flex h-dvh min-h-0 w-full overflow-hidden bg-muted/30">
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
         <div 
@@ -596,7 +596,7 @@ const CustomerPortal = () => {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-h-screen">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {/* Top Header */}
         <header className="sticky top-0 z-30 bg-card border-b border-border px-4 py-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
@@ -691,7 +691,13 @@ const CustomerPortal = () => {
         </header>
 
         {/* Main Content Area */}
-        <main className="flex-1 p-4 md:p-6 overflow-y-auto">
+        <main
+          className={cn(
+            'min-h-0 flex-1 overflow-y-auto p-4 md:p-6',
+            'max-md:pb-[calc(var(--tabbar-scroll-pad)+env(safe-area-inset-bottom,0px))]',
+          )}
+          style={{ ['--tabbar-scroll-pad' as string]: `${MOBILE_TABBAR_SCROLL_PADDING}px` }}
+        >
           {activeSection === 'dashboard' && (
             <div className="space-y-6">
               {userRole === 'normal' && !inFamilyGroup && (
@@ -1674,7 +1680,7 @@ const CustomerPortal = () => {
       <AIChatbot />
 
       {/* Mobile Footer */}
-      <MobileFooterNav />
+      <MobileFooterNav skipDocumentPadding />
     </div>
     <PortalNotificationsModal open={notificationsModalOpen} onOpenChange={setNotificationsModalOpen} />
     <LogoutConfirmDialog

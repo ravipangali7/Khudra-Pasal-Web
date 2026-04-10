@@ -14,16 +14,28 @@ import {
 
 const FOOTER_HEIGHT = 64;
 
-const MobileFooterNav = () => {
+/** Space reserved above the tab bar (matches prior body padding when the window was the scroller). */
+export const MOBILE_TABBAR_SCROLL_PADDING = FOOTER_HEIGHT + 16;
+
+interface MobileFooterNavProps {
+  /**
+   * When the scroll container is an inner element (e.g. portal main) with its own bottom padding,
+   * skip adding padding on `body` to avoid extra document scroll and double spacing.
+   */
+  skipDocumentPadding?: boolean;
+}
+
+const MobileFooterNav = ({ skipDocumentPadding = false }: MobileFooterNavProps) => {
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    document.body.style.paddingBottom = `${FOOTER_HEIGHT + 16}px`;
+    if (skipDocumentPadding) return;
+    document.body.style.paddingBottom = `${MOBILE_TABBAR_SCROLL_PADDING}px`;
     return () => {
       document.body.style.paddingBottom = '';
     };
-  }, []);
+  }, [skipDocumentPadding]);
 
   const isActive = (path: string) => location.pathname === path;
   const tabs = useMemo(
