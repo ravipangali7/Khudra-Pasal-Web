@@ -1,30 +1,40 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { Home, TrendingUp, ShoppingCart, User } from 'lucide-react';
+import { Home, Wallet, ShoppingBag, User } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { isMobileProfileShellRoute, navigateToMobileProfile } from '@/lib/mobileProfileNav';
-import { useCart } from '@/contexts/CartContext';
+import {
+  isMobileOrdersShellRoute,
+  isMobileProfileShellRoute,
+  isMobileWalletShellRoute,
+  navigateToMobileOrders,
+  navigateToMobileProfile,
+  navigateToMobileWallet,
+} from '@/lib/mobileProfileNav';
 import '../reels-theme.css';
 
 const FOOTER_HEIGHT = 64;
 
-const tabs = [
-  { id: 'home', icon: Home, label: 'Home', path: '/' },
-  { id: 'trending', icon: TrendingUp, label: 'Trending', path: '/category/all' },
-  { id: 'reels', icon: null, label: 'Reels', path: '/reels' },
-  { id: 'cart', icon: ShoppingCart, label: 'Cart', path: '/checkout' },
-  { id: 'profile', icon: User, label: 'Profile', path: '/signup' },
-];
-
 const ReelsMobileFooter: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { cartCount } = useCart();
+
+  const tabs = useMemo(
+    () => [
+      { id: 'home', icon: Home, label: 'Home', path: '/' },
+      { id: 'wallet', icon: Wallet, label: 'Wallet', path: '/portal/wallet' },
+      { id: 'reels', icon: null, label: 'Reel', path: '/reels' },
+      { id: 'orders', icon: ShoppingBag, label: 'Orders', path: '/portal/orders' },
+      { id: 'profile', icon: User, label: 'Profile', path: '/signup' },
+    ],
+    [],
+  );
 
   useEffect(() => {
     document.body.style.paddingBottom = `${FOOTER_HEIGHT + 16}px`;
-    return () => { document.body.style.paddingBottom = ''; };
+    return () => {
+      document.body.style.paddingBottom = '';
+    };
   }, []);
 
   const isActive = (path: string) => location.pathname === path;
@@ -40,22 +50,29 @@ const ReelsMobileFooter: React.FC = () => {
         height: `${FOOTER_HEIGHT}px`,
       }}
     >
-      <div className="flex items-center justify-around h-full">
-        {tabs.map(tab => {
+      <div className="flex items-center justify-around h-full px-0.5">
+        {tabs.map((tab) => {
           const active =
             tab.id === 'profile'
               ? isMobileProfileShellRoute(location.pathname)
-              : isActive(tab.path);
+              : tab.id === 'wallet'
+                ? isMobileWalletShellRoute(location.pathname)
+                : tab.id === 'orders'
+                  ? isMobileOrdersShellRoute(location.pathname)
+                  : tab.id === 'reels'
+                    ? location.pathname === '/reels' || location.pathname.startsWith('/reels/')
+                    : isActive(tab.path);
 
           if (tab.id === 'reels') {
             return (
               <button
                 key={tab.id}
+                type="button"
                 onClick={() => navigate('/reels')}
-                className="flex flex-col items-center -mt-3"
+                className="flex flex-col items-center -mt-3 min-w-0 flex-1"
               >
                 <motion.div
-                  className="w-[52px] h-[52px] rounded-full flex items-center justify-center"
+                  className="w-[48px] h-[48px] rounded-full flex items-center justify-center shrink-0"
                   style={{
                     background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
                     boxShadow: '0 0 24px rgba(245, 158, 11, 0.35)',
@@ -71,10 +88,10 @@ const ReelsMobileFooter: React.FC = () => {
                   </svg>
                 </motion.div>
                 <span
-                  className="text-[9px] font-bold mt-0.5"
+                  className="text-[9px] font-bold mt-0.5 truncate max-w-full px-0.5"
                   style={{ color: active ? '#F59E0B' : 'rgba(85,85,85,1)' }}
                 >
-                  Reels
+                  {tab.label}
                 </span>
               </button>
             );
@@ -85,25 +102,32 @@ const ReelsMobileFooter: React.FC = () => {
           return (
             <button
               key={tab.id}
+              type="button"
               onClick={() => {
                 if (tab.id === 'profile') {
                   void navigateToMobileProfile(navigate, location.pathname);
                   return;
                 }
+                if (tab.id === 'wallet') {
+                  void navigateToMobileWallet(navigate, location.pathname);
+                  return;
+                }
+                if (tab.id === 'orders') {
+                  void navigateToMobileOrders(navigate, location.pathname);
+                  return;
+                }
                 navigate(tab.path);
               }}
-              className="flex flex-col items-center gap-0.5 py-2 px-3 relative"
+              className="flex flex-col items-center gap-0.5 py-2 px-1 relative min-w-0 flex-1"
             >
               <motion.div animate={active ? { scale: 1.1 } : { scale: 1 }}>
-                <Icon className="w-5 h-5" style={{ color: active ? '#F59E0B' : 'rgba(85,85,85,1)' }} />
+                <Icon
+                  className="w-[18px] h-[18px] shrink-0"
+                  style={{ color: active ? '#F59E0B' : 'rgba(85,85,85,1)' }}
+                />
               </motion.div>
-              {tab.id === 'cart' && cartCount > 0 && (
-                <span className="absolute -top-0.5 right-0.5 flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-amber-500 px-1 text-[9px] font-bold leading-none text-white">
-                  {cartCount > 9 ? '9+' : cartCount}
-                </span>
-              )}
               <span
-                className="text-[10px]"
+                className="text-[9px] text-center leading-tight truncate max-w-full"
                 style={{
                   color: active ? '#F59E0B' : 'rgba(85,85,85,1)',
                   fontWeight: active ? 700 : 400,

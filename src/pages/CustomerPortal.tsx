@@ -27,6 +27,7 @@ import {
   LogOut,
 } from 'lucide-react';
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { sanitizeNextPath } from '@/lib/authRedirect';
 import { PORTAL_LOGIN_PATH, navigateToPortalLogin, setPostLogoutLoginPath } from '@/lib/portalLoginPaths';
 import { cn } from '@/lib/utils';
 import { usePortalSectionPath } from '@/lib/portalNavigation';
@@ -461,13 +462,18 @@ const CustomerPortal = () => {
     void queryClient.invalidateQueries({ queryKey: ['portal'] });
   }, [queryClient]);
 
+  const oauthNextAfterLogin = useMemo(() => {
+    const full = `${location.pathname}${location.search}`;
+    return sanitizeNextPath(full) ?? '/portal/dashboard';
+  }, [location.pathname, location.search]);
+
   if (!portalToken) {
     return (
       <UnifiedAuthLoginPage
         formProps={{
           navigateToRedirect: false,
           onSuccess: () => setSessionTick((t) => t + 1),
-          oauthNext: '/portal/dashboard',
+          oauthNext: oauthNextAfterLogin,
           authPortal: 'portal',
         }}
       />

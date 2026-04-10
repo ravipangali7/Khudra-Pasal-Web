@@ -16,6 +16,20 @@ export function portalProfileHrefForRole(role: string | undefined): string {
   return "/portal/profile";
 }
 
+/** Wallet section URL for a portal shopper from `/portal/me/` `role` (mobile bottom nav). */
+export function portalWalletHrefForRole(role: string | undefined): string {
+  if (role === "parent") return "/family-portal/wallets-overview";
+  if (role === "child") return "/child-portal/wallet";
+  return "/portal/wallet";
+}
+
+/** Orders section URL for a portal shopper from `/portal/me/` `role` (mobile bottom nav). */
+export function portalOrdersHrefForRole(role: string | undefined): string {
+  if (role === "parent") return "/family-portal/my-orders";
+  if (role === "child") return "/child-portal/my-orders";
+  return "/portal/orders";
+}
+
 /** Find a sidebar node by its route id (API `id` / nav `key`). */
 export function findSidebarNodeById(
   items: SidebarItem[],
