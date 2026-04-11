@@ -140,7 +140,7 @@ export default function SuppliersManagementSection({
             <Button
               type="button"
               className={BTN_SEARCH}
-              disabled={saveDisabled ?? !name.trim() || savePending}
+              disabled={saveDisabled ?? (!name.trim() || savePending)}
               onClick={onSave}
             >
               Save
