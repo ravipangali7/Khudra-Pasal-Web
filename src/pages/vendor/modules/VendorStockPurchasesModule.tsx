@@ -38,6 +38,16 @@ export default function VendorStockPurchasesModule() {
   });
   const suppliers = useMemo(() => extractResults<Record<string, unknown>>(supPage), [supPage]);
 
+  const { data: productsPage, isLoading: productsLoading } = useQuery({
+    queryKey: ['vendor', 'products', 'stock-purchase-picker'],
+    queryFn: () => vendorApi.products({ page_size: 500 }),
+    enabled: open,
+  });
+  const vendorProducts = useMemo(
+    () => extractResults<Record<string, unknown>>(productsPage),
+    [productsPage],
+  );
+
   const { data: page } = useQuery({
     queryKey: ['vendor', 'stock-purchases', filter],
     queryFn: () =>
@@ -58,7 +68,7 @@ export default function VendorStockPurchasesModule() {
           unit_cost: Number(l.unit_cost),
         }));
       if (!supplierId) throw new Error('Choose a supplier');
-      if (!parsedLines.length) throw new Error('Add at least one line with product ID, qty, and unit cost');
+      if (!parsedLines.length) throw new Error('Add at least one line with a product, qty, and unit cost');
       return vendorApi.createStockPurchase({
         supplier_id: Number(supplierId),
         tax: Number(tax) || 0,
@@ -173,20 +183,35 @@ export default function VendorStockPurchasesModule() {
               <Input id="vsp-tax" value={tax} onChange={(e) => setTax(e.target.value)} type="number" step="0.01" />
             </div>
             <p className="text-sm text-muted-foreground">
-              Lines: use your product numeric ID from the product list, quantity, and unit cost.
+              Lines: choose one of your products, quantity, and unit cost.
             </p>
             {lines.map((line, idx) => (
               <div key={idx} className="grid grid-cols-3 gap-2 items-end">
                 <div>
-                  <Label>Product ID</Label>
-                  <Input
-                    value={line.product_id}
-                    onChange={(e) => {
+                  <Label>Product</Label>
+                  <Select
+                    value={line.product_id ? line.product_id : '__none'}
+                    onValueChange={(v) => {
                       const next = [...lines];
-                      next[idx] = { ...line, product_id: e.target.value };
+                      next[idx] = { ...line, product_id: v === '__none' ? '' : v };
                       setLines(next);
                     }}
-                  />
+                    disabled={productsLoading}
+                  >
+                    <SelectTrigger>
+                      <SelectValue
+                        placeholder={productsLoading ? 'Loading products…' : 'Select product'}
+                      />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none">Select product</SelectItem>
+                      {vendorProducts.map((p) => (
+                        <SelectItem key={String(p.id)} value={String(p.id)}>
+                          {String(p.id)} — {String(p.name ?? '')}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div>
                   <Label>Qty</Label>
