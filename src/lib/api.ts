@@ -2005,6 +2005,34 @@ export const vendorApi = {
       true,
     ),
   faqs: () => vendorFetch<{ results: Record<string, unknown>[] }>("/vendor/faqs/", undefined, true),
+  suppliers: (params?: QueryParams) => vendorPaged<Record<string, unknown>>("suppliers", params),
+  supplierDetail: (id: string) =>
+    vendorFetch<Record<string, unknown>>(`/vendor/suppliers/${encodeURIComponent(id)}/`, undefined, true),
+  createSupplier: (payload: Record<string, unknown>) =>
+    vendorWrite<Record<string, unknown>>("suppliers", "POST", payload),
+  updateSupplier: (id: string, payload: Record<string, unknown>) =>
+    vendorWrite<Record<string, unknown>>(`suppliers/${encodeURIComponent(id)}`, "PATCH", payload),
+  deleteSupplier: (id: string) =>
+    vendorWrite<{ ok: boolean }>(`suppliers/${encodeURIComponent(id)}`, "DELETE"),
+  stockPurchases: (params?: QueryParams) =>
+    vendorPaged<Record<string, unknown>>("stock-purchases", params),
+  stockPurchaseDetail: (id: string) =>
+    vendorFetch<Record<string, unknown>>(
+      `/vendor/stock-purchases/${encodeURIComponent(id)}/`,
+      undefined,
+      true,
+    ),
+  createStockPurchase: (payload: Record<string, unknown>) =>
+    vendorWrite<Record<string, unknown>>("stock-purchases", "POST", payload),
+  updateStockPurchase: (id: string, payload: Record<string, unknown>) =>
+    vendorWrite<Record<string, unknown>>(
+      `stock-purchases/${encodeURIComponent(id)}`,
+      "PATCH",
+      payload,
+    ),
+  postStockPurchase: (id: string) =>
+    vendorWrite<Record<string, unknown>>(`stock-purchases/${encodeURIComponent(id)}/post`, "POST", {}),
+  vendorLedger: (params?: QueryParams) => vendorPaged<Record<string, unknown>>("ledger", params),
   reels: (params?: QueryParams) => vendorPaged<Record<string, unknown>>("reels", params),
   favouriteReels: (params?: QueryParams) => vendorPaged<ApiReelPublicRow>("reels/favourites", params),
   createReel: (payload: Record<string, unknown> | FormData) =>

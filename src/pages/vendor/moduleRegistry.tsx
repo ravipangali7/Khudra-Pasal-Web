@@ -10,6 +10,9 @@ import VendorCustomersModule from "./modules/VendorCustomersModule";
 import VendorReportsModule from "./modules/VendorReportsModule";
 import VendorSupportModule from "./modules/VendorSupportModule";
 import VendorKycModule from "./modules/VendorKycModule";
+import VendorSuppliersModule from "./modules/VendorSuppliersModule";
+import VendorStockPurchasesModule from "./modules/VendorStockPurchasesModule";
+import VendorLedgerModule from "./modules/VendorLedgerModule";
 
 export type VendorCrudAction = "list" | "add" | "edit" | "view";
 
@@ -33,6 +36,9 @@ const ENTRIES = [
   ["pending", (ctx: VendorRenderCtx) => <VendorOrdersModule activeSection={ctx.activeSection} />] as const,
   ["returns", () => <VendorOrdersModule activeSection="returns" />] as const,
   ["pos", () => <VendorPOSModule />] as const,
+  ["suppliers", () => <VendorSuppliersModule />] as const,
+  ["stock-purchases", () => <VendorStockPurchasesModule />] as const,
+  ["ledger", () => <VendorLedgerModule />] as const,
   ["earnings", (ctx: VendorRenderCtx) => <VendorWalletModule activeSection={ctx.activeSection} />] as const,
   ["wallet", (ctx: VendorRenderCtx) => <VendorWalletModule activeSection={ctx.activeSection} />] as const,
   ["payout-accounts", (ctx: VendorRenderCtx) => <VendorWalletModule activeSection={ctx.activeSection} />] as const,
@@ -58,6 +64,7 @@ const PARENT_REDIRECT: Record<string, string> = {
   orders: "all-orders",
   reels: "my-reels",
   support: "tickets",
+  inventory: "suppliers",
 };
 
 export function getDefaultVendorModuleId() {
