@@ -20,7 +20,6 @@ export default function VendorSuppliersModule() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
-  const [supplierCode, setSupplierCode] = useState('');
 
   const { data: page } = useQuery({
     queryKey: ['vendor', 'suppliers', q],
@@ -33,7 +32,6 @@ export default function VendorSuppliersModule() {
       vendorApi.createSupplier({
         name: name.trim(),
         phone: phone.trim() || undefined,
-        supplier_code: supplierCode.trim() || undefined,
       }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['vendor', 'suppliers'] });
@@ -41,7 +39,6 @@ export default function VendorSuppliersModule() {
       setOpen(false);
       setName('');
       setPhone('');
-      setSupplierCode('');
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -51,7 +48,7 @@ export default function VendorSuppliersModule() {
       <div className="flex flex-wrap gap-2 items-end justify-between">
         <div className="flex gap-2 max-w-md flex-1">
           <Input
-            placeholder="Search name, phone, code…"
+            placeholder="Search name or phone…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
           />
@@ -71,7 +68,6 @@ export default function VendorSuppliersModule() {
         columns={[
           { key: 'name', label: 'Name' },
           { key: 'phone', label: 'Phone' },
-          { key: 'supplier_code', label: 'Code' },
           {
             key: 'is_active',
             label: 'Active',
@@ -102,15 +98,6 @@ export default function VendorSuppliersModule() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="Optional"
-              />
-            </div>
-            <div>
-              <Label htmlFor="vs-code">Code</Label>
-              <Input
-                id="vs-code"
-                value={supplierCode}
-                onChange={(e) => setSupplierCode(e.target.value)}
-                placeholder="Optional internal code"
               />
             </div>
           </div>

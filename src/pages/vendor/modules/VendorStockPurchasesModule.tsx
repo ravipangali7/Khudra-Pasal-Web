@@ -48,6 +48,16 @@ export default function VendorStockPurchasesModule() {
     [productsPage],
   );
 
+  const unitCostForProduct = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of vendorProducts) {
+      const raw = Number(p.price ?? 0);
+      if (!Number.isFinite(raw)) continue;
+      m.set(String(p.id), raw.toFixed(2));
+    }
+    return m;
+  }, [vendorProducts]);
+
   const { data: page } = useQuery({
     queryKey: ['vendor', 'stock-purchases', filter],
     queryFn: () =>
@@ -89,6 +99,8 @@ export default function VendorStockPurchasesModule() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['vendor', 'stock-purchases'] });
       void qc.invalidateQueries({ queryKey: ['vendor', 'ledger'] });
+      void qc.invalidateQueries({ queryKey: ['vendor', 'suppliers'] });
+      void qc.invalidateQueries({ queryKey: ['vendor', 'supplier-ledger'] });
       void qc.invalidateQueries({ queryKey: ['vendor', 'products'] });
       toast.success('Posted — stock updated');
     },
@@ -193,7 +205,13 @@ export default function VendorStockPurchasesModule() {
                     value={line.product_id ? line.product_id : '__none'}
                     onValueChange={(v) => {
                       const next = [...lines];
-                      next[idx] = { ...line, product_id: v === '__none' ? '' : v };
+                      const pid = v === '__none' ? '' : v;
+                      const uc = pid ? unitCostForProduct.get(pid) ?? '' : '';
+                      next[idx] = {
+                        ...line,
+                        product_id: pid,
+                        ...(uc !== '' ? { unit_cost: uc } : {}),
+                      };
                       setLines(next);
                     }}
                     disabled={productsLoading}

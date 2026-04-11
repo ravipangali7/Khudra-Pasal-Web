@@ -2060,6 +2060,20 @@ export const vendorApi = {
   postStockPurchase: (id: string) =>
     vendorWrite<Record<string, unknown>>(`stock-purchases/${encodeURIComponent(id)}/post`, "POST", {}),
   vendorLedger: (params?: QueryParams) => vendorPaged<Record<string, unknown>>("ledger", params),
+  /** Posted purchases per supplier: debit/credit rows and running balance. */
+  supplierLedger: (supplierId: string) =>
+    vendorFetch<{
+      supplier: { id: string; name: string };
+      rows: Array<{
+        date: string;
+        reference: string;
+        description: string;
+        debit: number;
+        credit: number;
+        balance: number;
+      }>;
+      totals: { debit: number; credit: number; balance: number };
+    }>(`/vendor/suppliers/${encodeURIComponent(supplierId)}/ledger/`, undefined, true),
   reels: (params?: QueryParams) => vendorPaged<Record<string, unknown>>("reels", params),
   favouriteReels: (params?: QueryParams) => vendorPaged<ApiReelPublicRow>("reels/favourites", params),
   createReel: (payload: Record<string, unknown> | FormData) =>
