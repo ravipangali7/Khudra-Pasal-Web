@@ -16,6 +16,7 @@ import {
   isAdminPortalAccessDenied,
 } from "@/lib/api";
 import { PORTAL_LOGIN_PATH, navigateToPortalLogin, setPostLogoutLoginPath } from "@/lib/portalLoginPaths";
+import { normalizeAdminSidebarItems } from "@/lib/adminNavNormalize";
 import { mapApiNavToAdminItems } from "@/lib/navIcons";
 import {
   buildAdminModulePath,
@@ -83,7 +84,10 @@ export default function SuperAdminDashboard() {
     return null;
   }, [adminShellQueriesEnabled, navQueryError, profileQueryError, summaryQueryError]);
 
-  const sidebarItems = useMemo(() => mapApiNavToAdminItems(navData?.items), [navData]);
+  const sidebarItems = useMemo(
+    () => normalizeAdminSidebarItems(mapApiNavToAdminItems(navData?.items)),
+    [navData],
+  );
   const routeState = useMemo(() => parseAdminPath(location.pathname), [location.pathname]);
   const activeSection = routeState.moduleId;
 

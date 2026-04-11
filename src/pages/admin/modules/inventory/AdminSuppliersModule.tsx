@@ -66,47 +66,45 @@ export default function AdminSuppliersModule() {
 
   return (
     <div className="p-4 lg:p-6 space-y-4">
-      <div className="flex flex-wrap gap-3 items-center justify-between">
-        <div className="flex flex-wrap gap-3 items-center">
-          <div className="flex gap-2 items-center">
-            <span className="text-sm text-muted-foreground">Vendor</span>
-            <Select value={vendorId} onValueChange={setVendorId}>
-              <SelectTrigger className="w-[min(100vw-3rem,280px)]">
-                <SelectValue placeholder="Select vendor" />
-              </SelectTrigger>
-              <SelectContent>
-                {vendors.map((v) => (
-                  <SelectItem key={String(v.id)} value={String(v.id)}>
-                    {String(v.name ?? '')}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <Button type="button" disabled={!vendorId} onClick={() => setOpen(true)}>
-          Add supplier
-        </Button>
+      <div className="flex flex-wrap gap-2 items-center">
+        <span className="text-sm text-muted-foreground shrink-0">Vendor</span>
+        <Select value={vendorId} onValueChange={setVendorId}>
+          <SelectTrigger className="w-[min(100vw-3rem,280px)]">
+            <SelectValue placeholder="Select vendor" />
+          </SelectTrigger>
+          <SelectContent>
+            {vendors.map((v) => (
+              <SelectItem key={String(v.id)} value={String(v.id)}>
+                {String(v.name ?? '')}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {!vendorId ? (
         <p className="text-sm text-muted-foreground">Select a vendor to view and manage suppliers.</p>
       ) : (
         <>
-          <div className="flex flex-wrap gap-2 items-end max-w-md">
-            <Input
-              placeholder="Search name or phone…"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
-            <Button type="button" variant="secondary" onClick={() => setQ((s) => s.trim())}>
-              Search
+          <div className="flex flex-wrap gap-2 items-end justify-between">
+            <div className="flex gap-2 max-w-md flex-1">
+              <Input
+                placeholder="Search name or phone…"
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+              />
+              <Button type="button" variant="secondary" onClick={() => setQ((s) => s.trim())}>
+                Search
+              </Button>
+            </div>
+            <Button type="button" onClick={() => setOpen(true)}>
+              Add supplier
             </Button>
           </div>
 
           <AdminTable
             title="Suppliers"
-            subtitle="Wholesalers this vendor buys stock from (same as vendor portal)"
+            subtitle="Wholesalers and vendors you buy stock from"
             data={rows}
             columns={[
               { key: 'name', label: 'Name' },

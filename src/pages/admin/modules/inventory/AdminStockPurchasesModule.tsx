@@ -131,46 +131,46 @@ export default function AdminStockPurchasesModule() {
 
   return (
     <div className="p-4 lg:p-6 space-y-4">
-      <div className="flex flex-wrap gap-3 items-center justify-between">
-        <div className="flex flex-wrap gap-3 items-center">
-          <div className="flex gap-2 items-center">
-            <span className="text-sm text-muted-foreground">Vendor</span>
-            <Select value={vendorId} onValueChange={setVendorId}>
-              <SelectTrigger className="w-[min(100vw-3rem,280px)]">
-                <SelectValue placeholder="Select vendor" />
-              </SelectTrigger>
-              <SelectContent>
-                {vendors.map((v) => (
-                  <SelectItem key={String(v.id)} value={String(v.id)}>
-                    {String(v.name ?? '')}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex gap-2 items-center">
-            <span className="text-sm text-muted-foreground">Status</span>
-            <Select value={filter || '__all'} onValueChange={(v) => setFilter(v === '__all' ? '' : v)}>
-              <SelectTrigger className="w-[160px]">
-                <SelectValue placeholder="All" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all">All</SelectItem>
-                <SelectItem value="draft">Draft</SelectItem>
-                <SelectItem value="posted">Posted</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <Button type="button" disabled={!vendorId} onClick={() => setOpen(true)}>
-          New stock purchase
-        </Button>
+      <div className="flex flex-wrap gap-2 items-center">
+        <span className="text-sm text-muted-foreground shrink-0">Vendor</span>
+        <Select value={vendorId} onValueChange={setVendorId}>
+          <SelectTrigger className="w-[min(100vw-3rem,280px)]">
+            <SelectValue placeholder="Select vendor" />
+          </SelectTrigger>
+          <SelectContent>
+            {vendors.map((v) => (
+              <SelectItem key={String(v.id)} value={String(v.id)}>
+                {String(v.name ?? '')}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {!vendorId ? (
         <p className="text-sm text-muted-foreground">Select a vendor to view and manage stock purchases.</p>
       ) : (
-        <AdminTable
+        <>
+          <div className="flex flex-wrap gap-3 items-center justify-between">
+            <div className="flex gap-2 items-center">
+              <span className="text-sm text-muted-foreground">Status</span>
+              <Select value={filter || '__all'} onValueChange={(v) => setFilter(v === '__all' ? '' : v)}>
+                <SelectTrigger className="w-[160px]">
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all">All</SelectItem>
+                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="posted">Posted</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button type="button" onClick={() => setOpen(true)}>
+              New stock purchase
+            </Button>
+          </div>
+
+          <AdminTable
           title="Stock purchases"
           subtitle="Receive inventory from suppliers (increases product stock when posted)"
           data={rows}
@@ -209,7 +209,8 @@ export default function AdminStockPurchasesModule() {
                 ) : null,
             },
           ]}
-        />
+          />
+        </>
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
@@ -238,7 +239,7 @@ export default function AdminStockPurchasesModule() {
               <Input id="asp-tax" value={tax} onChange={(e) => setTax(e.target.value)} type="number" step="0.01" />
             </div>
             <p className="text-sm text-muted-foreground">
-              Lines: choose one of the vendor&apos;s products, quantity, and unit cost.
+              Lines: choose one of your products, quantity, and unit cost.
             </p>
             {lines.map((line, idx) => (
               <div key={idx} className="grid grid-cols-3 gap-2 items-end">

@@ -113,8 +113,8 @@ export default function AdminLedgerModule() {
 
   return (
     <div className="p-4 lg:p-6 space-y-4">
-      <div className="flex flex-wrap gap-3 items-center">
-        <span className="text-sm text-muted-foreground">Vendor</span>
+      <div className="flex flex-wrap gap-2 items-center">
+        <span className="text-sm text-muted-foreground shrink-0">Vendor</span>
         <Select value={vendorId} onValueChange={(v) => { setVendorId(v); setSupplierViewId(null); }}>
           <SelectTrigger className="w-[min(100vw-3rem,280px)]">
             <SelectValue placeholder="Select vendor" />

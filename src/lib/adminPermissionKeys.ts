@@ -6,6 +6,7 @@ export const ADMIN_ROLE_PERMISSION_KEYS: readonly [string, string][] = [
   ['dashboard', 'Dashboard'],
   ['pos', 'POS'],
   ['catalog', 'Catalog'],
+  ['inventory', 'Inventory'],
   ['products', 'Products'],
   ['po-billing', 'PO & Billing'],
   ['orders', 'Orders'],
