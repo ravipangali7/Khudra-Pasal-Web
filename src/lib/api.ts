@@ -552,8 +552,23 @@ const buildQuery = (params?: Record<string, string | number | boolean | undefine
   return query ? `?${query}` : "";
 };
 
-export function getOAuthStartUrl(provider: "google" | "facebook", next: string): string {
-  const segment = `/auth/social/${provider}/start${buildQuery({ next })}`;
+export type OAuthStartOptions = {
+  /** Passed to the API (`flow=register` on signup). */
+  flow?: "login" | "register";
+  /** SPA path for `oauth_error` query redirects (default `/login` on the server). */
+  returnError?: string;
+};
+
+export function getOAuthStartUrl(
+  provider: "google" | "facebook",
+  next: string,
+  options?: OAuthStartOptions,
+): string {
+  const segment = `/auth/social/${provider}/start${buildQuery({
+    next,
+    ...(options?.flow ? { flow: options.flow } : {}),
+    ...(options?.returnError ? { return_error: options.returnError } : {}),
+  })}`;
   if (API_BASE.startsWith("http://") || API_BASE.startsWith("https://")) {
     return `${API_BASE.replace(/\/$/, "")}${segment}`;
   }

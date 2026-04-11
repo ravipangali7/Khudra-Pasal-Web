@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { User, ArrowRight, Shield, ChevronLeft, Loader2, CheckCircle } from "lucide-react";
 import logo from "@/assets/logo.png";
@@ -18,6 +18,7 @@ const Signup = () => {
   const [otp, setOtp] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
+  const [oauthError, setOauthError] = useState<string | null>(null);
 
   const digits = formData.phone.replace(/\D/g, "").slice(0, 10);
 
@@ -29,6 +30,23 @@ const Signup = () => {
   const signupPortal = (searchParams.get("portal") || "portal").trim().toLowerCase() as AuthPortalKey;
   const isFamilySignup = signupPortal === "family-portal" && !isJoinFamilyReturn;
   const referralRef = (searchParams.get("ref") ?? "").trim().slice(0, 32) || undefined;
+
+  const signupReturnPath = useMemo(
+    () => "/signup" + (searchParams.toString() ? `?${searchParams.toString()}` : ""),
+    [searchParams],
+  );
+
+  useEffect(() => {
+    const err = searchParams.get("oauth_error");
+    if (!err) return;
+    setOauthError(err);
+    const p = new URLSearchParams(searchParams);
+    p.delete("oauth_error");
+    navigate(
+      { pathname: "/signup", search: p.toString() ? `?${p.toString()}` : "" },
+      { replace: true },
+    );
+  }, [searchParams, navigate]);
 
   const handleInfoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,7 +115,13 @@ const Signup = () => {
   };
 
   return (
-    <AuthSplitShell
+    <>
+      {oauthError ? (
+        <div className="fixed top-0 left-0 right-0 z-[100] bg-destructive/10 text-destructive text-sm text-center py-2 px-4 border-b border-destructive/20">
+          {oauthError}
+        </div>
+      ) : null}
+      <AuthSplitShell
       left={<AuthBrandingPanelSignup />}
       right={
         <div className="flex-1 flex flex-col bg-white min-h-[50vh] lg:min-h-screen">
@@ -131,7 +155,12 @@ const Signup = () => {
                 type="button"
                 disabled={isLoading}
                 onClick={() => {
-                  window.location.assign(getOAuthStartUrl("google", oauthNext));
+                  window.location.assign(
+                    getOAuthStartUrl("google", oauthNext, {
+                      flow: "register",
+                      returnError: signupReturnPath,
+                    }),
+                  );
                 }}
                 className="w-full py-3.5 rounded-xl border border-neutral-300 bg-white text-[#3C4043] font-medium flex items-center justify-center gap-3 hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors mb-6"
               >
@@ -347,6 +376,7 @@ const Signup = () => {
         </div>
       }
     />
+    </>
   );
 };
 
