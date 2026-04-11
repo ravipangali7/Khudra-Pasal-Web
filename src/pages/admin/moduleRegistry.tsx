@@ -16,7 +16,9 @@ import ShippingModule from "./modules/ShippingModule";
 import POBillingModule from "./modules/POBillingModule";
 import SettingsModule from "./modules/SettingsModule";
 import AccountProfileModule from "./modules/AccountProfileModule";
-import AdminStockPurchasesModule from "./modules/AdminStockPurchasesModule";
+import AdminSuppliersModule from "./modules/inventory/AdminSuppliersModule";
+import AdminStockPurchasesModule from "./modules/inventory/AdminStockPurchasesModule";
+import AdminLedgerModule from "./modules/inventory/AdminLedgerModule";
 import SupportTicketsModule from "./modules/SupportTicketsModule";
 import POSSystem from "@/components/admin/POSSystem";
 import AdminReelsModule from "@/modules/reels/admin/AdminReelsModule";
@@ -51,7 +53,9 @@ const ENTRIES = [
     <FinanceModule activeSection={ctx.activeSection} />
   )),
   ...list(["admins", "customers", "sellers", "users-kyc"], (ctx) => <UsersModule activeSection={ctx.activeSection} />),
+  ["suppliers", () => <AdminSuppliersModule />] as const,
   ["stock-purchases", () => <AdminStockPurchasesModule />] as const,
+  ["ledger", () => <AdminLedgerModule />] as const,
   ...list(["employees-all", "roles", "audit-logs"], (ctx) => <EmployeeModule activeSection={ctx.activeSection} />),
   ["delivery", () => <DeliveryModule />] as const,
   ...list(["families", "families-all", "families-wallets"], (ctx) => <FamiliesModule activeSection={ctx.activeSection} />),
@@ -88,6 +92,9 @@ for (const id of MODULE_IDS) {
   if (!SLUG_TO_ID.has(slug)) {
     SLUG_TO_ID.set(slug, id);
   }
+}
+if (!SLUG_TO_ID.has("inventory")) {
+  SLUG_TO_ID.set("inventory", "suppliers");
 }
 
 export function renderAdminModule(activeSection: string, setActiveSection: (v: string) => void) {

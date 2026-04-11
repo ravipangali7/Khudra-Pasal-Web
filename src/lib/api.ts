@@ -1705,6 +1705,44 @@ export const adminApi = {
       "POST",
       {},
     ),
+  createVendorSupplier: (vendorId: string, payload: Record<string, unknown>) =>
+    adminWrite<Record<string, unknown>>(
+      `vendors/${encodeURIComponent(vendorId)}/suppliers`,
+      "POST",
+      payload,
+    ),
+  updateVendorSupplier: (vendorId: string, supplierId: string, payload: Record<string, unknown>) =>
+    adminWrite<Record<string, unknown>>(
+      `vendors/${encodeURIComponent(vendorId)}/suppliers/${encodeURIComponent(supplierId)}`,
+      "PATCH",
+      payload,
+    ),
+  deleteVendorSupplier: (vendorId: string, supplierId: string) =>
+    adminWrite<{ ok: boolean }>(
+      `vendors/${encodeURIComponent(vendorId)}/suppliers/${encodeURIComponent(supplierId)}`,
+      "DELETE",
+    ),
+  vendorLedgerEntries: (vendorId: string, params?: QueryParams) =>
+    adminPaged<Record<string, unknown>>(`vendors/${encodeURIComponent(vendorId)}/ledger`, params),
+  createAdminVendorLedgerEntry: (
+    vendorId: string,
+    payload: { amount: number; description: string; direction: string },
+  ) =>
+    adminWrite<Record<string, unknown>>(
+      `vendors/${encodeURIComponent(vendorId)}/ledger`,
+      "POST",
+      payload,
+    ),
+  vendorSupplierLedgerAdmin: (vendorId: string, supplierId: string) =>
+    apiFetch<{
+      supplier: { id: string; name: string };
+      rows: Record<string, unknown>[];
+      totals: { debit: number; credit: number; balance: number };
+    }>(
+      `/admin/vendors/${encodeURIComponent(vendorId)}/suppliers/${encodeURIComponent(supplierId)}/ledger/`,
+      undefined,
+      true,
+    ),
   createRole: (payload: Record<string, unknown>) =>
     adminWrite<Record<string, unknown>>("roles/create", "POST", payload),
   updateRole: (id: string, payload: Record<string, unknown>) =>
