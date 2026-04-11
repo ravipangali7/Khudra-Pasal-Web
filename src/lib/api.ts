@@ -559,21 +559,43 @@ export type OAuthStartOptions = {
   returnError?: string;
 };
 
+/**
+ * Base URL for browser navigations to Django auth routes (must match `path("api/", …)` on the server).
+ * Normalizes absolute `VITE_API_BASE` when set to origin-only (`https://host`) so paths stay under `/api/…`.
+ */
+function browserAuthApiBase(): string {
+  const raw = (API_BASE || "/api").trim();
+  if (raw.startsWith("http://") || raw.startsWith("https://")) {
+    try {
+      const u = new URL(raw.replace(/\/+$/, ""));
+      const p = u.pathname.replace(/\/+$/, "") || "";
+      if (p === "" || p === "/") {
+        u.pathname = "/api";
+      }
+      return u.toString().replace(/\/+$/, "");
+    } catch {
+      return raw.replace(/\/+$/, "");
+    }
+  }
+  return raw.startsWith("/") ? raw.replace(/\/+$/, "") : `/${raw}`.replace(/\/+$/, "");
+}
+
 export function getOAuthStartUrl(
   provider: "google" | "facebook",
   next: string,
   options?: OAuthStartOptions,
 ): string {
-  const segment = `/auth/social/${provider}/start${buildQuery({
+  // Django routes use trailing slashes; without `/start/` the request hits admin catch-all → `/login/?next=…`.
+  const segment = `/auth/social/${provider}/start/${buildQuery({
     next,
     ...(options?.flow ? { flow: options.flow } : {}),
     ...(options?.returnError ? { return_error: options.returnError } : {}),
   })}`;
-  if (API_BASE.startsWith("http://") || API_BASE.startsWith("https://")) {
-    return `${API_BASE.replace(/\/$/, "")}${segment}`;
+  const base = browserAuthApiBase();
+  if (base.startsWith("http://") || base.startsWith("https://")) {
+    return `${base}${segment}`;
   }
-  const prefix = API_BASE.startsWith("/") ? API_BASE : `/${API_BASE}`;
-  return `${getApiOrigin()}${prefix}${segment}`;
+  return `${getApiOrigin()}${base}${segment}`;
 }
 
 /** GET/HEAD with `Content-Type: application/json` forces a CORS preflight; omit when there is no body. */
