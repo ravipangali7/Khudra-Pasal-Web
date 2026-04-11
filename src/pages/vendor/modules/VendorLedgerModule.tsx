@@ -1,7 +1,17 @@
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import AdminTable from '@/components/admin/AdminTable';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select,
@@ -12,6 +22,7 @@ import {
 } from '@/components/ui/select';
 import { extractResults, vendorApi } from '@/lib/api';
 import { ArrowLeft } from 'lucide-react';
+import { toast } from 'sonner';
 
 function entryLabel(t: string) {
   const m: Record<string, string> = {
@@ -28,8 +39,13 @@ function money(n: number) {
 }
 
 export default function VendorLedgerModule() {
+  const qc = useQueryClient();
   const [entryType, setEntryType] = useState<string>('');
   const [supplierViewId, setSupplierViewId] = useState<string | null>(null);
+  const [addOpen, setAddOpen] = useState(false);
+  const [adjAmount, setAdjAmount] = useState('');
+  const [adjDescription, setAdjDescription] = useState('');
+  const [adjDirection, setAdjDirection] = useState<'credit' | 'debit'>('credit');
 
   const { data: supPage } = useQuery({
     queryKey: ['vendor', 'suppliers', 'ledger-list'],
@@ -47,10 +63,42 @@ export default function VendorLedgerModule() {
   });
   const rows = useMemo(() => extractResults<Record<string, unknown>>(page), [page]);
 
+  const ledgerTypeFilterOptions = useMemo(() => {
+    const types = new Set<string>(['sale_settlement', 'sale_reversal', 'purchase_cost', 'adjustment']);
+    for (const r of rows) {
+      const t = String(r.entry_type ?? '');
+      if (t) types.add(t);
+    }
+    return [...types].sort().map((value) => ({ value, label: entryLabel(value) }));
+  }, [rows]);
+
   const { data: supplierLedger } = useQuery({
     queryKey: ['vendor', 'supplier-ledger', supplierViewId],
     queryFn: () => vendorApi.supplierLedger(supplierViewId!),
     enabled: Boolean(supplierViewId),
+  });
+
+  const addLedgerMut = useMutation({
+    mutationFn: () => {
+      const n = Number(adjAmount);
+      if (!Number.isFinite(n) || n <= 0) throw new Error('Enter a valid positive amount');
+      const desc = adjDescription.trim();
+      if (!desc) throw new Error('Description is required');
+      return vendorApi.createVendorLedgerEntry({
+        amount: n,
+        description: desc,
+        direction: adjDirection,
+      });
+    },
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['vendor', 'ledger'] });
+      toast.success('Ledger entry added');
+      setAddOpen(false);
+      setAdjAmount('');
+      setAdjDescription('');
+      setAdjDirection('credit');
+    },
+    onError: (e: Error) => toast.error(e.message),
   });
 
   return (
@@ -151,25 +199,35 @@ export default function VendorLedgerModule() {
         </TabsContent>
 
         <TabsContent value="store" className="space-y-4">
-          <div className="max-w-xs">
-            <Select value={entryType || '__all'} onValueChange={(v) => setEntryType(v === '__all' ? '' : v)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Filter by type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all">All types</SelectItem>
-                <SelectItem value="sale_settlement">Sale settlement</SelectItem>
-                <SelectItem value="sale_reversal">Sale reversal</SelectItem>
-                <SelectItem value="purchase_cost">Stock purchase</SelectItem>
-                <SelectItem value="adjustment">Adjustment</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="flex flex-wrap items-end gap-4 justify-between">
+            <div className="max-w-xs space-y-1.5">
+              <Label htmlFor="ledger-type-filter" className="text-muted-foreground">
+                Entry type
+              </Label>
+              <Select value={entryType || '__all'} onValueChange={(v) => setEntryType(v === '__all' ? '' : v)}>
+                <SelectTrigger id="ledger-type-filter">
+                  <SelectValue placeholder="Filter by type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all">All types</SelectItem>
+                  {ledgerTypeFilterOptions.map(({ value, label }) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <AdminTable
             title="Store ledger"
-            subtitle="Money movement for your store (sales, purchases, reversals)"
+            subtitle="Money movement for your store (sales, purchases, reversals, manual adjustments)"
             data={rows}
+            searchKey="description"
+            searchPlaceholder="Search description…"
+            onAdd={() => setAddOpen(true)}
+            addLabel="Add ledger"
             columns={[
               {
                 key: 'created_at',
@@ -198,6 +256,62 @@ export default function VendorLedgerModule() {
               },
             ]}
           />
+
+          <Dialog open={addOpen} onOpenChange={setAddOpen}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Add ledger entry</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                <div className="space-y-2">
+                  <Label htmlFor="adj-direction">Direction</Label>
+                  <Select
+                    value={adjDirection}
+                    onValueChange={(v) => setAdjDirection(v as 'credit' | 'debit')}
+                  >
+                    <SelectTrigger id="adj-direction">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="credit">Credit (inflow to store book)</SelectItem>
+                      <SelectItem value="debit">Debit (outflow / cost)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="adj-amount">Amount (Rs.)</Label>
+                  <Input
+                    id="adj-amount"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    inputMode="decimal"
+                    placeholder="0.00"
+                    value={adjAmount}
+                    onChange={(e) => setAdjAmount(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="adj-desc">Description</Label>
+                  <Textarea
+                    id="adj-desc"
+                    placeholder="What this entry is for"
+                    rows={3}
+                    value={adjDescription}
+                    onChange={(e) => setAdjDescription(e.target.value)}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setAddOpen(false)}>
+                  Cancel
+                </Button>
+                <Button type="button" onClick={() => addLedgerMut.mutate()} disabled={addLedgerMut.isPending}>
+                  {addLedgerMut.isPending ? 'Saving…' : 'Save entry'}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
       </Tabs>
     </div>

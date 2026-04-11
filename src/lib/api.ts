@@ -2060,6 +2060,12 @@ export const vendorApi = {
   postStockPurchase: (id: string) =>
     vendorWrite<Record<string, unknown>>(`stock-purchases/${encodeURIComponent(id)}/post`, "POST", {}),
   vendorLedger: (params?: QueryParams) => vendorPaged<Record<string, unknown>>("ledger", params),
+  /** Manual store-ledger adjustment (entry_type adjustment). */
+  createVendorLedgerEntry: (payload: {
+    amount: number;
+    description: string;
+    direction: "credit" | "debit";
+  }) => vendorWrite<Record<string, unknown>>("ledger", "POST", payload),
   /** Posted purchases per supplier: debit/credit rows and running balance. */
   supplierLedger: (supplierId: string) =>
     vendorFetch<{
