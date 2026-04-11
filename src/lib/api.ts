@@ -1689,6 +1689,22 @@ export const adminApi = {
     adminWrite<Record<string, unknown>>("vendors/create", "POST", payload),
   updateVendor: (id: string, payload: Record<string, unknown> | FormData) =>
     adminWrite<Record<string, unknown>>(`vendors/${id}`, "PATCH", payload),
+  vendorSuppliers: (vendorId: string, params?: QueryParams) =>
+    adminPaged<Record<string, unknown>>(`vendors/${encodeURIComponent(vendorId)}/suppliers`, params),
+  vendorStockPurchases: (vendorId: string, params?: QueryParams) =>
+    adminPaged<Record<string, unknown>>(`vendors/${encodeURIComponent(vendorId)}/stock-purchases`, params),
+  createVendorStockPurchase: (vendorId: string, payload: Record<string, unknown>) =>
+    adminWrite<Record<string, unknown>>(
+      `vendors/${encodeURIComponent(vendorId)}/stock-purchases`,
+      "POST",
+      payload,
+    ),
+  postVendorStockPurchase: (vendorId: string, purchaseId: string) =>
+    adminWrite<Record<string, unknown>>(
+      `vendors/${encodeURIComponent(vendorId)}/stock-purchases/${encodeURIComponent(purchaseId)}/post`,
+      "POST",
+      {},
+    ),
   createRole: (payload: Record<string, unknown>) =>
     adminWrite<Record<string, unknown>>("roles/create", "POST", payload),
   updateRole: (id: string, payload: Record<string, unknown>) =>

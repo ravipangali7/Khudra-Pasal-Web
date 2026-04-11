@@ -16,6 +16,7 @@ import ShippingModule from "./modules/ShippingModule";
 import POBillingModule from "./modules/POBillingModule";
 import SettingsModule from "./modules/SettingsModule";
 import AccountProfileModule from "./modules/AccountProfileModule";
+import AdminStockPurchasesModule from "./modules/AdminStockPurchasesModule";
 import SupportTicketsModule from "./modules/SupportTicketsModule";
 import POSSystem from "@/components/admin/POSSystem";
 import AdminReelsModule from "@/modules/reels/admin/AdminReelsModule";
@@ -50,6 +51,7 @@ const ENTRIES = [
     <FinanceModule activeSection={ctx.activeSection} />
   )),
   ...list(["admins", "customers", "sellers", "users-kyc"], (ctx) => <UsersModule activeSection={ctx.activeSection} />),
+  ["stock-purchases", () => <AdminStockPurchasesModule />] as const,
   ...list(["employees-all", "roles", "audit-logs"], (ctx) => <EmployeeModule activeSection={ctx.activeSection} />),
   ["delivery", () => <DeliveryModule />] as const,
   ...list(["families", "families-all", "families-wallets"], (ctx) => <FamiliesModule activeSection={ctx.activeSection} />),
