@@ -118,9 +118,10 @@ export default function AdminStockPurchasesModule() {
       return adminApi.postVendorStockPurchase(vendorId, id);
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['admin', 'stock-purchases', vendorId] });
+      void qc.invalidateQueries({ queryKey: ['admin', 'stock-purchases'] });
       void qc.invalidateQueries({ queryKey: ['admin', 'vendor-suppliers', vendorId] });
       void qc.invalidateQueries({ queryKey: ['admin', 'products'] });
+      void qc.invalidateQueries({ queryKey: ['admin', 'ledger-transactions'] });
       toast.success('Posted — stock updated');
     },
     onError: (e: Error) => toast.error(e.message),
@@ -168,7 +169,7 @@ export default function AdminStockPurchasesModule() {
         <p className="text-sm text-muted-foreground">Select a vendor to view and manage stock purchases.</p>
       ) : (
         <AdminTable
-          title="Stock purchases"
+          title="Stock Purchases"
           subtitle="Receive inventory from suppliers (increases product stock when posted)"
           data={rows}
           columns={[
