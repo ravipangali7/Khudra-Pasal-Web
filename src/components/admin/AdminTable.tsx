@@ -35,6 +35,8 @@ interface AdminTableProps<T> {
   subtitle?: string;
   data: T[];
   columns: Column<T>[];
+  /** Visual preset (suppliers inventory pages match vendor portal styling). */
+  variant?: 'default' | 'suppliers';
   searchKey?: string;
   searchPlaceholder?: string;
   onAdd?: () => void;
@@ -58,6 +60,7 @@ export default function AdminTable<T extends Record<string, any>>({
   subtitle,
   data,
   columns,
+  variant = 'default',
   searchKey = 'name',
   searchPlaceholder = 'Search...',
   onAdd,
@@ -93,7 +96,12 @@ export default function AdminTable<T extends Record<string, any>>({
   const allSelected = filteredData.length > 0 && selectedRows.length === filteredData.length;
 
   return (
-    <Card className="flex min-w-0 max-w-full flex-col">
+    <Card
+      className={cn(
+        'flex min-w-0 max-w-full flex-col',
+        variant === 'suppliers' && 'rounded-[10px] border border-[#E0E0E0] shadow-none',
+      )}
+    >
       <CardHeader className="shrink-0 pb-4">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
@@ -108,7 +116,10 @@ export default function AdminTable<T extends Record<string, any>>({
                 placeholder={searchPlaceholder}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="pl-9 h-9"
+                className={cn(
+                  'pl-9 h-9',
+                  variant === 'suppliers' && 'rounded-full border-[#E0E0E0]',
+                )}
               />
             </div>
 
@@ -172,7 +183,12 @@ export default function AdminTable<T extends Record<string, any>>({
       <CardContent className="p-0 min-w-0 overflow-hidden">
         <div className="min-w-0 overflow-x-auto overscroll-x-contain">
           <table className="w-full min-w-max">
-            <thead className="bg-muted/50 border-y border-border">
+            <thead
+              className={cn(
+                'border-y border-border',
+                variant === 'suppliers' ? 'border-[#E0E0E0] bg-[#F9F9F9]' : 'bg-muted/50',
+              )}
+            >
               <tr>
                 {bulkActions.length > 0 && (
                   <th className="w-12 px-4 py-3">

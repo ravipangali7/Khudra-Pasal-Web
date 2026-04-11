@@ -1,16 +1,6 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import AdminTable from '@/components/admin/AdminTable';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import SuppliersManagementSection from '@/components/suppliers/SuppliersManagementSection';
 import {
   Select,
   SelectContent,
@@ -19,10 +9,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { adminApi, extractResults } from '@/lib/api';
+import { useAdminRouteContext } from '@/pages/admin/adminRouteContext';
 import { toast } from 'sonner';
+
+const SELECT_TRIGGER =
+  'w-[min(100vw-3rem,280px)] rounded-lg border-[#E0E0E0]';
 
 export default function AdminSuppliersModule() {
   const qc = useQueryClient();
+  const adminRoute = useAdminRouteContext();
   const [vendorId, setVendorId] = useState('');
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(false);
@@ -60,104 +55,76 @@ export default function AdminSuppliersModule() {
       setOpen(false);
       setName('');
       setPhone('');
+      if (adminRoute?.action === 'add') adminRoute.navigateToList();
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
+  useEffect(() => {
+    if (adminRoute?.moduleId !== 'suppliers') return;
+    if (adminRoute.action !== 'add') {
+      setOpen(false);
+      return;
+    }
+    if (!vendorId) {
+      toast.info('Select a vendor before adding a supplier.');
+      adminRoute.navigateToList();
+      return;
+    }
+    setOpen(true);
+  }, [adminRoute?.moduleId, adminRoute?.action, vendorId]);
+
+  const onDialogOpenChange = (v: boolean) => {
+    setOpen(v);
+    if (!v && adminRoute?.action === 'add') adminRoute.navigateToList();
+  };
+
+  const onAddClick = () => {
+    if (!vendorId) {
+      toast.error('Select a vendor first');
+      return;
+    }
+    adminRoute?.navigateToAdd();
+  };
+
   return (
-    <div className="p-4 lg:p-6 space-y-4">
-      <div className="flex flex-wrap gap-2 items-center">
-        <span className="text-sm text-muted-foreground shrink-0">Vendor</span>
-        <Select value={vendorId} onValueChange={setVendorId}>
-          <SelectTrigger className="w-[min(100vw-3rem,280px)]">
-            <SelectValue placeholder="Select vendor" />
-          </SelectTrigger>
-          <SelectContent>
-            {vendors.map((v) => (
-              <SelectItem key={String(v.id)} value={String(v.id)}>
-                {String(v.name ?? '')}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {!vendorId ? (
-        <p className="text-sm text-muted-foreground">Select a vendor to view and manage suppliers.</p>
-      ) : (
-        <>
-          <div className="flex flex-wrap gap-2 items-end justify-between">
-            <div className="flex gap-2 max-w-md flex-1">
-              <Input
-                placeholder="Search name or phone…"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-              />
-              <Button type="button" variant="secondary" onClick={() => setQ((s) => s.trim())}>
-                Search
-              </Button>
-            </div>
-            <Button type="button" onClick={() => setOpen(true)}>
-              Add supplier
-            </Button>
-          </div>
-
-          <AdminTable
-            title="Suppliers"
-            subtitle="Wholesalers and vendors you buy stock from"
-            data={rows}
-            columns={[
-              { key: 'name', label: 'Name' },
-              { key: 'phone', label: 'Phone' },
-              {
-                key: 'is_active',
-                label: 'Active',
-                render: (r) => (r.is_active ? 'Yes' : 'No'),
-              },
-            ]}
-          />
-        </>
-      )}
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>New supplier</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <Label htmlFor="as-name">Name</Label>
-              <Input
-                id="as-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Supplier name"
-              />
-            </div>
-            <div>
-              <Label htmlFor="as-phone">Phone</Label>
-              <Input
-                id="as-phone"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="Optional"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" type="button" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              disabled={!name.trim() || createMut.isPending}
-              onClick={() => createMut.mutate()}
-            >
-              Save
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+    <div className="p-4 lg:p-6">
+      <SuppliersManagementSection
+        rows={rows}
+        q={q}
+        setQ={setQ}
+        onSearchCommit={() => setQ((s) => s.trim())}
+        onAddClick={onAddClick}
+        dialogOpen={open}
+        onDialogOpenChange={onDialogOpenChange}
+        name={name}
+        setName={setName}
+        phone={phone}
+        setPhone={setPhone}
+        onSave={() => createMut.mutate()}
+        savePending={createMut.isPending}
+        saveDisabled={!vendorId}
+        nameFieldId="as-name"
+        phoneFieldId="as-phone"
+        showList={Boolean(vendorId)}
+        toolbarPrefix={
+          <>
+            <span className="text-sm font-medium text-foreground">Vendor</span>
+            <Select value={vendorId} onValueChange={setVendorId}>
+              <SelectTrigger className={SELECT_TRIGGER}>
+                <SelectValue placeholder="Select vendor" />
+              </SelectTrigger>
+              <SelectContent>
+                {vendors.map((v) => (
+                  <SelectItem key={String(v.id)} value={String(v.id)}>
+                    {String(v.name ?? '')}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </>
+        }
+      />
     </div>
   );
 }

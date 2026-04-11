@@ -1,16 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import AdminTable from '@/components/admin/AdminTable';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import SuppliersManagementSection from '@/components/suppliers/SuppliersManagementSection';
 import { extractResults, vendorApi } from '@/lib/api';
 import { toast } from 'sonner';
 
@@ -44,77 +34,24 @@ export default function VendorSuppliersModule() {
   });
 
   return (
-    <div className="p-4 lg:p-6 space-y-4">
-      <div className="flex flex-wrap gap-2 items-end justify-between">
-        <div className="flex gap-2 max-w-md flex-1">
-          <Input
-            placeholder="Search name or phone…"
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-          />
-          <Button type="button" variant="secondary" onClick={() => setQ((s) => s.trim())}>
-            Search
-          </Button>
-        </div>
-        <Button type="button" onClick={() => setOpen(true)}>
-          Add supplier
-        </Button>
-      </div>
-
-      <AdminTable
-        title="Suppliers"
-        subtitle="Wholesalers and vendors you buy stock from"
-        data={rows}
-        columns={[
-          { key: 'name', label: 'Name' },
-          { key: 'phone', label: 'Phone' },
-          {
-            key: 'is_active',
-            label: 'Active',
-            render: (r) => (r.is_active ? 'Yes' : 'No'),
-          },
-        ]}
+    <div className="p-4 lg:p-6">
+      <SuppliersManagementSection
+        rows={rows}
+        q={q}
+        setQ={setQ}
+        onSearchCommit={() => setQ((s) => s.trim())}
+        onAddClick={() => setOpen(true)}
+        dialogOpen={open}
+        onDialogOpenChange={setOpen}
+        name={name}
+        setName={setName}
+        phone={phone}
+        setPhone={setPhone}
+        onSave={() => createMut.mutate()}
+        savePending={createMut.isPending}
+        nameFieldId="vs-name"
+        phoneFieldId="vs-phone"
       />
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>New supplier</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div>
-              <Label htmlFor="vs-name">Name</Label>
-              <Input
-                id="vs-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Supplier name"
-              />
-            </div>
-            <div>
-              <Label htmlFor="vs-phone">Phone</Label>
-              <Input
-                id="vs-phone"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="Optional"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" type="button" onClick={() => setOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              disabled={!name.trim() || createMut.isPending}
-              onClick={() => createMut.mutate()}
-            >
-              Save
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
