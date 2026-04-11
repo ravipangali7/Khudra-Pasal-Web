@@ -576,12 +576,18 @@ export function getOAuthStartUrl(
   return `${getApiOrigin()}${prefix}${segment}`;
 }
 
+/** GET/HEAD with `Content-Type: application/json` forces a CORS preflight; omit when there is no body. */
+function setJsonContentTypeIfNeeded(headers: Headers, init: RequestInit | undefined, isFormData: boolean): void {
+  if (isFormData) return;
+  const method = (init?.method ?? "GET").toUpperCase();
+  if (method === "GET" || method === "HEAD") return;
+  headers.set("Content-Type", "application/json");
+}
+
 async function apiFetch<T>(path: string, init?: RequestInit, authenticated = false): Promise<T> {
   const headers = new Headers(init?.headers ?? {});
   const isFormData = typeof FormData !== "undefined" && init?.body instanceof FormData;
-  if (!isFormData) {
-    headers.set("Content-Type", "application/json");
-  }
+  setJsonContentTypeIfNeeded(headers, init, isFormData);
   if (authenticated) {
     const token = getAuthToken();
     if (token) headers.set("Authorization", buildAuthHeaderValue(token));
@@ -696,9 +702,7 @@ export function isAdminPortalAccessDenied(error: unknown): boolean {
 async function vendorFetch<T>(path: string, init?: RequestInit, authenticated = false): Promise<T> {
   const headers = new Headers(init?.headers ?? {});
   const isFormData = typeof FormData !== "undefined" && init?.body instanceof FormData;
-  if (!isFormData) {
-    headers.set("Content-Type", "application/json");
-  }
+  setJsonContentTypeIfNeeded(headers, init, isFormData);
   if (authenticated) {
     const token = getAuthToken();
     if (token) headers.set("Authorization", buildAuthHeaderValue(token));
@@ -750,7 +754,8 @@ function vendorWrite<T>(segment: string, method: "POST" | "PATCH" | "DELETE", bo
 
 async function portalFetch<T>(path: string, init?: RequestInit, authenticated = false): Promise<T> {
   const headers = new Headers(init?.headers ?? {});
-  headers.set("Content-Type", "application/json");
+  const isFormData = typeof FormData !== "undefined" && init?.body instanceof FormData;
+  setJsonContentTypeIfNeeded(headers, init, isFormData);
   if (authenticated) {
     const token = getAuthToken();
     if (token) headers.set("Authorization", buildAuthHeaderValue(token));
