@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowRight, Loader2, Shield } from "lucide-react";
 import { authApi, getOAuthStartUrl, setAuthToken, type AuthPortalKey } from "@/lib/api";
+import { DEFAULT_REDIRECT_AFTER_LOGIN } from "@/config/authDefaults";
 import { sanitizeNextPath } from "@/lib/authRedirect";
 import { cn } from "@/lib/utils";
 import PhonePrefixField from "./PhonePrefixField";
@@ -33,7 +34,7 @@ export default function UnifiedLoginForm({
 
   const fromQuery = sanitizeNextPath(searchParams.get("next"));
   const postLoginNext = postLoginNextProp === undefined ? fromQuery : postLoginNextProp;
-  const oauthNext = oauthNextProp ?? postLoginNext ?? "/portal/dashboard";
+  const oauthNext = oauthNextProp ?? postLoginNext ?? DEFAULT_REDIRECT_AFTER_LOGIN;
 
   const [step, setStep] = useState<"phone" | "otp">("phone");
   const [phone, setPhone] = useState("");

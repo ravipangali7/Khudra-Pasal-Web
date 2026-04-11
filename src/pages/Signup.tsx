@@ -4,6 +4,7 @@ import { User, ArrowRight, Shield, ChevronLeft, Loader2, CheckCircle } from "luc
 import logo from "@/assets/logo.png";
 import { cn } from "@/lib/utils";
 import { authApi, getOAuthStartUrl, setAuthToken, type AuthPortalKey } from "@/lib/api";
+import { DEFAULT_REDIRECT_AFTER_LOGIN } from "@/config/authDefaults";
 import { sanitizeNextPath } from "@/lib/authRedirect";
 import AuthBrandingPanelSignup from "@/components/auth/AuthBrandingPanelSignup";
 import AuthSplitShell from "@/components/auth/AuthSplitShell";
@@ -23,7 +24,7 @@ const Signup = () => {
   const digits = formData.phone.replace(/\D/g, "").slice(0, 10);
 
   const nextSanitized = sanitizeNextPath(searchParams.get("next"));
-  const oauthNext = nextSanitized ?? "/portal/dashboard";
+  const oauthNext = nextSanitized ?? DEFAULT_REDIRECT_AFTER_LOGIN;
   const nextPathOnly = (nextSanitized?.split("?")[0] ?? "").split("#")[0] ?? "";
   const isJoinFamilyReturn = nextPathOnly.startsWith("/join-family/");
 

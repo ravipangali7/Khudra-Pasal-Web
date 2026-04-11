@@ -7,6 +7,7 @@ const ALLOWED_PREFIXES = [
   "/brands",
   "/shop",
   "/portal",
+  "/dashboard",
   "/family-portal",
   "/child-portal",
   "/vendor",

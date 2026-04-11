@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import UnifiedAuthLoginPage from "@/components/auth/UnifiedAuthLoginPage";
+import { DEFAULT_REDIRECT_AFTER_LOGIN } from "@/config/authDefaults";
 import { sanitizeNextPath } from "@/lib/authRedirect";
 import { clearPostLogoutLoginPath, consumePostLogoutLoginPath } from "@/lib/portalLoginPaths";
 import { getAuthToken, mapWebsiteProductToUi, setAuthToken, websiteApi } from "@/lib/api";
@@ -87,7 +88,7 @@ const Login = () => {
     if (token && (surface === "admin" || surface === "vendor" || surface === "portal")) {
       setAuthToken(token, surface);
       const next = sanitizeNextPath(searchParams.get("next"));
-      const target = next ?? redir ?? "/portal/dashboard";
+      const target = next ?? redir ?? DEFAULT_REDIRECT_AFTER_LOGIN;
       void (async () => {
         await applyPendingAddToCart();
         navigate(target, { replace: true });

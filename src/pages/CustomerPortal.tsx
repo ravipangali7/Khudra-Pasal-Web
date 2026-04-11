@@ -27,6 +27,7 @@ import {
   LogOut,
 } from 'lucide-react';
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { DEFAULT_REDIRECT_AFTER_LOGIN } from '@/config/authDefaults';
 import { sanitizeNextPath } from '@/lib/authRedirect';
 import { PORTAL_LOGIN_PATH, navigateToPortalLogin, setPostLogoutLoginPath } from '@/lib/portalLoginPaths';
 import { cn } from '@/lib/utils';
@@ -464,7 +465,7 @@ const CustomerPortal = () => {
 
   const oauthNextAfterLogin = useMemo(() => {
     const full = `${location.pathname}${location.search}`;
-    return sanitizeNextPath(full) ?? '/portal/dashboard';
+    return sanitizeNextPath(full) ?? DEFAULT_REDIRECT_AFTER_LOGIN;
   }, [location.pathname, location.search]);
 
   if (!portalToken) {
