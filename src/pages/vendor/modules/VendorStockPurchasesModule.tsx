@@ -24,6 +24,14 @@ import { toast } from 'sonner';
 
 type LineRow = { product_id: string; quantity: string; unit_cost: string };
 
+function formatLineTotal(qty: string, unitCost: string): string {
+  if (!qty.trim() || !unitCost.trim()) return '—';
+  const q = Number(qty);
+  const u = Number(unitCost);
+  if (!Number.isFinite(q) || !Number.isFinite(u)) return '—';
+  return `Rs. ${(q * u).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 export default function VendorStockPurchasesModule() {
   const qc = useQueryClient();
   const [filter, setFilter] = useState<string>('');
@@ -57,6 +65,18 @@ export default function VendorStockPurchasesModule() {
     }
     return m;
   }, [vendorProducts]);
+
+  const draftTotals = useMemo(() => {
+    let sub = 0;
+    for (const l of lines) {
+      if (!l.quantity.trim() || !l.unit_cost.trim()) continue;
+      const q = Number(l.quantity);
+      const u = Number(l.unit_cost);
+      if (Number.isFinite(q) && Number.isFinite(u)) sub += q * u;
+    }
+    const taxAmt = Number(tax) || 0;
+    return { subtotal: sub, tax: taxAmt, total: sub + taxAmt };
+  }, [lines, tax]);
 
   const { data: page } = useQuery({
     queryKey: ['vendor', 'stock-purchases', filter],
@@ -198,8 +218,8 @@ export default function VendorStockPurchasesModule() {
               Lines: choose one of your products, quantity, and unit cost.
             </p>
             {lines.map((line, idx) => (
-              <div key={idx} className="grid grid-cols-3 gap-2 items-end">
-                <div>
+              <div key={idx} className="grid grid-cols-2 sm:grid-cols-4 gap-2 items-end">
+                <div className="col-span-2 sm:col-span-1 min-w-0">
                   <Label>Product</Label>
                   <Select
                     value={line.product_id ? line.product_id : '__none'}
@@ -234,6 +254,9 @@ export default function VendorStockPurchasesModule() {
                 <div>
                   <Label>Qty</Label>
                   <Input
+                    type="number"
+                    min={0}
+                    step="1"
                     value={line.quantity}
                     onChange={(e) => {
                       const next = [...lines];
@@ -245,6 +268,9 @@ export default function VendorStockPurchasesModule() {
                 <div>
                   <Label>Unit cost</Label>
                   <Input
+                    type="number"
+                    min={0}
+                    step="0.01"
                     value={line.unit_cost}
                     onChange={(e) => {
                       const next = [...lines];
@@ -253,8 +279,46 @@ export default function VendorStockPurchasesModule() {
                     }}
                   />
                 </div>
+                <div className="col-span-2 sm:col-span-1">
+                  <Label>Line total</Label>
+                  <div className="flex h-10 items-center rounded-md border border-input bg-muted/40 px-3 text-sm tabular-nums">
+                    {formatLineTotal(line.quantity, line.unit_cost)}
+                  </div>
+                </div>
               </div>
             ))}
+            <div className="rounded-md border bg-muted/30 p-3 text-sm space-y-1.5">
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Subtotal</span>
+                <span className="tabular-nums font-medium">
+                  Rs.{' '}
+                  {draftTotals.subtotal.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </span>
+              </div>
+              <div className="flex justify-between gap-4">
+                <span className="text-muted-foreground">Tax</span>
+                <span className="tabular-nums">
+                  Rs.{' '}
+                  {draftTotals.tax.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </span>
+              </div>
+              <div className="flex justify-between gap-4 border-t pt-1.5 font-medium">
+                <span>Estimated total</span>
+                <span className="tabular-nums">
+                  Rs.{' '}
+                  {draftTotals.total.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
+                </span>
+              </div>
+            </div>
             <Button
               type="button"
               variant="secondary"
