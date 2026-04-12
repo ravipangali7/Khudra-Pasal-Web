@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowRight, Loader2, Shield } from "lucide-react";
 import { authApi, getOAuthStartUrl, setAuthToken, type AuthPortalKey } from "@/lib/api";
@@ -7,6 +7,7 @@ import { sanitizeNextPath } from "@/lib/authRedirect";
 import { cn } from "@/lib/utils";
 import PhonePrefixField from "./PhonePrefixField";
 import { AUTH_ORANGE, LOGIN_CTA_GRADIENT } from "./constants";
+import OAuthPhoneCompletionForm from "./OAuthPhoneCompletionForm";
 
 export type UnifiedLoginFormProps = {
   className?: string;
@@ -35,6 +36,12 @@ export default function UnifiedLoginForm({
   const fromQuery = sanitizeNextPath(searchParams.get("next"));
   const postLoginNext = postLoginNextProp === undefined ? fromQuery : postLoginNextProp;
   const oauthNext = oauthNextProp ?? postLoginNext ?? DEFAULT_REDIRECT_AFTER_LOGIN;
+
+  const loginReturnPath = useMemo(
+    () => "/login" + (searchParams.toString() ? `?${searchParams.toString()}` : ""),
+    [searchParams],
+  );
+  const oauthPendingToken = searchParams.get("oauth_pending");
 
   const [step, setStep] = useState<"phone" | "otp">("phone");
   const [phone, setPhone] = useState("");
@@ -99,13 +106,27 @@ export default function UnifiedLoginForm({
     }
   };
 
+  if (oauthPendingToken) {
+    return (
+      <OAuthPhoneCompletionForm
+        className={className}
+        pendingToken={oauthPendingToken}
+        onComplete={(r) => {
+          finishAuth({ token: r.token, surface: r.surface, redirect: r.redirect });
+        }}
+      />
+    );
+  }
+
   return (
     <div className={cn("space-y-6", className)}>
       <button
         type="button"
         disabled={loading}
         onClick={() => {
-          window.location.assign(getOAuthStartUrl("google", oauthNext));
+          window.location.assign(
+            getOAuthStartUrl("google", oauthNext, { flow: "login", returnError: loginReturnPath }),
+          );
         }}
         className="w-full py-3.5 rounded-xl border border-neutral-300 bg-white text-[#3C4043] font-medium flex items-center justify-center gap-3 hover:bg-neutral-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >

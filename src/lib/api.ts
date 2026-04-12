@@ -1201,6 +1201,16 @@ export const authApi = {
       method: "POST",
       body: JSON.stringify({ access_token }),
     }),
+  sendOAuthPhoneOtp: (body: { pending_token: string; phone: string }) =>
+    apiFetch<{ detail: string; debug_otp?: string }>("/auth/social/oauth-phone/send/", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  verifyOAuthPhone: (body: { pending_token: string; phone: string; otp: string }) =>
+    apiFetch<UnifiedAuthSuccess>("/auth/social/oauth-phone/verify/", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
 };
 
 function adminPaged<T>(segment: string, params?: QueryParams) {

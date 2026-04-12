@@ -9,6 +9,7 @@ import { sanitizeNextPath } from "@/lib/authRedirect";
 import AuthBrandingPanelSignup from "@/components/auth/AuthBrandingPanelSignup";
 import AuthSplitShell from "@/components/auth/AuthSplitShell";
 import PhonePrefixField from "@/components/auth/PhonePrefixField";
+import OAuthPhoneCompletionForm from "@/components/auth/OAuthPhoneCompletionForm";
 import { AUTH_ORANGE, SIGNUP_CTA_GRADIENT } from "@/components/auth/constants";
 
 const Signup = () => {
@@ -31,6 +32,7 @@ const Signup = () => {
   const signupPortal = (searchParams.get("portal") || "portal").trim().toLowerCase() as AuthPortalKey;
   const isFamilySignup = signupPortal === "family-portal" && !isJoinFamilyReturn;
   const referralRef = (searchParams.get("ref") ?? "").trim().slice(0, 32) || undefined;
+  const oauthPendingToken = searchParams.get("oauth_pending");
 
   const signupReturnPath = useMemo(
     () => "/signup" + (searchParams.toString() ? `?${searchParams.toString()}` : ""),
@@ -142,16 +144,34 @@ const Signup = () => {
                 <Link to="/" className="inline-block lg:hidden">
                   <img src={logo} alt="Khudra Pasal" className="h-14 w-auto mx-auto mb-4" />
                 </Link>
-                <h1 className="text-2xl lg:text-3xl font-bold text-neutral-900 mb-2">Create Account</h1>
+                <h1 className="text-2xl lg:text-3xl font-bold text-neutral-900 mb-2">
+                  {oauthPendingToken ? "Almost there" : "Create Account"}
+                </h1>
                 <p className="text-neutral-500">
-                  {isJoinFamilyReturn
-                    ? "Create your account to continue to the family invitation."
-                    : isFamilySignup
-                      ? "Set up your family portal — we’ll create your family group automatically."
-                      : "Join KhudraPasal today"}
+                  {oauthPendingToken
+                    ? "Verify your mobile number to finish creating your account."
+                    : isJoinFamilyReturn
+                      ? "Create your account to continue to the family invitation."
+                      : isFamilySignup
+                        ? "Set up your family portal — we’ll create your family group automatically."
+                        : "Join KhudraPasal today"}
                 </p>
               </div>
 
+              {oauthPendingToken ? (
+                <OAuthPhoneCompletionForm
+                  pendingToken={oauthPendingToken}
+                  title="Verify your mobile number"
+                  description="Enter your Nepal mobile number to finish signing up. We’ll send a one-time code to verify it."
+                  onComplete={(r) => {
+                    setAuthToken(r.token, r.surface);
+                    const target =
+                      nextSanitized && nextSanitized !== "" ? nextSanitized : r.redirect;
+                    navigate(target, { replace: true });
+                  }}
+                />
+              ) : (
+                <>
               <button
                 type="button"
                 disabled={isLoading}
@@ -362,6 +382,8 @@ const Signup = () => {
                   </p>
                 </div>
               </div>
+                </>
+              )}
               <p className="text-xs text-neutral-500 text-center mt-6 px-4">
                 By creating an account, you agree to our{" "}
                 <a href="#" className="underline hover:text-neutral-800">
