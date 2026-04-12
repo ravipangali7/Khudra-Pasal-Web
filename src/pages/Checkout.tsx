@@ -109,7 +109,6 @@ const Checkout = () => {
   const {
     isChildShopper,
     rules,
-    profile,
     isLoadingProfile,
     isLoadingRules,
     rulesFetchError,
@@ -207,14 +206,21 @@ const Checkout = () => {
     };
   }, [hasStorefrontSession]);
 
+  const { data: portalMe } = useQuery({
+    queryKey: ['portal', 'me', 'checkout-delivery'],
+    queryFn: () => portalApi.me(),
+    enabled: hasStorefrontSession,
+    staleTime: 60_000,
+  });
+
   useEffect(() => {
-    if (!hasStorefrontSession || !profile) return;
+    if (!hasStorefrontSession || !portalMe) return;
     setFormData((prev) => ({
       ...prev,
-      fullName: prev.fullName || (profile.name?.trim() ?? ''),
-      mobile: prev.mobile || (normalizeNepalPhoneDigits(profile.phone ?? '') ?? ''),
+      fullName: prev.fullName.trim() || (portalMe.name?.trim() ?? ''),
+      mobile: prev.mobile || (normalizeNepalPhoneDigits(portalMe.phone ?? '') ?? ''),
     }));
-  }, [hasStorefrontSession, profile]);
+  }, [hasStorefrontSession, portalMe]);
 
   useEffect(() => {
     if (!hasStorefrontSession || step !== 'payment') {
