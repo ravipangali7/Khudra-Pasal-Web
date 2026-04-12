@@ -5,6 +5,8 @@ import { Heart, Eye, Share2, Bookmark, MessageCircle } from 'lucide-react';
 export interface ReelActionsSidebarProps {
   views: number;
   likes: number;
+  shares: number;
+  bookmarks: number;
   commentsCount?: number;
   liked: boolean;
   saved?: boolean;
@@ -93,6 +95,8 @@ const ViewsStat: React.FC<{ views: number; index: number; floating?: boolean }> 
 const ReelActionsSidebar: React.FC<ReelActionsSidebarProps> = ({
   views,
   likes,
+  shares,
+  bookmarks,
   commentsCount = 0,
   liked,
   saved,
@@ -148,7 +152,7 @@ const ReelActionsSidebar: React.FC<ReelActionsSidebarProps> = ({
         index={3}
         disabled={disabled}
         icon={<Bookmark className={`w-5 h-5 ${saved ? 'fill-white text-white' : 'text-white'}`} />}
-        label="Fav"
+        label={formatCount(bookmarks)}
         onClick={onSave || (() => {})}
         active={saved}
         floating={floating}
@@ -157,7 +161,7 @@ const ReelActionsSidebar: React.FC<ReelActionsSidebarProps> = ({
         index={4}
         disabled={disabled}
         icon={<Share2 className="w-5 h-5 text-white" />}
-        label="Share"
+        label={formatCount(shares)}
         onClick={onShare}
         floating={floating}
       />

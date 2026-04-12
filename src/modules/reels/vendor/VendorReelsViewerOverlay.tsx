@@ -21,6 +21,14 @@ import '../reels-theme.css';
 
 const PAGE_SIZE = 12;
 
+function snapshotReel(r: Reel): Reel {
+  return {
+    ...r,
+    product: { ...r.product },
+    vendor: { ...r.vendor },
+  };
+}
+
 const tabs = [
   { id: 'trending' as const, icon: Flame, label: 'Trending' },
   { id: 'new' as const, icon: Sparkles, label: 'New' },
@@ -213,6 +221,7 @@ const VendorReelsViewerOverlay: React.FC<Props> = ({ vendorId, initialReelId, on
       reelId: number;
       type: 'like' | 'bookmark' | 'share';
       enabled?: boolean;
+      previousReel?: Reel;
     }) => {
       if (type === 'share') {
         return websiteApi.reelInteraction(reelId, 'share');
@@ -221,6 +230,18 @@ const VendorReelsViewerOverlay: React.FC<Props> = ({ vendorId, initialReelId, on
         return websiteApi.reelInteraction(reelId, type);
       }
       return websiteApi.removeReelInteraction(reelId, type);
+    },
+    onSuccess: (data, vars) => {
+      if (
+        vars.type === 'share' &&
+        data &&
+        typeof data === 'object' &&
+        'created' in data &&
+        (data as { created?: boolean }).created === false &&
+        vars.previousReel
+      ) {
+        patchReel(vars.reelId, () => snapshotReel(vars.previousReel!));
+      }
     },
     onError: (error: Error) => {
       toast.error(error.message || 'Action failed');
@@ -311,7 +332,11 @@ const VendorReelsViewerOverlay: React.FC<Props> = ({ vendorId, initialReelId, on
   const handleBookmark = useCallback(
     (reel: Reel) => {
       const next = !reel.bookmarked;
-      patchReel(reel.id, (r) => ({ ...r, bookmarked: next }));
+      patchReel(reel.id, (r) => ({
+        ...r,
+        bookmarked: next,
+        bookmarks: next ? (r.bookmarks ?? 0) + 1 : Math.max(0, (r.bookmarks ?? 0) - 1),
+      }));
       interactionMut.mutate({ reelId: reel.id, type: 'bookmark', enabled: next });
     },
     [interactionMut, patchReel],
@@ -319,13 +344,14 @@ const VendorReelsViewerOverlay: React.FC<Props> = ({ vendorId, initialReelId, on
 
   const handleShare = useCallback(
     (reel: Reel) => {
+      const previousReel = snapshotReel(reel);
       patchReel(reel.id, (r) => ({ ...r, shares: (r.shares ?? 0) + 1 }));
       if (navigator.share) {
         void navigator
           .share({ title: 'KhudraPasal Reel', text: reel.caption, url: window.location.href })
           .catch(() => {});
       }
-      interactionMut.mutate({ reelId: reel.id, type: 'share' });
+      interactionMut.mutate({ reelId: reel.id, type: 'share', previousReel });
     },
     [interactionMut, patchReel],
   );
@@ -579,6 +605,8 @@ const VendorReelsViewerOverlay: React.FC<Props> = ({ vendorId, initialReelId, on
               disabled={displayReels.length === 0}
               views={activeReel.views}
               likes={activeReel.likes}
+              shares={activeReel.shares ?? 0}
+              bookmarks={activeReel.bookmarks ?? 0}
               commentsCount={activeReel.commentsCount}
               liked={activeReel.liked}
               saved={activeReel.bookmarked}

@@ -1025,13 +1025,22 @@ export const websiteApi = {
       true,
     ),
   reelComments: (reelId: number | string) =>
-    apiFetch<{ results: Array<{ id: number; body: string; user_name: string; created_at: string; parent: number | null }> }>(
+    apiFetch<{
+      results: Array<{
+        id: number;
+        user: number;
+        body: string;
+        user_name: string;
+        created_at: string;
+        parent: number | null;
+      }>;
+    }>(
       `/website/reels/${encodeURIComponent(String(reelId))}/comments/`,
       undefined,
       false,
     ),
   addReelComment: (reelId: number | string, body: string, parent_id?: number) =>
-    apiFetch<{ id: number; body: string; user_name: string; created_at: string; parent: number | null }>(
+    apiFetch<{ id: number; user: number; body: string; user_name: string; created_at: string; parent: number | null }>(
       `/website/reels/${encodeURIComponent(String(reelId))}/comments/`,
       { method: "POST", body: JSON.stringify({ body, ...(parent_id ? { parent_id } : {}) }) },
       true,

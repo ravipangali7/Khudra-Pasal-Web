@@ -108,7 +108,17 @@ export function useReelFeedController(
       }
       return websiteApi.removeReelInteraction(reelId, type);
     },
-    onSuccess: (_data, vars) => {
+    onSuccess: (data, vars) => {
+      if (
+        vars.type === 'share' &&
+        data &&
+        typeof data === 'object' &&
+        'created' in data &&
+        (data as { created?: boolean }).created === false &&
+        vars.previousReel
+      ) {
+        patchReel(vars.reelId, () => snapshotReel(vars.previousReel!));
+      }
       if (vars.type === 'bookmark') {
         void queryClient.invalidateQueries({ queryKey: ['portal', 'reels-favourites'] });
       }
@@ -271,7 +281,11 @@ export function useReelFeedController(
       if (!requireCustomerForEngagement()) return;
       const next = !reel.bookmarked;
       const previousReel = snapshotReel(reel);
-      patchReel(reel.id, (r) => ({ ...r, bookmarked: next }));
+      patchReel(reel.id, (r) => ({
+        ...r,
+        bookmarked: next,
+        bookmarks: next ? (r.bookmarks ?? 0) + 1 : Math.max(0, (r.bookmarks ?? 0) - 1),
+      }));
       interactionMut.mutate({ reelId: reel.id, type: 'bookmark', enabled: next, previousReel });
     },
     [interactionMut, patchReel, requireCustomerForEngagement],

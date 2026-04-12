@@ -40,6 +40,8 @@ export interface Reel {
   views: number;
   likes: number;
   shares?: number;
+  /** Total saves / favorites across all users (from API). */
+  bookmarks?: number;
   commentsCount?: number;
   liked: boolean;
   bookmarked?: boolean;

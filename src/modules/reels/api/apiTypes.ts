@@ -9,6 +9,8 @@ export interface ApiReelPublicRow {
   views: number;
   likes: number;
   shares: number;
+  /** Aggregated save count; may be absent on older API responses. */
+  bookmarks?: number;
   cart_adds: number;
   comments_count?: number;
   is_liked?: boolean;

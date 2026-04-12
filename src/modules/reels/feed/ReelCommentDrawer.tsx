@@ -10,6 +10,7 @@ import EmojiPickerOverlay from './EmojiPickerOverlay';
 
 type ReelCommentRow = {
   id: number;
+  user: number;
   body: string;
   user_name: string;
   created_at: string;
@@ -287,6 +288,11 @@ const ReelCommentDrawer: React.FC<Props> = ({ reelId, open, onClose, onCommentAd
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                           <span className="text-sm font-semibold text-white">{name}</span>
+                          {comment.id > 0 && comment.user > 0 ? (
+                            <span className="text-[11px] font-mono text-white/35" title="Commenter user ID">
+                              #{comment.user}
+                            </span>
+                          ) : null}
                           <span className="text-xs text-white/40">{formatCommentTime(comment.created_at)}</span>
                         </div>
                         <p className="mt-1 break-words text-[15px] leading-snug text-white/90 whitespace-pre-wrap">
@@ -313,6 +319,7 @@ const ReelCommentDrawer: React.FC<Props> = ({ reelId, open, onClose, onCommentAd
                     ...prev,
                     {
                       id: tempId,
+                      user: 0,
                       body,
                       user_name: 'You',
                       created_at: new Date().toISOString(),

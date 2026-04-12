@@ -117,6 +117,7 @@ export function mapApiReelToUi(row: ApiReelPublicRow): Reel {
     views: row.views,
     likes: row.likes,
     shares: row.shares,
+    bookmarks: row.bookmarks ?? 0,
     commentsCount: row.comments_count ?? 0,
     liked: Boolean(row.is_liked),
     bookmarked: Boolean(row.is_bookmarked),
