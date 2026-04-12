@@ -1698,7 +1698,18 @@ export const adminApi = {
     adminWrite<Record<string, unknown>>(`coupons/${id}`, "PATCH", payload),
   deleteCoupon: (id: string) => adminWrite<{ ok: true }>(`coupons/${id}`, "DELETE"),
   broadcastNotification: (payload: Record<string, unknown>) =>
-    adminWrite<{ created: number; capped: boolean }>("notifications/broadcast", "POST", payload),
+    adminWrite<{
+      created: number;
+      capped: boolean;
+      push: {
+        firebase_configured: boolean;
+        device_tokens: number;
+        delivered: number;
+        failed: number;
+        skip_reason: string | null;
+        first_error: string | null;
+      };
+    }>("notifications/broadcast", "POST", payload),
   updateNotification: (id: string, payload: Record<string, unknown>) =>
     adminWrite<Record<string, unknown>>(`notifications/${id}`, "PATCH", payload),
   deleteNotification: (id: string) => adminWrite<{ ok: true }>(`notifications/${id}`, "DELETE"),

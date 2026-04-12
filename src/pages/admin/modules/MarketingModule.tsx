@@ -24,6 +24,7 @@ import { formatApiError, normalizeHexColor, resolveMediaUrl } from '../hooks/adm
 import { AdminSearchCombobox } from '@/components/admin/AdminSearchCombobox';
 import type { AdminSearchOption } from '@/components/admin/AdminSearchCombobox';
 import { fetchVendorAdminOptions, fetchCategoryAdminOptions } from '@/components/admin/adminRelationalPickers';
+import { toast } from 'sonner';
 
 type BannerRow = {
   id: string;
@@ -958,7 +959,28 @@ function NotificationsView() {
       return;
     }
     try {
-      await broadcastMut.mutateAsync({ title: title.trim(), message: message.trim(), target, type: 'marketing' });
+      const res = await broadcastMut.mutateAsync({
+        title: title.trim(),
+        message: message.trim(),
+        target,
+        type: 'marketing',
+      });
+      const p = res.push;
+      if (!p.firebase_configured) {
+        toast.warning(
+          'In-app notifications were created, but push is disabled: Firebase Admin is not configured on the server (set FIREBASE_CREDENTIALS_PATH to your service account JSON).',
+        );
+      } else if (p.skip_reason === 'no_device_tokens') {
+        toast.message(
+          `Notifications created for ${res.created} user(s). No FCM device tokens on file — users must open the app (or web) while logged in to register this device.`,
+        );
+      } else if (p.failed > 0) {
+        toast.warning(
+          `Push: ${p.delivered} delivered, ${p.failed} failed.${p.first_error ? ` ${p.first_error}` : ''}`,
+        );
+      } else if (p.device_tokens > 0) {
+        toast.success(`Push sent to ${p.delivered} device(s).`);
+      }
       setModalOpen(false);
       setTitle('');
       setMessage('');
