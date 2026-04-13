@@ -28,7 +28,6 @@ import {
 import { VendorRouteContext } from './vendorRouteContext';
 import { VendorReelViewerProvider } from '@/modules/reels/vendor/VendorReelViewerContext';
 import { cn } from '@/lib/utils';
-import SupportSuperAdminSidebarCard from '@/components/support/SupportSuperAdminSidebarCard';
 
 const VENDOR_SIDEBAR_EXCLUDED_IDS = new Set([
   'faq',
@@ -410,14 +409,6 @@ export default function VendorPortal() {
       items={sidebarItems}
       activeItem={activeSection}
       onItemClick={(moduleId) => navigate(buildVendorModulePath(normalizeModuleId(moduleId)))}
-      expandedGroupTopSlot={{
-        support: (
-          <SupportSuperAdminSidebarCard
-            variant="vendor"
-            onOpenMessages={() => navigate(buildVendorModulePath('tickets'))}
-          />
-        ),
-      }}
     />
   );
 

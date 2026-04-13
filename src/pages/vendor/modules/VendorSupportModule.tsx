@@ -8,6 +8,7 @@ export default function VendorSupportModule() {
         listQueryKey={['vendor', 'tickets']}
         title="Support tickets"
         subtitle="Open a ticket and message the Khudra Pasal team."
+        openMessagesOnMount
       />
     </div>
   );

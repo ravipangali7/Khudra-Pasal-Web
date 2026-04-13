@@ -39,6 +39,8 @@ type SupportTicketsHubProps = {
   title?: string;
   subtitle?: string;
   showPriorityOnCreate?: boolean;
+  /** When true, after load selects or focuses chat (first ticket or new-ticket form) like imperative openMessages(). */
+  openMessagesOnMount?: boolean;
 };
 
 function statusLabel(status: string) {
@@ -52,6 +54,7 @@ const SupportTicketsHub = forwardRef<SupportTicketsHubHandle, SupportTicketsHubP
     title = 'Support',
     subtitle = 'Create a ticket and chat with our team.',
     showPriorityOnCreate = true,
+    openMessagesOnMount = false,
   },
   ref,
 ) {
@@ -91,6 +94,12 @@ const SupportTicketsHub = forwardRef<SupportTicketsHubHandle, SupportTicketsHubP
       pendingOpenMessagesRef.current = true;
     },
   }));
+
+  useEffect(() => {
+    if (!openMessagesOnMount) return;
+    document.getElementById('support-tickets-hub')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    pendingOpenMessagesRef.current = true;
+  }, [openMessagesOnMount]);
 
   useEffect(() => {
     if (!pendingOpenMessagesRef.current || listLoading) return;
