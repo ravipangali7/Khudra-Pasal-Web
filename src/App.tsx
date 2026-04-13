@@ -14,6 +14,9 @@ import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Checkout from "./pages/Checkout";
+import CheckoutPaymentEsewaReturn from "./pages/CheckoutPaymentEsewaReturn";
+import CheckoutPaymentKhaltiReturn from "./pages/CheckoutPaymentKhaltiReturn";
+import CheckoutPaymentFailed from "./pages/CheckoutPaymentFailed";
 import ProductDetail from "./pages/ProductDetail";
 import Category from "./pages/Category";
 import Brands from "./pages/Brands";
@@ -101,6 +104,9 @@ const App = () => (
               <Route path="/login" element={<Login />} />
               <Route path="/signup" element={<Signup />} />
               <Route path="/checkout" element={<Checkout />} />
+              <Route path="/checkout/payment/esewa/return" element={<CheckoutPaymentEsewaReturn />} />
+              <Route path="/checkout/payment/khalti/return" element={<CheckoutPaymentKhaltiReturn />} />
+              <Route path="/checkout/payment/failed" element={<CheckoutPaymentFailed />} />
               <Route path="/product/:identifier" element={<ProductDetail />} />
               <Route path="/category/:categoryId" element={<Category />} />
               <Route path="/brands/:brandId" element={<BrandDetail />} />

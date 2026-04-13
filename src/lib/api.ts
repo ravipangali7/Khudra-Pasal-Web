@@ -3376,6 +3376,7 @@ export const portalApi = {
     ),
   checkoutWalletContext: () =>
     portalFetch<PortalCheckoutWalletContext>("/portal/orders/checkout-wallet/", undefined, true),
+  /** Sandbox eSewa / Khalti: `gateway` is present when payment is deferred to the provider. */
   checkout: (payload: Record<string, unknown>) =>
     portalFetch<{
       order_number: string;
@@ -3383,6 +3384,9 @@ export const portalApi = {
       payment_status: string;
       orders: Array<{ order_number: string; total: number; payment_status: string }>;
       requires_payment_confirmation?: boolean;
+      gateway?:
+        | { provider: "esewa"; form_action: string; fields: Record<string, string> }
+        | { provider: "khalti"; public_key: string; payment_url: string; pidx: string };
     }>("/portal/orders/checkout/", { method: "POST", body: JSON.stringify(payload) }, true),
   checkoutQuote: (payload: Record<string, unknown>) =>
     portalFetch<PortalCheckoutQuoteResponse>(
@@ -3406,6 +3410,24 @@ export const portalApi = {
       },
       true,
     ),
+  checkoutPaymentEsewaVerify: (payload: {
+    order_numbers: string[];
+    transaction_uuid?: string;
+    data?: string;
+  }) =>
+    portalFetch<{
+      orders: Array<{ order_number: string; payment_status: string; total: number }>;
+      completed: string[];
+      already_paid: string[];
+      verified?: boolean;
+    }>("/portal/orders/payment/esewa/verify/", { method: "POST", body: JSON.stringify(payload) }, true),
+  checkoutPaymentKhaltiVerify: (payload: { pidx: string }) =>
+    portalFetch<{
+      orders: Array<{ order_number: string; payment_status: string; total: number }>;
+      completed: string[];
+      already_paid: string[];
+      verified?: boolean;
+    }>("/portal/orders/payment/khalti/verify/", { method: "POST", body: JSON.stringify(payload) }, true),
   /** GET saved default delivery fields; POST { latitude, longitude } to reverse-geocode, save, and return autofill payload */
   deliveryDefault: () =>
     portalFetch<PortalDefaultDelivery>("/portal/delivery-default/", undefined, true),
