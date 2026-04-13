@@ -6,7 +6,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import { ChevronUp, FileText, ImagePlus, Loader2, Paperclip, Send, Video, X } from 'lucide-react';
+import { Check, CheckCheck, ChevronUp, FileText, ImagePlus, Loader2, Paperclip, Send, Video, X } from 'lucide-react';
 import type { SupportTicketAttachmentRow, SupportTicketMessageRow } from '@/lib/api';
 import { fetchAuthenticatedBlob } from '@/lib/api';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -396,14 +396,27 @@ const SupportTicketChatPanel = forwardRef<SupportTicketChatPanelHandle, SupportT
                   {m.attachments.map((att) => (
                     <ChatAttachment key={att.id} att={att} mine={mine} />
                   ))}
-                  <p
+                  <div
                     className={cn(
-                      'text-[10px] mt-1 opacity-70',
-                      mine ? 'text-primary-foreground/80' : 'text-muted-foreground',
+                      'text-[10px] mt-1 opacity-70 flex items-center gap-1 flex-wrap',
+                      mine ? 'text-primary-foreground/80 justify-end' : 'text-muted-foreground',
                     )}
                   >
-                    {formatWhen(m.created_at)}
-                  </p>
+                    <span>{formatWhen(m.created_at)}</span>
+                    {mine && m.delivery_ticks != null ? (
+                      <span
+                        className="inline-flex items-center shrink-0"
+                        title={m.delivery_ticks === 2 ? 'Delivered (online)' : 'Sent'}
+                        aria-hidden
+                      >
+                        {m.delivery_ticks === 2 ? (
+                          <CheckCheck className="h-3.5 w-3.5 opacity-95" strokeWidth={2.5} />
+                        ) : (
+                          <Check className="h-3.5 w-3.5 opacity-85" strokeWidth={2.5} />
+                        )}
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
               );
               return (

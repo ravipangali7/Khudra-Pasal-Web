@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ChevronRight, ChevronLeft, LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -21,6 +21,11 @@ interface PortalSidebarProps {
   title?: string;
   collapsible?: boolean;
   className?: string;
+  /**
+   * Messenger-style super admin card under Support / Help nav ids.
+   * Shown below a leaf item, or at the top of an expanded group (e.g. vendor Support → tickets).
+   */
+  supportContact?: { forItemIds: string[]; children: ReactNode };
 }
 
 function subtreeHasActiveItem(node: SidebarItem, activeId: string): boolean {
@@ -37,6 +42,7 @@ const PortalSidebar = ({
   title,
   collapsible = true,
   className,
+  supportContact,
 }: PortalSidebarProps) => {
   const [collapsed, setCollapsed] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
@@ -108,6 +114,11 @@ const PortalSidebar = ({
           {items.map((item) => {
             const descendantActive = subtreeHasActiveItem(item, activeItem);
             const parentRowActive = activeItem === item.id || descendantActive;
+            const contactIds = supportContact?.forItemIds ?? [];
+            const showContactLeaf =
+              Boolean(supportContact) && contactIds.includes(item.id) && !item.children?.length;
+            const showContactGroup =
+              Boolean(supportContact) && contactIds.includes(item.id) && Boolean(item.children?.length);
             return (
             <div key={item.id}>
               <button
@@ -148,9 +159,16 @@ const PortalSidebar = ({
                 )}
               </button>
 
+              {!collapsed && showContactLeaf ? (
+                <div className="mt-2 mb-1 px-1">{supportContact!.children}</div>
+              ) : null}
+
               {/* Children */}
               {!collapsed && item.children && expandedGroups.includes(item.id) && (
                 <div className="ml-4 mt-1 space-y-1 border-l-2 border-border pl-3">
+                  {showContactGroup ? (
+                    <div className="mb-2 -ml-1 pr-1">{supportContact!.children}</div>
+                  ) : null}
                   {item.children.map((child) => (
                     <button
                       key={child.id}

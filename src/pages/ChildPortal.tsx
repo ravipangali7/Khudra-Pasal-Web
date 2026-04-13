@@ -34,6 +34,7 @@ import DataTable from '@/components/portal/DataTable';
 import PortalReelsWidget from '@/modules/reels/portal/PortalReelsWidget';
 import EmptyState from '@/components/portal/EmptyState';
 import SupportTicketsHub from '@/components/support/SupportTicketsHub';
+import SupportSuperAdminSidebarCard from '@/components/support/SupportSuperAdminSidebarCard';
 import FaqAccordionSection from '@/components/support/FaqAccordionSection';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -356,6 +357,12 @@ const ChildPortal = () => {
       activeItem={activeSection}
       onItemClick={goTo}
       title="Child Portal"
+      supportContact={{
+        forItemIds: ['help'],
+        children: (
+          <SupportSuperAdminSidebarCard variant="portal" onOpenMessages={() => goTo('help')} />
+        ),
+      }}
     />
   );
 

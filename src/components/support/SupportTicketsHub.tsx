@@ -223,6 +223,7 @@ export default function SupportTicketsHub({
               {(tickets as Record<string, unknown>[]).map((t) => {
                 const id = String(t.id);
                 const active = id === selectedId;
+                const unread = Boolean(t.has_unread);
                 return (
                   <li key={id}>
                     <button
@@ -233,7 +234,7 @@ export default function SupportTicketsHub({
                       )}
                       onClick={() => setSelectedId(id)}
                     >
-                      <p className="font-medium">{String(t.subject)}</p>
+                      <p className={cn(unread ? 'font-bold' : 'font-medium')}>{String(t.subject)}</p>
                       <p className="text-xs text-muted-foreground font-mono">{id}</p>
                       <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-1 text-xs text-muted-foreground">
                         <span className="capitalize">{statusLabel(String(t.status))}</span>
@@ -326,7 +327,22 @@ export default function SupportTicketsHub({
               <div className="rounded-xl border border-border bg-card p-4 space-y-1 shrink-0">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-semibold text-foreground">{detail?.subject ?? '…'}</h3>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-semibold text-foreground">{detail?.subject ?? '…'}</h3>
+                      {detail && (
+                        <>
+                          {detail.counterpart_online ? (
+                            <span className="text-[10px] font-medium uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+                              Online
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                              Offline
+                            </span>
+                          )}
+                        </>
+                      )}
+                    </div>
                     <p className="text-xs font-mono text-muted-foreground">{selectedId}</p>
                     <div className="flex flex-wrap gap-2 text-xs pt-1">
                       <span className="rounded-full bg-muted px-2 py-0.5 capitalize">

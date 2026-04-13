@@ -71,6 +71,7 @@ import PortalCustomerProfileModule from '@/components/portal/PortalCustomerProfi
 import ProfileMenu from '@/components/profile/ProfileMenu';
 import PortalKycSection from '@/components/portal/PortalKycSection';
 import PortalSupportSection from '@/components/portal/PortalSupportSection';
+import SupportSuperAdminSidebarCard from '@/components/support/SupportSuperAdminSidebarCard';
 import PortalProductsCatalogSection from '@/components/portal/PortalProductsCatalogSection';
 import PortalWishlistSection from '@/components/portal/PortalWishlistSection';
 import PortalNotificationsModal from '@/components/portal/PortalNotificationsModal';
@@ -571,6 +572,12 @@ const CustomerPortal = () => {
             }}
             collapsible={false}
             className="h-full min-h-0 flex-1 border-0 bg-transparent shadow-none rounded-none w-full"
+            supportContact={{
+              forItemIds: ['support'],
+              children: (
+                <SupportSuperAdminSidebarCard variant="portal" onOpenMessages={() => goTo('support')} />
+              ),
+            }}
           />
         </div>
 

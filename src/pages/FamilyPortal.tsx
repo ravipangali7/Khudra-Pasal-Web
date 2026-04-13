@@ -22,6 +22,7 @@ import PortalReelsWidget from '@/modules/reels/portal/PortalReelsWidget';
 import EmptyState from '@/components/portal/EmptyState';
 import SupportTicketsHub from '@/components/support/SupportTicketsHub';
 import FaqAccordionSection from '@/components/support/FaqAccordionSection';
+import SupportSuperAdminSidebarCard from '@/components/support/SupportSuperAdminSidebarCard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -304,6 +305,12 @@ export function FamilyPortal() {
       activeItem={activeSection}
       onItemClick={goTo}
       title="Family Portal"
+      supportContact={{
+        forItemIds: ['support'],
+        children: (
+          <SupportSuperAdminSidebarCard variant="portal" onOpenMessages={() => goTo('support')} />
+        ),
+      }}
     />
   );
 

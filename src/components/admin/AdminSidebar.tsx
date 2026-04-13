@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronRight, LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,8 @@ interface AdminSidebarProps {
   activeItem: string;
   onItemClick: (id: string) => void;
   collapsed?: boolean;
+  /** Extra content at the top of an expanded group (e.g. super admin card under Support). */
+  expandedGroupTopSlot?: Record<string, ReactNode>;
 }
 
 function subtreeContainsActive(node: SidebarItem, activeId: string): boolean {
@@ -40,7 +42,13 @@ function parentChainToActive(items: SidebarItem[], activeId: string): string[] {
   return walk(items, []) ?? [];
 }
 
-export default function AdminSidebar({ items, activeItem, onItemClick, collapsed = false }: AdminSidebarProps) {
+export default function AdminSidebar({
+  items,
+  activeItem,
+  onItemClick,
+  collapsed = false,
+  expandedGroupTopSlot,
+}: AdminSidebarProps) {
   const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
 
   const ancestorIds = useMemo(() => parentChainToActive(items, activeItem), [items, activeItem]);
@@ -129,6 +137,9 @@ export default function AdminSidebar({ items, activeItem, onItemClick, collapsed
           </Button>
           {isExpanded && (
             <div className="mt-0.5 space-y-0.5 pl-1.5">
+              {expandedGroupTopSlot?.[item.id] ? (
+                <div className="mb-2 px-0.5">{expandedGroupTopSlot[item.id]}</div>
+              ) : null}
               {item.children!.map((child) => renderItem(child, depth + 1))}
             </div>
           )}

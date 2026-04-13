@@ -1273,6 +1273,16 @@ export type SupportTicketMessageRow = {
   created_at: string;
   /** Present on API responses; older cached payloads may omit. */
   attachments?: SupportTicketAttachmentRow[];
+  /** 1 = single tick (counterpart offline); 2 = double tick (online). Only on outgoing bubbles. */
+  delivery_ticks?: 1 | 2;
+};
+
+/** Primary super admin shown in portal/vendor support sidebars. */
+export type SupportSuperAdminContact = {
+  name: string;
+  phone: string;
+  avatar_url: string;
+  is_online: boolean;
 };
 
 /** Authenticated binary fetch (support attachments, etc.). */
@@ -1298,6 +1308,8 @@ export type SupportTicketUserDetail = {
   source_panel: string;
   created: string;
   last_activity_at: string;
+  /** Super admin / submitter session presence for delivery ticks. */
+  counterpart_online?: boolean;
   messages: SupportTicketMessageRow[];
 };
 
@@ -1311,6 +1323,7 @@ export type SupportTicketAdminDetail = {
   source_panel: string;
   created: string;
   last_activity_at: string;
+  counterpart_online?: boolean;
   submitter: { id: number; name: string; phone: string; role: string; avatar_url?: string };
   assigned_to: { id: number; name: string; phone: string } | null;
   messages: SupportTicketMessageRow[];
@@ -2071,6 +2084,8 @@ export const vendorApi = {
     vendorFetch<VendorReportsSummary>(`/vendor/reports/summary/${buildQuery(params)}`, undefined, true),
   reportsExportCsv: (params?: { from?: string; to?: string }) =>
     vendorFetchBlob(`/vendor/reports/export.csv${buildQuery(params)}`),
+  supportSuperAdminContact: () =>
+    vendorFetch<SupportSuperAdminContact>("/vendor/support/super-admin-contact/", undefined, true),
   supportTickets: (params?: QueryParams) => vendorPaged<Record<string, unknown>>("support/tickets", params),
   createSupportTicket: (payload: Record<string, unknown>) =>
     vendorWrite<{ id: string }>("support/tickets", "POST", payload),
@@ -3293,6 +3308,8 @@ export const portalApi = {
       { method: "POST", body: fd },
       true,
     ),
+  supportSuperAdminContact: () =>
+    portalFetch<SupportSuperAdminContact>("/portal/support/super-admin-contact/", undefined, true),
   supportFaqs: () =>
     portalFetch<{
       results: Array<{ id: string; question: string; answer: string; surface?: string }>;
@@ -3308,6 +3325,7 @@ export const portalApi = {
         source_panel: string;
         created: string;
         last_activity: string;
+        has_unread?: boolean;
       }>
     >(`/portal/support/tickets/${buildQuery(params)}`, undefined, true),
   createSupportTicket: (payload: {

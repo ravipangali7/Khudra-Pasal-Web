@@ -13,14 +13,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import SupportTicketChatPanel, { type SupportTicketChatPanelHandle } from '@/components/support/SupportTicketChatPanel';
@@ -227,72 +219,69 @@ export default function SupportTicketsModule() {
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2 xl:min-h-0">
-        <div className="rounded-xl border border-border bg-card overflow-hidden">
+        <div className="rounded-xl border border-border bg-card overflow-hidden flex flex-col min-h-[min(70vh,560px)] max-h-[min(85vh,720px)]">
           {listQuery.isLoading ? (
             <div className="p-8 flex justify-center text-muted-foreground text-sm gap-2">
               <Loader2 className="w-4 h-4 animate-spin" />
               Loading…
             </div>
+          ) : (tickets as Record<string, unknown>[]).length === 0 ? (
+            <div className="p-8 text-center text-muted-foreground text-sm">No tickets match.</div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Ticket</TableHead>
-                  <TableHead>Panel</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Updated</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {(tickets as Record<string, unknown>[]).length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={4} className="text-center text-muted-foreground text-sm py-8">
-                      No tickets match.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  (tickets as Record<string, unknown>[]).map((row) => {
-                    const id = String(row.id);
-                    const active = id === selectedId;
-                    return (
-                      <TableRow
-                        key={id}
-                        className={active ? 'bg-primary/5' : undefined}
-                        onClick={() => setSelectedId(id)}
-                      >
-                        <TableCell>
-                          <p className="font-medium text-sm">{String(row.subject)}</p>
-                          <p className="text-xs font-mono text-muted-foreground">{id}</p>
-                        </TableCell>
-                        <TableCell>
-                          <div className="space-y-2">
-                            <p className="capitalize text-sm font-medium text-foreground">
-                              {String(row.source_panel ?? '')}
-                            </p>
-                            <div className="flex items-center gap-2 min-w-0">
-                              <Avatar className="h-8 w-8 shrink-0 border border-border/80">
-                                <AvatarImage
-                                  src={String(row.submitter_avatar_url ?? '')}
-                                  alt=""
-                                />
-                                <AvatarFallback className="text-[10px] font-medium">
-                                  {submitterInitials(String(row.submitter_name ?? ''))}
-                                </AvatarFallback>
-                              </Avatar>
-                              <span className="text-sm text-foreground truncate">
-                                {String(row.submitter_name ?? '—')}
-                              </span>
-                            </div>
-                          </div>
-                        </TableCell>
-                        <TableCell className="capitalize text-sm">{statusLabel(String(row.status ?? ''))}</TableCell>
-                        <TableCell className="text-sm text-muted-foreground">{String(row.last_activity ?? '')}</TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
+            <ul className="overflow-y-auto divide-y divide-border">
+              {(tickets as Record<string, unknown>[]).map((row) => {
+                const id = String(row.id);
+                const active = id === selectedId;
+                const unread = Boolean(row.has_unread);
+                const preview = String(row.last_message_preview ?? '').trim();
+                return (
+                  <li key={id}>
+                    <button
+                      type="button"
+                      className={cn(
+                        'w-full text-left px-3 py-3 flex gap-3 transition-colors hover:bg-muted/50',
+                        active && 'bg-primary/8',
+                      )}
+                      onClick={() => setSelectedId(id)}
+                    >
+                      <Avatar className="h-11 w-11 shrink-0 border border-border/80">
+                        <AvatarImage src={String(row.submitter_avatar_url ?? '')} alt="" />
+                        <AvatarFallback className="text-xs font-medium">
+                          {submitterInitials(String(row.submitter_name ?? ''))}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <p
+                            className={cn(
+                              'text-sm truncate',
+                              unread ? 'font-bold text-foreground' : 'font-semibold text-foreground',
+                            )}
+                          >
+                            {String(row.submitter_name ?? '—')}
+                          </p>
+                          <span className="text-[10px] text-muted-foreground shrink-0 tabular-nums">
+                            {String(row.last_activity ?? '')}
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground capitalize">{String(row.source_panel ?? '')}</p>
+                        <p className={cn('text-sm truncate mt-0.5', unread ? 'font-semibold' : 'font-normal')}>
+                          {String(row.subject ?? '')}
+                        </p>
+                        {preview ? (
+                          <p className="text-xs text-muted-foreground truncate mt-0.5">{preview}</p>
+                        ) : null}
+                        <p className="text-[11px] text-muted-foreground mt-1">
+                          <span className="capitalize">{statusLabel(String(row.status ?? ''))}</span>
+                          <span className="mx-1">·</span>
+                          <span className="font-mono">{id}</span>
+                        </p>
+                      </div>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </div>
 
@@ -301,7 +290,20 @@ export default function SupportTicketsModule() {
             <>
               <div className="rounded-xl border border-border bg-card p-4 space-y-3 shrink-0">
                 <div className="flex items-start justify-between gap-2">
-                  <h2 className="font-semibold text-lg leading-tight min-w-0 flex-1">{detail.subject}</h2>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h2 className="font-semibold text-lg leading-tight">{detail.subject}</h2>
+                      {detail.counterpart_online === true ? (
+                        <span className="text-[10px] font-medium uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+                          User online
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                          User offline
+                        </span>
+                      )}
+                    </div>
+                  </div>
                   <Popover open={ticketSwitcherOpen} onOpenChange={setTicketSwitcherOpen}>
                     <PopoverTrigger asChild>
                       <Button
