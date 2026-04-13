@@ -303,10 +303,10 @@ const ProductDetail = () => {
     [],
   );
 
-  const productAiContext = useMemo(
-    () => (detailData ? buildProductAiContext(product, detailData) : null),
-    [product, detailData],
-  );
+  const productAiContext = useMemo(() => {
+    if (!detailData) return null;
+    return buildProductAiContext(mapWebsiteProductToUi(detailData), detailData);
+  }, [detailData]);
 
   const reviews = useMemo(
     () =>
