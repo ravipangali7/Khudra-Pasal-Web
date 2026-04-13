@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, ChevronDown, Loader2, MessageSquarePlus } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
@@ -28,26 +28,38 @@ import { SUPPORT_CATEGORY_OPTIONS, SUPPORT_PRIORITY_OPTIONS } from './supportCon
 
 type HubVariant = 'portal' | 'vendor';
 
-function statusLabel(status: string) {
-  return status.replace(/_/g, ' ');
-}
+export type SupportTicketsHubHandle = {
+  /** Scrolls the hub into view and opens or focuses the in-page ticket chat. */
+  openMessages: () => void;
+};
 
-export default function SupportTicketsHub({
-  variant,
-  listQueryKey,
-  title = 'Support',
-  subtitle = 'Create a ticket and chat with our team.',
-  showPriorityOnCreate = true,
-}: {
+type SupportTicketsHubProps = {
   variant: HubVariant;
   listQueryKey: string[];
   title?: string;
   subtitle?: string;
   showPriorityOnCreate?: boolean;
-}) {
+};
+
+function statusLabel(status: string) {
+  return status.replace(/_/g, ' ');
+}
+
+const SupportTicketsHub = forwardRef<SupportTicketsHubHandle, SupportTicketsHubProps>(function SupportTicketsHub(
+  {
+    variant,
+    listQueryKey,
+    title = 'Support',
+    subtitle = 'Create a ticket and chat with our team.',
+    showPriorityOnCreate = true,
+  },
+  ref,
+) {
   const qc = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const chatRef = useRef<SupportTicketChatPanelHandle>(null);
+  const pendingOpenMessagesRef = useRef(false);
+  const subjectInputRef = useRef<HTMLInputElement>(null);
   const [ticketSwitcherOpen, setTicketSwitcherOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [subject, setSubject] = useState('');
@@ -72,6 +84,29 @@ export default function SupportTicketsHub({
   });
 
   const tickets = useMemo(() => extractResults(ticketPage), [ticketPage]);
+
+  useImperativeHandle(ref, () => ({
+    openMessages: () => {
+      document.getElementById('support-tickets-hub')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      pendingOpenMessagesRef.current = true;
+    },
+  }));
+
+  useEffect(() => {
+    if (!pendingOpenMessagesRef.current || listLoading) return;
+    pendingOpenMessagesRef.current = false;
+    if (selectedId) {
+      const t = window.setTimeout(() => chatRef.current?.focusComposer(), 200);
+      return () => window.clearTimeout(t);
+    }
+    if (tickets.length > 0) {
+      const first = tickets[0] as Record<string, unknown>;
+      setSelectedId(String(first.id));
+      return;
+    }
+    const t = window.setTimeout(() => subjectInputRef.current?.focus(), 200);
+    return () => window.clearTimeout(t);
+  }, [listLoading, tickets, selectedId]);
 
   useEffect(() => {
     const raw = (searchParams.get('ticket') || '').trim();
@@ -189,7 +224,7 @@ export default function SupportTicketsHub({
   };
 
   return (
-    <div className="w-full max-w-none space-y-6 md:space-y-8">
+    <div id="support-tickets-hub" className="w-full max-w-none space-y-6 md:space-y-8">
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
         <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
           <MessageSquarePlus className="w-6 h-6 text-primary" />
@@ -254,6 +289,7 @@ export default function SupportTicketsHub({
               <div className="space-y-2">
                 <Label htmlFor="hub-subject">Subject</Label>
                 <Input
+                  ref={subjectInputRef}
                   id="hub-subject"
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
@@ -424,4 +460,6 @@ export default function SupportTicketsHub({
       </div>
     </div>
   );
-}
+});
+
+export default SupportTicketsHub;

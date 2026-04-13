@@ -1083,6 +1083,12 @@ export const websiteApi = {
       { method: "DELETE" },
       true,
     ),
+  /** Gemini-backed sales chat; key is only on the server (`GEMINI_API_KEY`). */
+  aiPitch: (body: { messages: Array<{ role: "user" | "assistant"; content: string }> }) =>
+    apiFetch<{ text: string }>("/ai-pitch/", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   searchPlaceholders: () => apiFetch<string[]>("/website/search-placeholders/"),
   familyInviteMeta: (token: string) =>
     apiFetch<{

@@ -7,6 +7,7 @@ import Footer from '@/components/layout/Footer';
 import MobileFooterNav from '@/components/layout/MobileFooterNav';
 import ScrollToTop from '@/components/ui/ScrollToTop';
 import AIChatbot from '@/components/chat/AIChatbot';
+import { buildProductAiContext } from '@/lib/salesAssistant';
 import ProductCard from '@/components/product/ProductCard';
 import FrequentlyBoughtTogether from '@/components/sections/FrequentlyBoughtTogether';
 import CategoryFloatingSidebar from '@/components/sections/CategoryFloatingSidebar';
@@ -300,6 +301,11 @@ const ProductDetail = () => {
       },
     ],
     [],
+  );
+
+  const productAiContext = useMemo(
+    () => (detailData ? buildProductAiContext(product, detailData) : null),
+    [product, detailData],
   );
 
   const reviews = useMemo(
@@ -780,7 +786,14 @@ const ProductDetail = () => {
 
       <Footer />
       <ScrollToTop />
-      <AIChatbot />
+      <AIChatbot
+        productAiContext={productAiContext}
+        productDetailLoading={Boolean(identifier && !detailData)}
+        onAddToCart={() => {
+          if (!requireAuth()) return;
+          guardChildCartAction(() => addToCart(product));
+        }}
+      />
       <MobileFooterNav />
 
       {/* Popups */}
