@@ -41,8 +41,16 @@ function toApiMessages(
   return out;
 }
 
+/** First user turn for general chat (server uses Gemini API specialist prompt). Not shown in the UI. */
+const GENERAL_INITIAL_USER_PROMPT =
+  'Give a clear, friendly overview of the Google Gemini API for a developer who just opened this chat. ' +
+  'Cover the main model tiers (Gemini 3.1 Pro, Gemini 3 Flash, Gemini 3.1 Flash-Lite), Nano Banana for images, ' +
+  'Veo 3.1 and Veo 3.1 Lite for video (mention Lite for high-speed, cost-effective video at scale), Gemini Robotics, ' +
+  'and a few headline capabilities (long context, JSON/structured outputs, function calling, tools, docs, Live/voice). ' +
+  'End with how to get an API key via Google AI Studio and the Quickstart. Keep it concise (about 3–5 short paragraphs).';
+
 const GENERAL_EMPTY_HINT =
-  'Ask about shopping on Khudrapasal, delivery, or account help — or open a product page for a tailored sales pitch.';
+  'You can ask about specific models (e.g. Veo 3.1 Lite, Nano Banana), capabilities, or getting started with the Gemini API.';
 
 function TypingDots() {
   return (
@@ -110,6 +118,36 @@ const AIChatbot = ({
       cancelled = true;
     };
   }, [isOpen, productAiContext]);
+
+  /** When opening the FAB outside a product page, load an automatic Gemini API pitch/overview. */
+  useEffect(() => {
+    if (!isOpen || productAiContext || productDetailLoading) return;
+    if (messages.length > 0) return;
+
+    let cancelled = false;
+    (async () => {
+      setIsTyping(true);
+      setError(null);
+      try {
+        const { text } = await websiteApi.aiPitch({
+          messages: [{ role: 'user', content: GENERAL_INITIAL_USER_PROMPT }],
+        });
+        if (cancelled) return;
+        setMessages((prev) =>
+          prev.length === 0 ? [{ id: newId(), role: 'assistant', content: text }] : prev,
+        );
+      } catch (e) {
+        if (!cancelled) {
+          setError(e instanceof Error ? e.message : 'Could not load overview.');
+        }
+      } finally {
+        if (!cancelled) setIsTyping(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, productAiContext, productDetailLoading, messages.length]);
 
   useEffect(() => {
     if (!listRef.current) return;
@@ -190,7 +228,9 @@ const AIChatbot = ({
             </div>
             <div className="min-w-0">
               <h2 className="truncate text-sm font-semibold text-foreground">Khudrapasal AI</h2>
-              <p className="truncate text-xs text-muted-foreground">Sales assistant</p>
+              <p className="truncate text-xs text-muted-foreground">
+                {productAiContext ? 'Product assistant' : 'Gemini API assistant'}
+              </p>
             </div>
           </div>
           <button
@@ -208,7 +248,11 @@ const AIChatbot = ({
             <p className="text-sm text-muted-foreground">Loading product information…</p>
           ) : null}
 
-          {!productAiContext && !productDetailLoading && messages.length === 0 && isOpen ? (
+          {!productAiContext &&
+          !productDetailLoading &&
+          messages.length === 0 &&
+          isOpen &&
+          !isTyping ? (
             <p className="text-sm text-muted-foreground leading-relaxed">{GENERAL_EMPTY_HINT}</p>
           ) : null}
 
