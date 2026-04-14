@@ -3153,11 +3153,32 @@ export const portalApi = {
           action_url: string;
           fields: Record<string, string>;
         }
+      | {
+          ok: true;
+          flow: "khalti_redirect";
+          payment_url: string;
+          pidx: string;
+          purchase_order_id: string;
+          expires_at?: string;
+          expires_in?: number;
+        }
     >(
       "/portal/wallet/topup/",
       { method: "POST", body: JSON.stringify(payload) },
       true,
     ),
+  walletKhaltiVerify: (params: { pidx: string }) =>
+    portalFetch<{
+      success: boolean;
+      detail?: string;
+      data?: {
+        status: string;
+        khalti_status: string;
+        pidx: string;
+        transaction_id?: string;
+        total_amount?: number;
+      };
+    }>(`/portal/wallet/topup/khalti/verify/${buildQuery(params)}`, undefined, true),
   walletTransferRecipients: (params?: { q?: string }) =>
     portalFetch<{
       results: Array<{

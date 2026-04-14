@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import LogoutConfirmDialog from '@/components/auth/LogoutConfirmDialog';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -121,6 +121,11 @@ const CustomerPortal = () => {
   const [familyInviteTokenInput, setFamilyInviteTokenInput] = useState('');
   const [createFamilyErr, setCreateFamilyErr] = useState('');
   const [notificationsModalOpen, setNotificationsModalOpen] = useState(false);
+  const khaltiReturnHandledRef = useRef<string | null>(null);
+  const khaltiPidxFromUrl = useMemo(
+    () => (searchParams.get('pidx') || '').trim(),
+    [searchParams],
+  );
 
   const urlInviteToken = useMemo(
     () => (searchParams.get('family_invite_token') || '').trim(),
@@ -147,6 +152,53 @@ const CustomerPortal = () => {
   useEffect(() => {
     setCheckoutPlacedPortal('portal_main');
   }, []);
+
+  /** After Khalti redirect, URL contains ?pidx=… — verify via API and strip query params. */
+  useEffect(() => {
+    if (!authed || !khaltiPidxFromUrl) return;
+    if (khaltiReturnHandledRef.current === khaltiPidxFromUrl) return;
+    khaltiReturnHandledRef.current = khaltiPidxFromUrl;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await portalApi.walletKhaltiVerify({ pidx: khaltiPidxFromUrl });
+        if (cancelled) return;
+        const st = res.data?.status;
+        if (res.success && st === 'SUCCESS') {
+          toast.success('Wallet topped up successfully (Khalti).');
+          setSessionTick((t) => t + 1);
+          void queryClient.invalidateQueries({ queryKey: ['portal'] });
+        } else if (st === 'FAILED') {
+          toast.error('Khalti payment was cancelled or failed.');
+        } else if (st === 'PENDING') {
+          toast.message('Khalti payment is still pending. Refresh in a moment.');
+        } else if (st === 'ERROR') {
+          toast.error('Could not confirm Khalti payment. Contact support if money was debited.');
+        } else if (res.detail) {
+          toast.error(res.detail);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          toast.error(e instanceof Error ? e.message : 'Khalti verification failed.');
+        }
+      } finally {
+        if (!cancelled) {
+          setSearchParams(
+            (prev) => {
+              const next = new URLSearchParams(prev);
+              next.delete('pidx');
+              next.delete('khalti_wallet');
+              return next;
+            },
+            { replace: true },
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authed, khaltiPidxFromUrl, queryClient, setSearchParams]);
 
   const { data: navData, isError: navError, isLoading: navLoading } = useQuery({
     queryKey: ['portal', 'navigation', 'main', sessionTick],
@@ -1687,7 +1739,11 @@ const CustomerPortal = () => {
             }
             document.body.appendChild(form);
             form.submit();
-            return;
+            return 'navigating';
+          }
+          if ("flow" in resp && resp.flow === "khalti_redirect" && resp.payment_url) {
+            window.location.href = resp.payment_url;
+            return 'navigating';
           }
           invalidatePortalWallet();
         }}

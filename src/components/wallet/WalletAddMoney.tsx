@@ -12,8 +12,11 @@ interface AddMoneyMethod {
 interface WalletAddMoneyProps {
   isOpen: boolean;
   onClose: () => void;
-  /** When set, credits wallet via API; otherwise uses demo success timer. */
-  onConfirmTopup?: (payload: { amount: number; method: string }) => Promise<void>;
+  /** When set, credits wallet via API; otherwise uses demo success timer. Return `"navigating"` when leaving the page (e.g. payment gateway). */
+  onConfirmTopup?: (payload: {
+    amount: number;
+    method: string;
+  }) => Promise<void | 'navigating'>;
   /** When opening (e.g. quick-add), prefill amount field. */
   defaultAmount?: string;
 }
@@ -57,7 +60,8 @@ const WalletAddMoney = ({ isOpen, onClose, onConfirmTopup, defaultAmount }: Wall
       setPending(true);
       try {
         const method = selectedMethod?.id ?? 'topup';
-        await onConfirmTopup({ amount: n, method });
+        const out = await onConfirmTopup({ amount: n, method });
+        if (out === 'navigating') return;
         setStep('success');
         setTimeout(() => {
           onClose();
