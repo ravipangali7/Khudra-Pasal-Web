@@ -1154,15 +1154,22 @@ export type UnifiedAuthSuccess = {
   user: Record<string, unknown>;
 };
 
-export type GoogleJwtAuthSuccess = {
-  access: string;
-  refresh: string;
-  user: {
-    pk: number;
-    email: string;
-    name: string;
-  };
-};
+/** Result of POST /auth/google/ — either a full session or phone completion step. */
+export type GoogleCredentialAuthResult =
+  | UnifiedAuthSuccess
+  | { requires_oauth_phone: true; pending_token: string };
+
+export class HttpStatusError extends Error {
+  readonly status: number;
+  readonly body: unknown;
+
+  constructor(message: string, status: number, body: unknown) {
+    super(message);
+    this.name = "HttpStatusError";
+    this.status = status;
+    this.body = body;
+  }
+}
 
 export const authApi = {
   login: (phone: string, password: string, portal: AuthPortalKey = "portal") =>
@@ -1211,11 +1218,34 @@ export const authApi = {
       { method: "POST", body: JSON.stringify(body) },
       true,
     ),
-  loginWithGoogleCredential: (access_token: string) =>
-    apiFetch<GoogleJwtAuthSuccess>("/auth/google/", {
-      method: "POST",
-      body: JSON.stringify({ access_token }),
-    }),
+  loginWithGoogleCredential: async (opts: {
+    access_token: string;
+    flow?: "login" | "register";
+    next?: string;
+  }): Promise<GoogleCredentialAuthResult> => {
+    const headers = new Headers();
+    headers.set("Content-Type", "application/json");
+    const body = JSON.stringify({
+      access_token: opts.access_token,
+      flow: opts.flow ?? "login",
+      next: opts.next ?? "",
+    });
+    const response = await fetch(`${API_BASE}/auth/google/`, { method: "POST", headers, body });
+    const data = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+    if (!response.ok) {
+      const parts: string[] = [];
+      const detail = data.detail;
+      if (typeof detail === "string") parts.push(detail);
+      else if (Array.isArray(detail)) parts.push(detail.map(String).join(", "));
+      const detailMsg = parts.length ? parts.join(" ") : "";
+      throw new HttpStatusError(
+        detailMsg ? `${detailMsg} Request failed: ${response.status}` : `Request failed: ${response.status}`,
+        response.status,
+        data,
+      );
+    }
+    return data as GoogleCredentialAuthResult;
+  },
   sendOAuthPhoneOtp: (body: { pending_token: string; phone: string }) =>
     apiFetch<{ detail: string; debug_otp?: string }>("/auth/social/oauth-phone/send/", {
       method: "POST",

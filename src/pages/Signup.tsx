@@ -3,15 +3,24 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { User, ArrowRight, Shield, ChevronLeft, Loader2, CheckCircle } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { cn } from "@/lib/utils";
-import { authApi, setAuthToken, type AuthPortalKey, type GoogleJwtAuthSuccess } from "@/lib/api";
+import { authApi, setAuthToken, type AuthPortalKey, type UnifiedAuthSuccess } from "@/lib/api";
 import { DEFAULT_REDIRECT_AFTER_LOGIN } from "@/config/authDefaults";
 import { sanitizeNextPath } from "@/lib/authRedirect";
 import AuthBrandingPanelSignup from "@/components/auth/AuthBrandingPanelSignup";
 import AuthSplitShell from "@/components/auth/AuthSplitShell";
 import PhonePrefixField from "@/components/auth/PhonePrefixField";
-import OAuthPhoneCompletionForm from "@/components/auth/OAuthPhoneCompletionForm";
 import GoogleCredentialButton from "@/components/auth/GoogleCredentialButton";
 import { AUTH_ORANGE, SIGNUP_CTA_GRADIENT } from "@/components/auth/constants";
+import {
+  GOOGLE_OAUTH_PREFILL_STORAGE_KEY,
+  decodeGoogleIdTokenPayload,
+  gmailDisplayNameFromPayload,
+  googlePhoneToNepal10Digits,
+  type GoogleOauthPrefillStored,
+} from "@/lib/googleIdToken";
+
+/** Dedupe auto OTP send across React StrictMode remounts for the same pending token. */
+const googleOAuthPhoneSendPromises = new Map<string, Promise<void>>();
 
 const Signup = () => {
   const navigate = useNavigate();
@@ -23,7 +32,15 @@ const Signup = () => {
   const [error, setError] = useState("");
   const [oauthError, setOauthError] = useState<string | null>(null);
 
+  const [googleOauthStep, setGoogleOauthStep] = useState<"phone" | "otp">("phone");
+  const [googleOauthName, setGoogleOauthName] = useState("");
+  const [googleOauthPhone, setGoogleOauthPhone] = useState("");
+  const [googleOauthOtp, setGoogleOauthOtp] = useState("");
+  const [googleOauthError, setGoogleOauthError] = useState("");
+  const [googleOauthLoading, setGoogleOauthLoading] = useState(false);
+
   const digits = formData.phone.replace(/\D/g, "").slice(0, 10);
+  const googleOauthDigits = googleOauthPhone.replace(/\D/g, "").slice(0, 10);
 
   const nextSanitized = sanitizeNextPath(searchParams.get("next"));
   const oauthNext = nextSanitized ?? DEFAULT_REDIRECT_AFTER_LOGIN;
@@ -51,6 +68,136 @@ const Signup = () => {
       { replace: true },
     );
   }, [searchParams, navigate]);
+
+  useEffect(() => {
+    if (!oauthPendingToken) return;
+
+    let name = "";
+    let phoneDigits = "";
+    try {
+      const raw = sessionStorage.getItem(GOOGLE_OAUTH_PREFILL_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as GoogleOauthPrefillStored;
+        name = (parsed.displayName || "").trim();
+        phoneDigits = (parsed.phoneDigits || "").replace(/\D/g, "").slice(0, 10);
+      }
+    } catch {
+      /* ignore */
+    }
+
+    setGoogleOauthName(name);
+    setGoogleOauthPhone(phoneDigits);
+
+    if (phoneDigits.length !== 10) return;
+
+    const sentOk = `khudra_oauth_sent_ok_${oauthPendingToken}`;
+    try {
+      if (sessionStorage.getItem(sentOk)) {
+        setGoogleOauthStep("otp");
+        return;
+      }
+    } catch {
+      /* ignore */
+    }
+
+    let p = googleOAuthPhoneSendPromises.get(oauthPendingToken);
+    if (!p) {
+      p = (async () => {
+        try {
+          const r = await authApi.sendOAuthPhoneOtp({
+            pending_token: oauthPendingToken,
+            phone: phoneDigits,
+          });
+          if (r.debug_otp) console.info("[dev] Google signup OTP:", r.debug_otp);
+          try {
+            sessionStorage.setItem(sentOk, "1");
+          } catch {
+            /* ignore */
+          }
+          setGoogleOauthStep("otp");
+          setGoogleOauthOtp("");
+        } catch (err: unknown) {
+          googleOAuthPhoneSendPromises.delete(oauthPendingToken);
+          setGoogleOauthError(err instanceof Error ? err.message : "Could not send OTP.");
+        }
+      })();
+      googleOAuthPhoneSendPromises.set(oauthPendingToken, p);
+    }
+
+    setGoogleOauthLoading(true);
+    void p.finally(() => {
+      setGoogleOauthLoading(false);
+    });
+    void p.then(() => {
+      try {
+        if (sessionStorage.getItem(sentOk)) setGoogleOauthStep("otp");
+      } catch {
+        /* ignore */
+      }
+    });
+  }, [oauthPendingToken]);
+
+  const handleGoogleOauthSendOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setGoogleOauthError("");
+    if (!oauthPendingToken) return;
+    if (googleOauthDigits.length !== 10) {
+      setGoogleOauthError("Please enter a valid 10-digit mobile number");
+      return;
+    }
+    setGoogleOauthLoading(true);
+    try {
+      const r = await authApi.sendOAuthPhoneOtp({
+        pending_token: oauthPendingToken,
+        phone: googleOauthDigits,
+      });
+      if (r.debug_otp) console.info("[dev] Google signup OTP:", r.debug_otp);
+      try {
+        sessionStorage.setItem(`khudra_oauth_sent_ok_${oauthPendingToken}`, "1");
+      } catch {
+        /* ignore */
+      }
+      setGoogleOauthStep("otp");
+      setGoogleOauthOtp("");
+    } catch (err: unknown) {
+      setGoogleOauthError(err instanceof Error ? err.message : "Could not send OTP.");
+    } finally {
+      setGoogleOauthLoading(false);
+    }
+  };
+
+  const handleGoogleOauthVerify = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setGoogleOauthError("");
+    if (!oauthPendingToken) return;
+    const code = googleOauthOtp.replace(/\D/g, "").slice(0, 6);
+    if (code.length !== 6) {
+      setGoogleOauthError("Please enter the complete 6-digit OTP");
+      return;
+    }
+    setGoogleOauthLoading(true);
+    try {
+      const r = await authApi.verifyOAuthPhone({
+        pending_token: oauthPendingToken,
+        phone: googleOauthDigits,
+        otp: code,
+      });
+      try {
+        sessionStorage.removeItem(GOOGLE_OAUTH_PREFILL_STORAGE_KEY);
+        sessionStorage.removeItem(`khudra_oauth_sent_ok_${oauthPendingToken}`);
+      } catch {
+        /* ignore */
+      }
+      setAuthToken(r.token, r.surface);
+      const target =
+        nextSanitized && nextSanitized !== "" ? nextSanitized : r.redirect;
+      navigate(target, { replace: true });
+    } catch (err: unknown) {
+      setGoogleOauthError(err instanceof Error ? err.message : "Verification failed.");
+    } finally {
+      setGoogleOauthLoading(false);
+    }
+  };
 
   const handleInfoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -150,7 +297,7 @@ const Signup = () => {
                 </h1>
                 <p className="text-neutral-500">
                   {oauthPendingToken
-                    ? "Verify your mobile number to finish creating your account."
+                    ? "Confirm your Nepal mobile number to finish creating your account."
                     : isJoinFamilyReturn
                       ? "Create your account to continue to the family invitation."
                       : isFamilySignup
@@ -160,17 +307,135 @@ const Signup = () => {
               </div>
 
               {oauthPendingToken ? (
-                <OAuthPhoneCompletionForm
-                  pendingToken={oauthPendingToken}
-                  title="Verify your mobile number"
-                  description="Enter your Nepal mobile number to finish signing up. We’ll send a one-time code to verify it."
-                  onComplete={(r) => {
-                    setAuthToken(r.token, r.surface);
-                    const target =
-                      nextSanitized && nextSanitized !== "" ? nextSanitized : r.redirect;
-                    navigate(target, { replace: true });
-                  }}
-                />
+                <div className="bg-white rounded-2xl shadow-lg border border-neutral-200 overflow-hidden">
+                  <div className="rounded-xl border border-orange-200 bg-orange-50/60 p-4 mx-6 mt-6 text-sm text-neutral-800">
+                    <p className="font-semibold text-neutral-900">Finish your account</p>
+                    <p className="mt-1 text-neutral-600">
+                      Your name matches your Google profile. Enter your mobile number and confirm the OTP we send.
+                    </p>
+                  </div>
+                  {googleOauthStep === "phone" ? (
+                    <form onSubmit={(e) => void handleGoogleOauthSendOtp(e)} className="p-6 space-y-5">
+                      <div>
+                        <label className="block text-sm font-medium text-neutral-800 mb-2">Full Name</label>
+                        <div
+                          className="relative rounded-xl border-2 bg-neutral-50/80 pl-12 pr-4"
+                          style={{ borderColor: `${AUTH_ORANGE}55` }}
+                        >
+                          <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-neutral-400" />
+                          <input
+                            type="text"
+                            readOnly
+                            value={googleOauthName}
+                            className="w-full py-3.5 bg-transparent text-neutral-900 cursor-default focus:outline-none"
+                            placeholder="From your Google account"
+                          />
+                        </div>
+                        <p className="text-xs text-neutral-500 mt-1.5">
+                          This is the same name shown on your Google account.
+                        </p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-neutral-800 mb-2">Mobile Number</label>
+                        <PhonePrefixField
+                          value={googleOauthDigits}
+                          onChange={(e) =>
+                            setGoogleOauthPhone(
+                              e.target.value.replace(/\D/g, "").slice(0, 10),
+                            )
+                          }
+                          autoFocus={!googleOauthDigits}
+                        />
+                      </div>
+                      {googleOauthError ? (
+                        <p className="text-xs text-destructive">{googleOauthError}</p>
+                      ) : null}
+                      <button
+                        type="submit"
+                        disabled={googleOauthLoading}
+                        className="w-full py-4 text-white font-semibold rounded-xl hover:opacity-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50 active:scale-[0.98]"
+                        style={{ background: SIGNUP_CTA_GRADIENT }}
+                      >
+                        {googleOauthLoading ? (
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : (
+                          <>
+                            <span>Get OTP</span>
+                            <ArrowRight className="w-5 h-5" />
+                          </>
+                        )}
+                      </button>
+                      <div className="flex items-center justify-center gap-2 text-xs text-neutral-500">
+                        <Shield className="w-4 h-4 text-emerald-600" />
+                        <span>Your information is secure and encrypted</span>
+                      </div>
+                    </form>
+                  ) : (
+                    <form onSubmit={(e) => void handleGoogleOauthVerify(e)} className="p-6 space-y-5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setGoogleOauthStep("phone");
+                          setGoogleOauthOtp("");
+                          setGoogleOauthError("");
+                        }}
+                        className="flex items-center gap-1 text-sm text-neutral-500 hover:text-neutral-900 transition-colors"
+                      >
+                        <ChevronLeft className="w-4 h-4" /> Change number
+                      </button>
+                      <div className="text-center">
+                        <h2 className="text-lg font-semibold text-neutral-900 mb-1">Verify Mobile</h2>
+                        <p className="text-sm text-neutral-500">
+                          Enter the 6-digit code sent to{" "}
+                          <span className="font-medium text-neutral-900">+977 {googleOauthDigits}</span>
+                        </p>
+                      </div>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        maxLength={6}
+                        value={googleOauthOtp}
+                        onChange={(e) =>
+                          setGoogleOauthOtp(e.target.value.replace(/\D/g, "").slice(0, 6))
+                        }
+                        className="w-full text-center text-2xl tracking-[0.35em] font-bold py-3 rounded-xl border-2 border-neutral-200 focus:outline-none focus:border-orange-400"
+                        placeholder="••••••"
+                        autoFocus
+                      />
+                      {googleOauthError ? (
+                        <p className="text-xs text-destructive text-center">{googleOauthError}</p>
+                      ) : null}
+                      <button
+                        type="submit"
+                        disabled={googleOauthLoading}
+                        className="w-full py-4 text-white font-semibold rounded-xl hover:opacity-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                        style={{ background: SIGNUP_CTA_GRADIENT }}
+                      >
+                        {googleOauthLoading ? (
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : (
+                          <>
+                            <span>Create Account</span>
+                            <ArrowRight className="w-5 h-5" />
+                          </>
+                        )}
+                      </button>
+                    </form>
+                  )}
+                  <div className="px-6 py-4 bg-neutral-50 border-t border-neutral-200 text-center">
+                    <p className="text-sm text-neutral-600">
+                      Already have an account?{" "}
+                      <Link
+                        to="/login?shop=1"
+                        className="font-semibold hover:underline"
+                        style={{ color: AUTH_ORANGE }}
+                      >
+                        Login
+                      </Link>
+                    </p>
+                  </div>
+                </div>
               ) : (
                 <>
               <div className="mb-6 flex justify-center">
@@ -178,8 +443,20 @@ const Signup = () => {
                   flow="register"
                   nextPath={oauthNext}
                   disabled={isLoading}
-                  onAuthSuccess={(payload: GoogleJwtAuthSuccess) => {
+                  onAuthSuccess={(payload, meta) => {
                     if ("requires_oauth_phone" in payload && payload.requires_oauth_phone) {
+                      const claims = decodeGoogleIdTokenPayload(meta.credential);
+                      try {
+                        sessionStorage.setItem(
+                          GOOGLE_OAUTH_PREFILL_STORAGE_KEY,
+                          JSON.stringify({
+                            displayName: gmailDisplayNameFromPayload(claims),
+                            phoneDigits: googlePhoneToNepal10Digits(claims?.phone_number),
+                          } satisfies GoogleOauthPrefillStored),
+                        );
+                      } catch {
+                        /* private mode / quota */
+                      }
                       navigate(
                         `${signupReturnPath}${signupReturnPath.includes("?") ? "&" : "?"}oauth_pending=${encodeURIComponent(payload.pending_token)}`,
                         { replace: true },
@@ -187,7 +464,10 @@ const Signup = () => {
                       return;
                     }
                     setAuthToken(payload.token, payload.surface);
-                    const target = nextSanitized && nextSanitized !== "" ? nextSanitized : payload.redirect;
+                    const target =
+                      nextSanitized && nextSanitized !== ""
+                        ? nextSanitized
+                        : (payload as UnifiedAuthSuccess).redirect;
                     navigate(target, { replace: true });
                   }}
                   onError={(message) => setError(message)}

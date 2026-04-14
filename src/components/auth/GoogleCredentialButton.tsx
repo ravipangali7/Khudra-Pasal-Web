@@ -1,11 +1,11 @@
 import { GoogleLogin, type CredentialResponse } from "@react-oauth/google";
-import { authApi, type GoogleJwtAuthSuccess } from "@/lib/api";
+import { authApi, HttpStatusError, type GoogleCredentialAuthResult } from "@/lib/api";
 
 type GoogleCredentialButtonProps = {
   flow: "login" | "register";
   nextPath: string;
   disabled?: boolean;
-  onAuthSuccess: (payload: GoogleJwtAuthSuccess) => void;
+  onAuthSuccess: (payload: GoogleCredentialAuthResult, meta: { credential: string }) => void;
   onError: (message: string) => void;
 };
 
@@ -22,16 +22,31 @@ export default function GoogleCredentialButton({
       onError("Google did not return a credential. Please try again.");
       return;
     }
+    let out: GoogleCredentialAuthResult;
     try {
-      const out = await authApi.loginWithGoogleCredential({
+      out = await authApi.loginWithGoogleCredential({
         access_token: credential,
         flow,
         next: nextPath,
       });
-      onAuthSuccess(out);
     } catch (err: unknown) {
-      onError(err instanceof Error ? err.message : "Google sign-in failed.");
+      if (flow === "login" && err instanceof HttpStatusError && err.status === 404) {
+        try {
+          out = await authApi.loginWithGoogleCredential({
+            access_token: credential,
+            flow: "register",
+            next: nextPath,
+          });
+        } catch (err2: unknown) {
+          onError(err2 instanceof Error ? err2.message : "Google sign-in failed.");
+          return;
+        }
+      } else {
+        onError(err instanceof Error ? err.message : "Google sign-in failed.");
+        return;
+      }
     }
+    onAuthSuccess(out, { credential });
   };
 
   return (

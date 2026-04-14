@@ -1,7 +1,13 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowRight, Loader2, Shield } from "lucide-react";
-import { authApi, setAuthToken, type AuthPortalKey, type GoogleJwtAuthSuccess } from "@/lib/api";
+import { authApi, setAuthToken, type AuthPortalKey, type UnifiedAuthSuccess } from "@/lib/api";
+import {
+  GOOGLE_OAUTH_PREFILL_STORAGE_KEY,
+  decodeGoogleIdTokenPayload,
+  gmailDisplayNameFromPayload,
+  googlePhoneToNepal10Digits,
+} from "@/lib/googleIdToken";
 import { DEFAULT_REDIRECT_AFTER_LOGIN } from "@/config/authDefaults";
 import { sanitizeNextPath } from "@/lib/authRedirect";
 import { cn } from "@/lib/utils";
@@ -125,12 +131,29 @@ export default function UnifiedLoginForm({
         flow="login"
         nextPath={oauthNext}
         disabled={loading}
-        onAuthSuccess={(payload: GoogleJwtAuthSuccess) => {
+        onAuthSuccess={(payload, meta) => {
           if ("requires_oauth_phone" in payload && payload.requires_oauth_phone) {
-            navigate(`${loginReturnPath}${loginReturnPath.includes("?") ? "&" : "?"}oauth_pending=${encodeURIComponent(payload.pending_token)}`, { replace: true });
+            const claims = decodeGoogleIdTokenPayload(meta.credential);
+            try {
+              sessionStorage.setItem(
+                GOOGLE_OAUTH_PREFILL_STORAGE_KEY,
+                JSON.stringify({
+                  displayName: gmailDisplayNameFromPayload(claims),
+                  phoneDigits: googlePhoneToNepal10Digits(claims?.phone_number),
+                }),
+              );
+            } catch {
+              /* private mode / quota */
+            }
+            const pqs = new URLSearchParams(searchParams);
+            pqs.set("oauth_pending", payload.pending_token);
+            navigate(
+              { pathname: "/signup", search: pqs.toString() ? `?${pqs.toString()}` : "" },
+              { replace: true },
+            );
             return;
           }
-          finishAuth(payload);
+          finishAuth(payload as UnifiedAuthSuccess);
         }}
         onError={(message) => setError(message)}
       />
