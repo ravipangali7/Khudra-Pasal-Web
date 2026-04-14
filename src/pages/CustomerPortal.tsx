@@ -1672,7 +1672,23 @@ const CustomerPortal = () => {
           setAddMoneyPrefill('');
         }}
         onConfirmTopup={async ({ amount, method }) => {
-          await portalApi.walletTopup({ amount, method });
+          const resp = await portalApi.walletTopup({ amount, method });
+          if ("flow" in resp && resp.flow === "esewa_redirect") {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = resp.action_url;
+            form.style.display = 'none';
+            for (const [k, v] of Object.entries(resp.fields || {})) {
+              const input = document.createElement('input');
+              input.type = 'hidden';
+              input.name = k;
+              input.value = String(v);
+              form.appendChild(input);
+            }
+            document.body.appendChild(form);
+            form.submit();
+            return;
+          }
           invalidatePortalWallet();
         }}
       />

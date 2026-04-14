@@ -58,7 +58,6 @@ import {
 } from '@/lib/childShoppingRules';
 import { toast } from 'sonner';
 import { normalizeNepalPhoneDigits } from '@/lib/nepalPhone';
-import { CHECKOUT_ESEWA_ORDER_NUMBERS_KEY, submitEsewaFormPost } from '@/lib/checkoutGateway';
 
 type CheckoutStep = 'cart' | 'delivery' | 'payment';
 
@@ -131,7 +130,8 @@ const Checkout = () => {
   const [wantDelivery, setWantDelivery] = useState(true);
   const [useAutoLocation, setUseAutoLocation] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'esewa' | 'khalti'>('wallet');
+  /** Storefront checkout accepts KhudraPasal Wallet only; value is fixed for API payloads. */
+  const paymentMethod = 'wallet' as const;
   const [placeOrderPending, setPlaceOrderPending] = useState(false);
   const [walletCheckoutCtx, setWalletCheckoutCtx] = useState<PortalCheckoutWalletContext | null>(null);
   const [walletCtxLoading, setWalletCtxLoading] = useState(false);
@@ -223,10 +223,7 @@ const Checkout = () => {
   }, [hasStorefrontSession, portalMe]);
 
   useEffect(() => {
-    if (!hasStorefrontSession || step !== 'payment' || paymentMethod !== 'wallet') {
-      if (step === 'payment' && paymentMethod !== 'wallet') {
-        setWalletCtxLoading(false);
-      }
+    if (!hasStorefrontSession || step !== 'payment') {
       return;
     }
     let cancelled = false;
@@ -245,7 +242,7 @@ const Checkout = () => {
     return () => {
       cancelled = true;
     };
-  }, [hasStorefrontSession, step, paymentMethod]);
+  }, [hasStorefrontSession, step]);
 
   const formatPrice = (price: number) => `Rs. ${price.toLocaleString('en-NP')}`;
 
@@ -399,7 +396,6 @@ const Checkout = () => {
   }, [isChildShopper, rules, totalAmount]);
 
   useEffect(() => {
-    if (paymentMethod !== 'wallet') return;
     if (step !== 'payment' || walletCtxLoading || !walletCheckoutCtx?.default) return;
     setPayWalletId((prev) => {
       const picked = pickCheckoutPayWalletId(walletCheckoutCtx, totalAmount, prev);
@@ -423,7 +419,6 @@ const Checkout = () => {
       return picked;
     });
   }, [
-    paymentMethod,
     step,
     walletCtxLoading,
     walletCheckoutCtx,
@@ -459,17 +454,14 @@ const Checkout = () => {
     );
   }, [isChildShopper, rules, walletCheckoutCtx, totalAmount]);
 
-  const khaltiBelowMinimum = paymentMethod === 'khalti' && totalAmount < 10;
-  const checkoutPayBlocked =
+  const walletPayBlocked =
+    walletCtxLoading ||
     !hasStorefrontSession ||
+    !walletCheckoutCtx?.default ||
     (wantDelivery && !deliveryPricingReady) ||
-    khaltiBelowMinimum ||
-    (paymentMethod === 'wallet' &&
-      (walletCtxLoading ||
-        !walletCheckoutCtx?.default ||
-        (effectivePayWallet != null && totalAmount > effectivePayWallet.balance) ||
-        effectiveWalletOverChildSpendingLimit ||
-        childSpendingLimitNoPersonalOutlet));
+    (effectivePayWallet != null && totalAmount > effectivePayWallet.balance) ||
+    effectiveWalletOverChildSpendingLimit ||
+    childSpendingLimitNoPersonalOutlet;
 
   const steps: { key: CheckoutStep; label: string; icon: typeof Truck }[] = [
     { key: 'cart', label: 'Cart', icon: Truck },
@@ -637,7 +629,6 @@ const Checkout = () => {
     }
 
     if (
-      paymentMethod === 'wallet' &&
       isChildShopper &&
       rules &&
       effectivePayWallet &&
@@ -690,7 +681,6 @@ const Checkout = () => {
     }
 
     const walletInsufficient =
-      paymentMethod === 'wallet' &&
       !walletCtxLoading &&
       Boolean(walletCheckoutCtx?.default) &&
       effectivePayWallet != null &&
@@ -707,16 +697,21 @@ const Checkout = () => {
     setPlaceOrderPending(true);
     try {
       const res = await portalApi.checkout(payload);
-      const gw = res.gateway;
-      if (gw?.provider === 'esewa') {
-        const nums = res.orders.map((o) => o.order_number);
-        sessionStorage.setItem(CHECKOUT_ESEWA_ORDER_NUMBERS_KEY, JSON.stringify(nums));
-        submitEsewaFormPost(gw.form_action, gw.fields);
-        return;
-      }
-      if (gw?.provider === 'khalti') {
-        window.location.href = gw.payment_url;
-        return;
+      if (res.requires_payment_confirmation && res.orders?.length) {
+        try {
+          await portalApi.ordersPaymentComplete(res.orders.map((o) => o.order_number));
+        } catch (confirmErr) {
+          toast.error(
+            confirmErr instanceof Error
+              ? confirmErr.message
+              : 'Could not confirm payment. Check your orders or try again.',
+          );
+          clearCart();
+          void queryClient.invalidateQueries({ queryKey: ['portal'] });
+          void queryClient.invalidateQueries({ queryKey: ['portal', 'checkout-quote'] });
+          navigate(postCheckoutPath, { replace: true });
+          return;
+        }
       }
       let balanceNote = '';
       try {
@@ -1158,34 +1153,10 @@ const Checkout = () => {
 
             {step === 'payment' && (
               <div className="bg-card rounded-2xl p-4 md:p-6 shadow-sm">
-                <h2 className="font-bold text-lg mb-1">Payment method</h2>
+                <h2 className="font-bold text-lg mb-1">Pay with KhudraPasal Wallet</h2>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Pay with your KhudraPasal Wallet, or use eSewa / Khalti (sandbox test).
+                  Checkout is paid from your wallet balance. Add money in your portal if you need more.
                 </p>
-                <div className="flex flex-wrap gap-2 mb-6">
-                  {(
-                    [
-                      { id: 'wallet' as const, label: 'Wallet', sub: 'Balance' },
-                      { id: 'esewa' as const, label: 'eSewa', sub: 'Test' },
-                      { id: 'khalti' as const, label: 'Khalti', sub: 'Test' },
-                    ] as const
-                  ).map((opt) => (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => setPaymentMethod(opt.id)}
-                      className={cn(
-                        'flex-1 min-w-[100px] rounded-xl border-2 px-3 py-2.5 text-left transition-colors',
-                        paymentMethod === opt.id
-                          ? 'border-category-fresh bg-category-fresh/10'
-                          : 'border-border hover:bg-muted/50',
-                      )}
-                    >
-                      <div className="font-semibold text-sm">{opt.label}</div>
-                      <div className="text-[11px] text-muted-foreground">{opt.sub}</div>
-                    </button>
-                  ))}
-                </div>
                 {!hasStorefrontSession ? (
                   <div className="rounded-xl border border-border bg-muted/30 p-4 text-center space-y-3">
                     <p className="text-sm text-muted-foreground">Sign in to use your wallet at checkout.</p>
@@ -1197,7 +1168,7 @@ const Checkout = () => {
                       Sign in
                     </Link>
                   </div>
-                ) : paymentMethod === 'wallet' ? (
+                ) : (
                   <div className="space-y-4">
                     <div className="flex items-start gap-4 p-4 rounded-xl border-2 border-category-fresh/30 bg-category-fresh/5">
                       <div className="p-2 rounded-lg bg-category-fresh/15 text-category-fresh shrink-0">
@@ -1329,35 +1300,12 @@ const Checkout = () => {
                       </div>
                     </div>
                   </div>
-                ) : paymentMethod === 'esewa' ? (
-                  <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-4 space-y-2">
-                    <p className="font-semibold text-emerald-900 dark:text-emerald-100">eSewa (sandbox)</p>
-                    <p className="text-sm text-muted-foreground">
-                      You will be redirected to the eSewa test page. Use test IDs 9806800001–9806800005,
-                      password Nepal@123, OTP 123456. No real money is charged.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="rounded-xl border border-violet-500/30 bg-violet-500/5 p-4 space-y-2">
-                    <p className="font-semibold text-violet-900 dark:text-violet-100">Khalti (sandbox)</p>
-                    <p className="text-sm text-muted-foreground">
-                      Minimum order total is Rs. 10 for Khalti test. You will be sent to Khalti&apos;s test
-                      payment page (phones 9800000001–9800000003, MPIN 1111, OTP 987654).
-                    </p>
-                    {khaltiBelowMinimum ? (
-                      <p className="text-sm text-destructive font-medium">
-                        Add more items or switch to Wallet — total is below Rs. 10.
-                      </p>
-                    ) : null}
-                  </div>
                 )}
 
                 <div className="mt-6 p-4 bg-muted/50 rounded-xl flex items-center gap-3">
                   <Shield className="w-5 h-5 text-category-fresh shrink-0" />
                   <p className="text-sm text-muted-foreground">
-                    {paymentMethod === 'wallet'
-                      ? 'Payment is processed from your KhudraPasal Wallet.'
-                      : 'Test/sandbox payment only — no real money is charged.'}
+                    Payment is processed securely from your KhudraPasal Wallet only.
                   </p>
                 </div>
               </div>
@@ -1512,7 +1460,7 @@ const Checkout = () => {
                 onClick={step === 'payment' ? () => void handlePlaceOrder() : handleContinue}
                 disabled={
                   (step === 'payment' && placeOrderPending) ||
-                  (step === 'payment' && checkoutPayBlocked)
+                  (step === 'payment' && walletPayBlocked)
                 }
                 className="w-full py-4 bg-category-fresh hover:bg-category-fresh/90 text-white font-semibold rounded-xl transition-colors disabled:opacity-60"
               >
