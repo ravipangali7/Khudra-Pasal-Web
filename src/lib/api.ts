@@ -76,6 +76,11 @@ export function isStorefrontCustomerSession(): boolean {
   return surface === null || surface === "portal";
 }
 
+/** True when `websiteApi` authenticated calls will send a token (shopper, portal, vendor, admin). */
+export function isWebsiteApiAuthenticatedSession(): boolean {
+  return Boolean(getAuthToken());
+}
+
 /** Pass `surface` from unified login so portals can avoid calling vendor APIs with a customer/admin token. */
 export function setAuthToken(token: string, surface?: "admin" | "vendor" | "portal") {
   localStorage.setItem(AUTH_TOKEN_KEY, token);

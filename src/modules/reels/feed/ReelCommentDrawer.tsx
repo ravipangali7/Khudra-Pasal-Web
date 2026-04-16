@@ -4,7 +4,7 @@ import { useMutation, useQuery } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X, Send } from 'lucide-react';
-import { isStorefrontCustomerSession, websiteApi } from '@/lib/api';
+import { isWebsiteApiAuthenticatedSession, websiteApi } from '@/lib/api';
 import { toast } from 'sonner';
 import EmojiPickerOverlay from './EmojiPickerOverlay';
 
@@ -70,7 +70,7 @@ const ReelCommentDrawer: React.FC<Props> = ({ reelId, open, onClose, onCommentAd
   const [portalEl, setPortalEl] = useState<HTMLElement | null>(null);
   const [keyboardInset, setKeyboardInset] = useState(0);
 
-  const hasSession = isStorefrontCustomerSession();
+  const hasSession = isWebsiteApiAuthenticatedSession();
 
   useEffect(() => {
     if (typeof document === 'undefined') return;

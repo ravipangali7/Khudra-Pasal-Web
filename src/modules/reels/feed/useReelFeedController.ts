@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { isStorefrontCustomerSession, websiteApi } from '@/lib/api';
+import { isStorefrontCustomerSession, isWebsiteApiAuthenticatedSession, websiteApi } from '@/lib/api';
 import { savePendingCartIntent } from '@/lib/pendingCartIntent';
 import { useCart } from '@/contexts/CartContext';
 import { useChildShoppingRules } from '@/contexts/ChildShoppingRulesContext';
@@ -83,7 +83,7 @@ export function useReelFeedController(
   );
 
   const requireCustomerForEngagement = useCallback(() => {
-    if (isStorefrontCustomerSession()) return true;
+    if (isWebsiteApiAuthenticatedSession()) return true;
     const nextPath = `${location.pathname}${location.search}`;
     navigate(`/login?next=${encodeURIComponent(nextPath)}&shop=1`);
     return false;
