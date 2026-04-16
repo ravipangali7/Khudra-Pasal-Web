@@ -1,13 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import { motion } from 'framer-motion';
-import { Play, MoreVertical, Edit, Pause, Trash2, Eye, Heart, MessageCircle, Zap } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Play, MoreVertical, Edit, Pause, Trash2, Eye, Heart, MessageCircle, Zap, Search, X, ChevronDown } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import ReelStatusBadge from './ReelStatusBadge';
 import BoostModal from './BoostModal';
 import type { Reel } from '../types';
 import { extractResults, vendorApi, websiteApiReelsPreferDirectMp4 } from '@/lib/api';
-import { mapApiReelToUi } from '../api/reelMappers';
+import { detectApiPlatformFromVideoUrl, mapApiReelToUi, mapUiPlatformToApi } from '../api/reelMappers';
 import { useReelsQueryAuthRev } from '../feed/useReelsQueryAuthRev';
 import { useVendorReelViewer } from './VendorReelViewerContext';
 import { cn } from '@/lib/utils';
@@ -37,12 +37,19 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import '../reels-theme.css';
 
 const formatCount = (n: number) => n >= 1000 ? (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k' : n.toString();
 
-// Mock role check — in real app, this comes from auth context
-const useUserRole = () => ({ role: 'vendor' as 'vendor' | 'admin' | 'customer' });
+const REEL_PLATFORMS: { value: string; label: string }[] = [
+  { value: 'youtube_shorts', label: 'YouTube Shorts' },
+  { value: 'tiktok', label: 'TikTok' },
+  { value: 'instagram', label: 'Instagram' },
+  { value: 'direct_mp4', label: 'Direct MP4' },
+];
+
 const StatCard: React.FC<{ label: string; value: string | number }> = ({ label, value }) => (
   <motion.div
     className="rounded-xl p-4 text-center"
@@ -70,8 +77,7 @@ const MyReelsGrid: React.FC<MyReelsGridProps> = ({ onNewReel, vendorId, vendorSl
   const queryClient = useQueryClient();
   const [boostOpen, setBoostOpen] = useState(false);
   const [boostReel, setBoostReel] = useState<Reel | null>(null);
-  const { role } = useUserRole();
-  const canBoost = role === 'vendor' || role === 'admin';
+  const canBoost = Boolean(useVendorPortal);
 
   const slug = vendorSlug ?? (import.meta.env.VITE_DEV_VENDOR_SLUG as string | undefined) ?? null;
   const id = vendorId ?? null;
@@ -96,17 +102,6 @@ const MyReelsGrid: React.FC<MyReelsGridProps> = ({ onNewReel, vendorId, vendorSl
     onError: (e: Error) => toast.error(formatApiError(e)),
   });
 
-  const editCaptionMut = useMutation({
-    mutationFn: ({ id, caption }: { id: string; caption: string }) =>
-      vendorApi.updateReel(id, { caption }),
-    onSuccess: () => {
-      invalidateReelQueries();
-      setEditOpen(false);
-      setEditReel(null);
-    },
-    onError: (e: Error) => toast.error(formatApiError(e)),
-  });
-
   const pauseResumeMut = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
       vendorApi.updateReel(id, { status }),
@@ -121,10 +116,62 @@ const MyReelsGrid: React.FC<MyReelsGridProps> = ({ onNewReel, vendorId, vendorSl
   const [editOpen, setEditOpen] = useState(false);
   const [editReel, setEditReel] = useState<Reel | null>(null);
   const [editCaptionDraft, setEditCaptionDraft] = useState('');
+  const [editTags, setEditTags] = useState<string[]>([]);
+  const [editTagInput, setEditTagInput] = useState('');
+  const [editProductId, setEditProductId] = useState<number | null>(null);
+  const [editProductSearch, setEditProductSearch] = useState('');
+  const [editProductDropdownOpen, setEditProductDropdownOpen] = useState(false);
+  const [editVideoUrl, setEditVideoUrl] = useState('');
+  const [editPlatformApi, setEditPlatformApi] = useState('direct_mp4');
+  const [editThumbFile, setEditThumbFile] = useState<File | null>(null);
   const [pauseConfirmOpen, setPauseConfirmOpen] = useState(false);
   const [pauseReel, setPauseReel] = useState<Reel | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteReel, setDeleteReel] = useState<Reel | null>(null);
+
+  const { data: editCatalogPage } = useQuery({
+    queryKey: ['vendor', 'products', 'reel-edit-grid'],
+    enabled: Boolean(useVendorPortal && editOpen),
+    queryFn: () => vendorApi.products({ page_size: 120 }),
+  });
+
+  const editCatalogProducts = useMemo(() => {
+    return extractResults<Record<string, unknown>>(editCatalogPage).map((p) => ({
+      id: Number(p.id),
+      name: String(p.name),
+      price: Number(p.price ?? 0),
+      image: String(p.image_url || '/placeholder.svg'),
+    }));
+  }, [editCatalogPage]);
+
+  const selectedEditProduct = editCatalogProducts.find((p) => p.id === editProductId);
+  const filteredEditProducts = editCatalogProducts.filter((p) =>
+    p.name.toLowerCase().includes(editProductSearch.toLowerCase()),
+  );
+
+  const resetEditForm = () => {
+    setEditReel(null);
+    setEditCaptionDraft('');
+    setEditTags([]);
+    setEditTagInput('');
+    setEditProductId(null);
+    setEditProductSearch('');
+    setEditProductDropdownOpen(false);
+    setEditVideoUrl('');
+    setEditPlatformApi('direct_mp4');
+    setEditThumbFile(null);
+  };
+
+  const editReelMut = useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: Record<string, unknown> | FormData }) =>
+      vendorApi.updateReel(id, payload),
+    onSuccess: () => {
+      invalidateReelQueries();
+      setEditOpen(false);
+      resetEditForm();
+    },
+    onError: (e: Error) => toast.error(formatApiError(e)),
+  });
 
   const requireVendorPortal = () => {
     if (!useVendorPortal) {
@@ -301,7 +348,7 @@ const MyReelsGrid: React.FC<MyReelsGridProps> = ({ onNewReel, vendorId, vendorSl
                     {(() => {
                       const isPaused = reel.status === 'paused';
                       const actions = [
-                        { key: 'edit' as const, icon: Edit, label: 'Edit Caption', danger: false },
+                        { key: 'edit' as const, icon: Edit, label: 'Edit reel', danger: false },
                         {
                           key: isPaused ? ('resume' as const) : ('pause' as const),
                           icon: isPaused ? Play : Pause,
@@ -335,6 +382,16 @@ const MyReelsGrid: React.FC<MyReelsGridProps> = ({ onNewReel, vendorId, vendorSl
                             if (action.key === 'edit') {
                               setEditReel(reel);
                               setEditCaptionDraft(reel.caption || '');
+                              setEditTags([...(reel.tags ?? [])]);
+                              setEditTagInput('');
+                              const linked =
+                                reel.product.id > 0 && reel.product.name !== 'No product linked';
+                              setEditProductId(linked ? reel.product.id : null);
+                              setEditProductSearch('');
+                              setEditProductDropdownOpen(false);
+                              setEditVideoUrl(reel.videoUrl || '');
+                              setEditPlatformApi(reel.platformApi ?? mapUiPlatformToApi(reel.platform));
+                              setEditThumbFile(null);
                               setEditOpen(true);
                               return;
                             }
@@ -377,49 +434,246 @@ const MyReelsGrid: React.FC<MyReelsGridProps> = ({ onNewReel, vendorId, vendorSl
         open={editOpen}
         onOpenChange={(o) => {
           setEditOpen(o);
-          if (!o) {
-            setEditReel(null);
-            setEditCaptionDraft('');
-          }
+          if (!o) resetEditForm();
         }}
       >
-        <DialogContent className="z-[100] sm:max-w-md" onClick={e => e.stopPropagation()}>
-          <DialogHeader>
-            <DialogTitle>Edit caption</DialogTitle>
-          </DialogHeader>
-          <Textarea
-            value={editCaptionDraft}
-            onChange={e => setEditCaptionDraft(e.target.value.slice(0, 200))}
-            rows={4}
-            placeholder="Caption"
-            className="resize-none"
-            disabled={editCaptionMut.isPending}
-          />
-          <p className="text-xs text-muted-foreground">{editCaptionDraft.length}/200</p>
+        <DialogContent
+          className="z-[100] sm:max-w-lg max-h-[min(90vh,720px)] flex flex-col gap-0 p-0"
+          onClick={e => e.stopPropagation()}
+        >
+          <div className="px-6 pt-6 pb-4 shrink-0 border-b border-border">
+            <DialogHeader>
+              <DialogTitle>Edit reel</DialogTitle>
+            </DialogHeader>
+          </div>
           {editReel ? (
-            <DialogFooter className="gap-2 sm:gap-0">
+            <div className="px-6 py-4 overflow-y-auto flex-1 min-h-0 space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="reel-edit-caption">Caption</Label>
+                <Textarea
+                  id="reel-edit-caption"
+                  value={editCaptionDraft}
+                  onChange={e => setEditCaptionDraft(e.target.value.slice(0, 200))}
+                  rows={3}
+                  placeholder="Caption"
+                  className="resize-none"
+                  disabled={editReelMut.isPending}
+                />
+                <p className="text-xs text-muted-foreground">{editCaptionDraft.length}/200</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Featured product</Label>
+                <p className="text-xs text-muted-foreground">
+                  Link a catalog product so shoppers can add it to the cart from this reel.
+                </p>
+                {selectedEditProduct && (
+                  <div className="flex items-center gap-3 p-3 rounded-lg border bg-muted/40">
+                    <img src={selectedEditProduct.image} alt="" className="w-10 h-10 rounded-md object-cover" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{selectedEditProduct.name}</p>
+                      <p className="text-xs text-muted-foreground">NPR {selectedEditProduct.price.toLocaleString()}</p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="shrink-0"
+                      onClick={() => setEditProductId(null)}
+                      disabled={editReelMut.isPending}
+                      aria-label="Remove product"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+                <div className="relative">
+                  <div
+                    className="flex items-center gap-2 rounded-md border px-3 py-2 cursor-pointer bg-background"
+                    onClick={() => setEditProductDropdownOpen(!editProductDropdownOpen)}
+                  >
+                    <Search className="w-4 h-4 text-muted-foreground shrink-0" />
+                    <input
+                      type="text"
+                      value={editProductSearch}
+                      onChange={e => {
+                        setEditProductSearch(e.target.value);
+                        setEditProductDropdownOpen(true);
+                      }}
+                      placeholder={selectedEditProduct ? 'Change product…' : 'Search products…'}
+                      className="flex-1 min-w-0 bg-transparent text-sm outline-none"
+                      onClick={e => {
+                        e.stopPropagation();
+                        setEditProductDropdownOpen(true);
+                      }}
+                      disabled={editReelMut.isPending}
+                    />
+                    <ChevronDown
+                      className={cn('w-4 h-4 text-muted-foreground transition-transform shrink-0', editProductDropdownOpen && 'rotate-180')}
+                    />
+                  </div>
+                  <AnimatePresence>
+                    {editProductDropdownOpen && (
+                      <motion.div
+                        className="absolute z-50 top-full left-0 right-0 mt-1 max-h-48 overflow-y-auto rounded-md border bg-popover shadow-md"
+                        initial={{ opacity: 0, y: -4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -4 }}
+                      >
+                        {filteredEditProducts.length === 0 ? (
+                          <p className="p-3 text-xs text-center text-muted-foreground">No products found</p>
+                        ) : (
+                          filteredEditProducts.map(p => (
+                            <button
+                              key={p.id}
+                              type="button"
+                              className="w-full flex items-center gap-3 p-2.5 hover:bg-accent/50 text-left"
+                              onClick={() => {
+                                setEditProductId(p.id);
+                                setEditProductDropdownOpen(false);
+                                setEditProductSearch('');
+                              }}
+                            >
+                              <img src={p.image} alt="" className="w-8 h-8 rounded-md object-cover" />
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm truncate">{p.name}</p>
+                                <p className="text-xs text-muted-foreground">NPR {p.price.toLocaleString()}</p>
+                              </div>
+                            </button>
+                          ))
+                        )}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="reel-edit-tags">Tags</Label>
+                <Input
+                  id="reel-edit-tags"
+                  value={editTagInput}
+                  onChange={e => setEditTagInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && editTagInput.trim()) {
+                      e.preventDefault();
+                      const t = editTagInput.trim();
+                      if (!editTags.includes(t)) setEditTags(prev => [...prev, t]);
+                      setEditTagInput('');
+                    }
+                  }}
+                  placeholder="Add a tag, press Enter"
+                  disabled={editReelMut.isPending}
+                />
+                <div className="flex flex-wrap gap-1.5">
+                  {editTags.map((tag, i) => (
+                    <span
+                      key={`${tag}-${i}`}
+                      className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-0.5 text-xs"
+                    >
+                      #{tag}
+                      <button
+                        type="button"
+                        className="text-muted-foreground hover:text-foreground"
+                        onClick={() => setEditTags(editTags.filter((_, j) => j !== i))}
+                        disabled={editReelMut.isPending}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="reel-edit-video">Video URL</Label>
+                <Input
+                  id="reel-edit-video"
+                  value={editVideoUrl}
+                  onChange={e => {
+                    const v = e.target.value;
+                    setEditVideoUrl(v);
+                    if (v.trim()) setEditPlatformApi(detectApiPlatformFromVideoUrl(v));
+                  }}
+                  placeholder="https://…"
+                  disabled={editReelMut.isPending}
+                />
+                <div className="space-y-1">
+                  <Label htmlFor="reel-edit-platform" className="text-xs text-muted-foreground">Platform</Label>
+                  <select
+                    id="reel-edit-platform"
+                    className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                    value={editPlatformApi}
+                    onChange={e => setEditPlatformApi(e.target.value)}
+                    disabled={editReelMut.isPending}
+                  >
+                    {REEL_PLATFORMS.map(opt => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="reel-edit-thumb">Thumbnail (optional)</Label>
+                <Input
+                  id="reel-edit-thumb"
+                  type="file"
+                  accept="image/*"
+                  className="cursor-pointer"
+                  disabled={editReelMut.isPending}
+                  onChange={e => setEditThumbFile(e.target.files?.[0] ?? null)}
+                />
+                {editThumbFile ? (
+                  <p className="text-xs text-muted-foreground">Selected: {editThumbFile.name}</p>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+
+          {editReel ? (
+            <DialogFooter className="px-6 py-4 border-t border-border gap-2 sm:gap-0 shrink-0">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => {
                   setEditOpen(false);
-                  setEditReel(null);
+                  resetEditForm();
                 }}
-                disabled={editCaptionMut.isPending}
+                disabled={editReelMut.isPending}
               >
                 Cancel
               </Button>
               <Button
                 type="button"
                 onClick={() => {
-                  void editCaptionMut.mutateAsync({
-                    id: String(editReel.id),
-                    caption: editCaptionDraft,
-                  });
+                  const caption = editCaptionDraft.slice(0, 200);
+                  const videoUrl = editVideoUrl.trim();
+                  let payload: Record<string, unknown> | FormData;
+                  if (editThumbFile) {
+                    const fd = new FormData();
+                    fd.append('caption', caption);
+                    fd.append('tags', JSON.stringify(editTags));
+                    fd.append('video_url', videoUrl);
+                    fd.append('platform', editPlatformApi);
+                    if (editProductId != null && editProductId > 0) fd.append('product_id', String(editProductId));
+                    else fd.append('product_id', '');
+                    fd.append('thumbnail', editThumbFile);
+                    payload = fd;
+                  } else {
+                    payload = {
+                      caption,
+                      tags: editTags,
+                      video_url: videoUrl,
+                      platform: editPlatformApi,
+                      product_id: editProductId != null && editProductId > 0 ? editProductId : null,
+                    };
+                  }
+                  void editReelMut.mutateAsync({ id: String(editReel.id), payload });
                 }}
-                disabled={editCaptionMut.isPending}
+                disabled={editReelMut.isPending}
               >
-                {editCaptionMut.isPending ? 'Saving…' : 'Save'}
+                {editReelMut.isPending ? 'Saving…' : 'Save changes'}
               </Button>
             </DialogFooter>
           ) : null}
