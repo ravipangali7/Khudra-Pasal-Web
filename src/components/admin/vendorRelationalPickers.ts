@@ -6,13 +6,46 @@ function matchesSearch(label: string, search: string): boolean {
   return label.toLowerCase().includes(search.trim().toLowerCase());
 }
 
+type VendorCategoryRow = {
+  id: string;
+  name: string;
+  parent_id?: string | null;
+};
+
+function buildVendorCategoryLabels(rows: VendorCategoryRow[]) {
+  const byId = new Map<string, VendorCategoryRow>();
+  rows.forEach((row) => {
+    const id = String(row.id);
+    if (!byId.has(id)) {
+      byId.set(id, { ...row, id });
+    }
+  });
+
+  const toLabel = (id: string): string => {
+    const seen = new Set<string>();
+    const chain: string[] = [];
+    let current = byId.get(id);
+    while (current && !seen.has(current.id)) {
+      seen.add(current.id);
+      chain.push(String(current.name));
+      const parentId = current.parent_id ? String(current.parent_id) : '';
+      current = parentId ? byId.get(parentId) : undefined;
+    }
+    return chain.reverse().join(' > ');
+  };
+
+  return Array.from(byId.values()).map((row) => {
+    const id = String(row.id);
+    return { value: id, label: toLabel(id) };
+  });
+}
+
 export async function fetchCategoryVendorOptions(search: string): Promise<AdminSearchOption[]> {
   const res = await vendorApi.catalogCategories();
-  const rows = extractResults<{ id: string; name: string }>(res);
-  return rows
-    .filter((c) => matchesSearch(String(c.name), search))
-    .slice(0, 80)
-    .map((c) => ({ value: String(c.id), label: String(c.name) }));
+  const rows = extractResults<VendorCategoryRow>(res);
+  return buildVendorCategoryLabels(rows)
+    .filter((c) => matchesSearch(c.label, search))
+    .slice(0, 80);
 }
 
 export async function fetchBrandVendorOptions(search: string): Promise<AdminSearchOption[]> {

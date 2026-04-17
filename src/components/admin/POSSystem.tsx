@@ -52,7 +52,7 @@ export default function POSSystem({ variant = 'admin' }: POSSystemProps) {
 
   const { data: adminProductRows = [] } = useAdminList<Record<string, unknown>>(
     ['admin', 'products', 'pos'],
-    () => adminApi.products({ page_size: 300 }),
+    () => adminApi.products({ page_size: 300, enable_pos: true }),
     { enabled: !isVendor },
   );
   const { data: vendorProductPage } = useQuery({

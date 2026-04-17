@@ -8,10 +8,8 @@ import {
   Ticket,
   Clock,
   Shield,
-  Lock,
   CheckCircle,
   XCircle,
-  ShieldAlert,
   Package,
   Wallet,
   Building2,
@@ -54,8 +52,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import {
   adminApi,
-  type AdminAuditLogRow,
-  type AdminFlaggedActivityRow,
   type AdminKycSubmissionRow,
 } from '@/lib/api';
 import { buildAdminModulePath } from '../moduleRegistry';
@@ -67,66 +63,9 @@ interface DashboardModuleProps {
 const DASH_STALE = 20_000;
 const DASH_POLL = 30_000;
 
-function formatDateTime(iso: string) {
-  try {
-    const d = new Date(iso);
-    return d.toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' });
-  } catch {
-    return iso;
-  }
-}
-
-type UnifiedSecurityItem = {
-  key: string;
-  source: 'flag' | 'audit';
-  title: string;
-  subtitle: string;
-  severity: string;
-  resolved: boolean;
-  statusLabel: string;
-  time: string;
-  flagId?: string;
-};
-
-function mergeSecurity(
-  flagged: AdminFlaggedActivityRow[] | undefined,
-  audits: AdminAuditLogRow[] | undefined,
-): UnifiedSecurityItem[] {
-  const out: UnifiedSecurityItem[] = [];
-  for (const f of flagged ?? []) {
-    const resolved = f.status === 'resolved';
-    out.push({
-      key: `f-${f.id}`,
-      source: 'flag',
-      title: f.type,
-      subtitle: f.user,
-      severity: f.severity,
-      resolved,
-      statusLabel: resolved ? 'Resolved' : f.status === 'reviewed' ? 'Reviewed' : 'Open',
-      time: f.time,
-      flagId: f.id,
-    });
-  }
-  for (const a of audits ?? []) {
-    out.push({
-      key: `a-${a.id}`,
-      source: 'audit',
-      title: a.action || a.module || 'Security event',
-      subtitle: a.user,
-      severity: 'low',
-      resolved: false,
-      statusLabel: 'Logged',
-      time: a.time || a.created_at,
-    });
-  }
-  out.sort((x, y) => new Date(y.time).getTime() - new Date(x.time).getTime());
-  return out.slice(0, 12);
-}
-
 export default function DashboardModule({ onNavigate }: DashboardModuleProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [freezeAllOpen, setFreezeAllOpen] = useState(false);
   const [salesChartPeriod, setSalesChartPeriod] = useState<SalesChartPeriod>('7');
   const [walletChartPeriod, setWalletChartPeriod] = useState<SalesChartPeriod>('7');
   const [productChartPeriod, setProductChartPeriod] = useState<SalesChartPeriod>('30');
@@ -202,22 +141,6 @@ export default function DashboardModule({ onNavigate }: DashboardModuleProps) {
     retry: false,
   });
 
-  const { data: flaggedResp, refetch: refetchFlagged } = useQuery({
-    queryKey: ['admin', 'dashboard', 'flagged'],
-    queryFn: () => adminApi.flagged({ page_size: 20 }),
-    staleTime: DASH_STALE,
-    refetchInterval: DASH_POLL,
-    retry: false,
-  });
-
-  const { data: auditSecResp, isError: auditSecError, refetch: refetchAuditSec } = useQuery({
-    queryKey: ['admin', 'dashboard', 'audit-security'],
-    queryFn: () => adminApi.auditLogs({ type: 'security', page_size: 15, ordering: '-created_at' }),
-    staleTime: DASH_STALE,
-    refetchInterval: DASH_POLL,
-    retry: false,
-  });
-
   const { data: kycResp, isLoading: kycLoading } = useQuery({
     queryKey: ['admin', 'dashboard', 'kyc-queue'],
     queryFn: () => adminApi.kycSubmissions({ page_size: 200 }),
@@ -279,18 +202,6 @@ export default function DashboardModule({ onNavigate }: DashboardModuleProps) {
   }, [kycResp]);
 
   const kycPendingCount = kycQueue.length;
-
-  const securityItems = useMemo(
-    () => mergeSecurity(flaggedResp?.results, auditSecError ? undefined : auditSecResp?.results),
-    [flaggedResp?.results, auditSecResp?.results, auditSecError],
-  );
-
-  const resolveFlagMut = useMutation({
-    mutationFn: ({ id }: { id: string }) => adminApi.updateFlaggedActivity(id, { status: 'resolved' }),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['admin', 'dashboard', 'flagged'] });
-    },
-  });
 
   const kycMut = useMutation({
     mutationFn: (args: { id: string; status: 'approved' | 'rejected'; rejection_reason?: string }) =>
@@ -566,93 +477,11 @@ export default function DashboardModule({ onNavigate }: DashboardModuleProps) {
             <Button className="w-full justify-start" variant="outline" onClick={goKyc}>
               <Shield className="w-4 h-4 mr-2" /> Review KYC ({kycPendingCount})
             </Button>
-            <Button className="w-full justify-start" variant="destructive" onClick={() => setFreezeAllOpen(true)}>
-              <Lock className="w-4 h-4 mr-2" /> Emergency Freeze All
-            </Button>
           </div>
         </DashboardSectionCard>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-4">
-        <DashboardSectionCard
-          icon={ShieldAlert}
-          title="Security Alerts"
-          description="Flagged activity and security audit events."
-          onCardClick={() => onNavigate('security')}
-          headerRight={
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-8 text-xs"
-              onClick={() => {
-                void refetchFlagged();
-                void refetchAuditSec();
-              }}
-            >
-              Refresh
-            </Button>
-          }
-        >
-          {securityItems.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">
-              No security alerts or audit entries. Events appear when flags are raised or security actions are logged.
-            </p>
-          ) : (
-            <ul className="space-y-3 max-h-[320px] overflow-y-auto">
-              {securityItems.map((item) => (
-                <li
-                  key={item.key}
-                  className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 bg-muted/40 rounded-xl border border-border/50"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="outline" className="text-[10px] capitalize">
-                        {item.source === 'flag' ? 'Flag' : 'Audit'}
-                      </Badge>
-                      <span className="font-medium text-sm text-foreground truncate">{item.title}</span>
-                      <Badge
-                        variant={
-                          item.severity === 'high'
-                            ? 'destructive'
-                            : item.severity === 'medium'
-                              ? 'secondary'
-                              : 'outline'
-                        }
-                        className="text-[10px] capitalize"
-                      >
-                        {item.severity}
-                      </Badge>
-                      <Badge variant={item.resolved ? 'outline' : 'secondary'} className="text-[10px]">
-                        {item.statusLabel}
-                      </Badge>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {item.subtitle} · {formatDateTime(item.time)}
-                    </p>
-                  </div>
-                  <div className="flex gap-1 shrink-0">
-                    <Button type="button" variant="ghost" size="sm" onClick={() => onNavigate('security')}>
-                      Review
-                    </Button>
-                    {item.source === 'flag' && item.flagId && !item.resolved ? (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={resolveFlagMut.isPending}
-                        onClick={() => resolveFlagMut.mutate({ id: item.flagId! })}
-                      >
-                        Resolve
-                      </Button>
-                    ) : null}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </DashboardSectionCard>
-
         <DashboardSectionCard
           icon={Shield}
           title={`Pending KYC (${kycPendingCount})`}
@@ -813,26 +642,6 @@ export default function DashboardModule({ onNavigate }: DashboardModuleProps) {
           ))}
         </div>
       </DashboardSectionCard>
-
-      <AlertDialog open={freezeAllOpen} onOpenChange={setFreezeAllOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
-              <Lock className="w-5 h-5" /> Emergency Freeze All Wallets
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              This will immediately freeze ALL wallets platform-wide. No transactions will be allowed. This action
-              requires OTP verification.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Freeze All (OTP Required)
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <AlertDialog open={Boolean(approveKyc)} onOpenChange={(o) => !o && setApproveKyc(null)}>
         <AlertDialogContent>

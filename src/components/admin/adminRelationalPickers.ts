@@ -36,6 +36,7 @@ export async function fetchVendorProductAdminOptions(
     search: search || undefined,
     seller_id: vendorId,
     page_size: 40,
+    enable_reels: true,
   });
   const rows = extractResults(res) as VendorProductRow[];
   return rows.map((p) => ({
@@ -57,16 +58,51 @@ export async function fetchWalletAdminOptions(search: string): Promise<AdminSear
   }));
 }
 
-type CategoryRow = { id: string; name: string; parent?: string; level?: number };
+type CategoryRow = {
+  id: string;
+  name: string;
+  parent?: string;
+  parentId?: string | null;
+  level?: number;
+};
+
+function normalizeCategoryRows(rows: CategoryRow[]) {
+  const byId = new Map<string, CategoryRow>();
+  rows.forEach((row) => {
+    const id = String(row.id);
+    if (!byId.has(id)) {
+      byId.set(id, { ...row, id });
+    }
+  });
+  return byId;
+}
+
+function buildCategoryTreeLabel(id: string, byId: Map<string, CategoryRow>): string {
+  const seen = new Set<string>();
+  const chain: string[] = [];
+  let current = byId.get(id);
+  while (current && !seen.has(current.id)) {
+    seen.add(current.id);
+    chain.push(String(current.name));
+    const parentId = current.parentId ? String(current.parentId) : '';
+    current = parentId ? byId.get(parentId) : undefined;
+  }
+  return chain.reverse().join(' > ');
+}
 
 export async function fetchCategoryAdminOptions(search: string): Promise<AdminSearchOption[]> {
-  const res = await adminApi.categories({ search: search || undefined, page_size: 40 });
+  const res = await adminApi.categories({ search: search || undefined, page_size: 200 });
   const rows = extractResults(res) as CategoryRow[];
-  return rows.map((c) => ({
-    value: String(c.id),
-    label: String(c.name),
-    description: c.parent && c.parent !== '-' ? String(c.parent) : undefined,
-  }));
+  const byId = normalizeCategoryRows(rows);
+  return Array.from(byId.values()).map((c) => {
+    const id = String(c.id);
+    const label = buildCategoryTreeLabel(id, byId);
+    return {
+      value: id,
+      label,
+      description: c.parent && c.parent !== '-' ? String(c.parent) : undefined,
+    };
+  });
 }
 
 /** Parent picker for subcategories (top-level categories only). */
