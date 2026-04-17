@@ -36,6 +36,7 @@ function remainingRefundGross(o: PortalOrderRow): number {
 }
 
 function canRequestRefund(o: PortalOrderRow): boolean {
+  if (typeof o.refund_allowed === "boolean") return o.refund_allowed;
   const pay = (o.payment || "").toLowerCase();
   if (!pay.includes("wallet")) return false;
   const st = (o.status || "").toLowerCase();
@@ -175,7 +176,6 @@ export default function PortalMyOrdersSection({ surface, sessionTick, authed }: 
                                 setRefundOrder(o);
                                 setRefundReason("");
                                 setRefundNotes("");
-                                setRefundAmount("");
                               }}
                             >
                               Request refund

@@ -1839,6 +1839,8 @@ export const adminApi = {
     ),
   vendorLedgerEntries: (vendorId: string, params?: QueryParams) =>
     adminPaged<Record<string, unknown>>(`vendors/${encodeURIComponent(vendorId)}/ledger`, params),
+  vendorLedgerEntriesAll: (params?: QueryParams) =>
+    adminPaged<Record<string, unknown>>("vendors/all/ledger", params),
   createAdminVendorLedgerEntry: (
     vendorId: string,
     payload: { amount: number; description: string; direction: string },
@@ -2438,6 +2440,7 @@ export type PortalOrderRow = {
   lines: PortalOrderLineRow[];
   refunds?: PortalOrderRefundRow[];
   refund_estimate?: PortalRefundEstimate | null;
+  refund_allowed?: boolean;
 };
 
 export type PortalWalletTxnRow = {

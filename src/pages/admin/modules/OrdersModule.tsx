@@ -14,7 +14,6 @@ import { Label } from '@/components/ui/label';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { adminApi, extractResults, type AdminOrderDetail, type AdminOrderListRow } from '@/lib/api';
@@ -514,20 +513,12 @@ function OrderSettingsView() {
     queryFn: () => adminApi.orderSettings(),
   });
   const [refundDays, setRefundDays] = useState(7);
-  const [cancelHours, setCancelHours] = useState(48);
-  const [guestCheckout, setGuestCheckout] = useState(true);
-  const [verifyRequired, setVerifyRequired] = useState(true);
-  const [autoDelivery, setAutoDelivery] = useState(true);
   const [saveErr, setSaveErr] = useState('');
   const saveMut = useAdminMutation(adminApi.updateOrderSettings, [['admin', 'order-settings']]);
 
   useEffect(() => {
     if (!data) return;
     setRefundDays(data.refund_validity_days);
-    setCancelHours(data.auto_cancel_hours);
-    setGuestCheckout(!!data.guest_checkout);
-    setVerifyRequired(!!data.order_verification_required);
-    setAutoDelivery(!!data.auto_assign_delivery);
     setSaveErr('');
   }, [data]);
 
@@ -536,10 +527,6 @@ function OrderSettingsView() {
     try {
       await saveMut.mutateAsync({
         refund_validity_days: refundDays,
-        auto_cancel_hours: cancelHours,
-        guest_checkout: guestCheckout,
-        order_verification_required: verifyRequired,
-        auto_assign_delivery: autoDelivery,
       });
     } catch (e) {
       setSaveErr(formatApiError(e));
@@ -562,10 +549,6 @@ function OrderSettingsView() {
           <CardHeader className="pb-3"><CardTitle className="text-base">Order Configuration</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div><Label>Refund Validity (days)</Label><Input type="number" min={0} value={refundDays} onChange={(e) => setRefundDays(parseInt(e.target.value, 10) || 0)} /></div>
-            <div><Label>Auto-cancel after (hours)</Label><Input type="number" min={0} value={cancelHours} onChange={(e) => setCancelHours(parseInt(e.target.value, 10) || 0)} /></div>
-            <div className="flex items-center justify-between"><div><p className="font-medium text-sm">Guest Checkout</p><p className="text-xs text-muted-foreground">Allow orders without account</p></div><Switch checked={guestCheckout} onCheckedChange={setGuestCheckout} /></div>
-            <div className="flex items-center justify-between"><div><p className="font-medium text-sm">Order Verification Required</p><p className="text-xs text-muted-foreground">OTP verify before processing</p></div><Switch checked={verifyRequired} onCheckedChange={setVerifyRequired} /></div>
-            <div className="flex items-center justify-between"><div><p className="font-medium text-sm">Auto-assign Delivery</p><p className="text-xs text-muted-foreground">Assign nearest delivery man</p></div><Switch checked={autoDelivery} onCheckedChange={setAutoDelivery} /></div>
           </CardContent>
         </Card>
         <Card>

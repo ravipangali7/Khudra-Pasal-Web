@@ -36,9 +36,11 @@ function money(n: number) {
   return `Rs. ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+const ALL_VENDORS_VALUE = '__all';
+
 export default function AdminLedgerModule() {
   const qc = useQueryClient();
-  const [vendorId, setVendorId] = useState('');
+  const [vendorId, setVendorId] = useState(ALL_VENDORS_VALUE);
   const [entryType, setEntryType] = useState<string>('');
   const [addOpen, setAddOpen] = useState(false);
   const [adjAmount, setAdjAmount] = useState('');
@@ -53,12 +55,15 @@ export default function AdminLedgerModule() {
 
   const { data: page } = useQuery({
     queryKey: ['admin', 'vendor-ledger', vendorId, entryType],
-    queryFn: () =>
-      adminApi.vendorLedgerEntries(vendorId, {
+    queryFn: () => {
+      const params = {
         page_size: 100,
         ...(entryType ? { entry_type: entryType } : {}),
-      }),
-    enabled: Boolean(vendorId),
+      };
+      return vendorId === ALL_VENDORS_VALUE
+        ? adminApi.vendorLedgerEntriesAll(params)
+        : adminApi.vendorLedgerEntries(vendorId, params);
+    },
   });
   const rows = useMemo(() => extractResults<Record<string, unknown>>(page), [page]);
 
@@ -89,7 +94,7 @@ export default function AdminLedgerModule() {
 
   const addLedgerMut = useMutation({
     mutationFn: () => {
-      if (!vendorId) throw new Error('Choose a vendor');
+      if (!vendorId || vendorId === ALL_VENDORS_VALUE) throw new Error('Choose a specific vendor');
       const n = Number(adjAmount);
       if (!Number.isFinite(n) || n <= 0) throw new Error('Enter a valid positive amount');
       const desc = adjDescription.trim();
@@ -120,6 +125,7 @@ export default function AdminLedgerModule() {
             <SelectValue placeholder="Select vendor" />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value={ALL_VENDORS_VALUE}>All</SelectItem>
             {vendors.map((v) => (
               <SelectItem key={String(v.id)} value={String(v.id)}>
                 {String(v.name ?? '')}
@@ -129,10 +135,7 @@ export default function AdminLedgerModule() {
         </Select>
       </div>
 
-      {!vendorId ? (
-        <p className="text-sm text-muted-foreground">Select a vendor to view ledger entries.</p>
-      ) : (
-        <div className="space-y-4">
+      <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="rounded-lg border bg-card p-4">
               <p className="text-sm text-muted-foreground">Total credit</p>
@@ -173,13 +176,24 @@ export default function AdminLedgerModule() {
 
           <AdminTable
             title="Vendor ledger"
-            subtitle="Ledger entries for this vendor"
+            subtitle={
+              vendorId === ALL_VENDORS_VALUE ? 'Ledger entries for all vendors' : 'Ledger entries for this vendor'
+            }
             data={rows}
             searchKey="description"
             searchPlaceholder="Search description…"
-            onAdd={() => setAddOpen(true)}
-            addLabel="Add ledger"
+            onAdd={vendorId === ALL_VENDORS_VALUE ? undefined : () => setAddOpen(true)}
+            addLabel={vendorId === ALL_VENDORS_VALUE ? undefined : 'Add ledger'}
             columns={[
+              ...(vendorId === ALL_VENDORS_VALUE
+                ? [
+                    {
+                      key: 'vendor_name',
+                      label: 'Vendor',
+                      render: (r: Record<string, unknown>) => String(r.vendor_name ?? '-'),
+                    },
+                  ]
+                : []),
               {
                 key: 'created_at',
                 label: 'Date',
@@ -210,7 +224,7 @@ export default function AdminLedgerModule() {
             ]}
           />
 
-          <Dialog open={addOpen} onOpenChange={setAddOpen}>
+          <Dialog open={addOpen && vendorId !== ALL_VENDORS_VALUE} onOpenChange={setAddOpen}>
             <DialogContent className="sm:max-w-md">
               <DialogHeader>
                 <DialogTitle>Add ledger entry</DialogTitle>
@@ -266,7 +280,6 @@ export default function AdminLedgerModule() {
             </DialogContent>
           </Dialog>
         </div>
-      )}
     </div>
   );
 }
