@@ -237,6 +237,8 @@ export type PagedResponse<T> = {
   next: string | null;
   previous: string | null;
   results: T[];
+  /** Optional aggregates for some admin list endpoints (e.g. suppliers). */
+  summary?: Record<string, unknown>;
 };
 
 /** Nested row from GET /api/website/deals/ (FlashDealSerializer). */
@@ -1580,6 +1582,12 @@ export const adminApi = {
     adminWrite<Record<string, unknown>>("order-settings", "PATCH", payload),
   products: (params?: QueryParams) => adminPaged<Record<string, unknown>>("products", params),
   vendors: (params?: QueryParams) => adminPaged<Record<string, unknown>>("vendors", params),
+  /** Admin-only: exchange current admin session for the vendor owner's token (see Vendor portal ?impersonate=). */
+  vendorImpersonate: (vendorPk: string) =>
+    apiFetch<{
+      token: string;
+      user: { id: number; name: string; store_name: string; store_slug: string; status: string };
+    }>(`/admin/vendors/${encodeURIComponent(vendorPk)}/impersonate/`, { method: "POST" }, true),
   reels: (params?: QueryParams) => adminPaged<ApiReelPublicRow>("reels", params),
   categories: (params?: QueryParams) => adminPaged<Record<string, unknown>>("categories", params),
   brands: (params?: QueryParams) => adminPaged<Record<string, unknown>>("brands", params),
@@ -1780,6 +1788,9 @@ export const adminApi = {
         : `vendors/${encodeURIComponent(vendorId)}/suppliers`,
       params,
     ),
+  /** Combined stock purchases for every vendor (admin list filter “All”). */
+  vendorStockPurchasesAll: (params?: QueryParams) =>
+    adminPaged<Record<string, unknown>>("vendors/all/stock-purchases", params),
   vendorStockPurchases: (vendorId: string, params?: QueryParams) =>
     adminPaged<Record<string, unknown>>(
       vendorId === "__all"

@@ -68,6 +68,10 @@ export default function SuppliersManagementSection({
   renderActions,
 }: SuppliersManagementSectionProps) {
   const hasVendorColumn = rows.some((r) => Boolean(r.vendor_name));
+  const hasLedgerColumn = rows.some((r) => typeof r.ledger_balance === "number");
+
+  const fmtMoney = (n: number) =>
+    `Rs. ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   return (
     <div className="space-y-4">
@@ -105,6 +109,17 @@ export default function SuppliersManagementSection({
               ...(hasVendorColumn ? [{ key: 'vendor_name', label: 'Vendor' }] : []),
               { key: 'name', label: 'Name' },
               { key: 'phone', label: 'Phone' },
+              ...(hasLedgerColumn
+                ? [
+                    {
+                      key: 'ledger_balance',
+                      label: 'Outstanding',
+                      render: (r: Record<string, unknown>) => (
+                        <span className="tabular-nums font-medium">{fmtMoney(Number(r.ledger_balance ?? 0))}</span>
+                      ),
+                    },
+                  ]
+                : []),
               {
                 key: 'is_active',
                 label: 'Active',

@@ -51,6 +51,39 @@ export default function AdminSuppliersModule() {
   });
   const rows = useMemo(() => extractResults<Record<string, unknown>>(page), [page]);
 
+  const supplierStats = useMemo(() => {
+    const s =
+      page &&
+      typeof page === 'object' &&
+      'summary' in page &&
+      page.summary &&
+      typeof page.summary === 'object'
+        ? (page.summary as {
+            supplier_count?: unknown;
+            total_ledger_credit?: unknown;
+            total_ledger_debit?: unknown;
+            total_ledger_balance?: unknown;
+          })
+        : null;
+    if (s && typeof s.supplier_count === 'number') {
+      return {
+        supplierCount: s.supplier_count,
+        totalCredit: Number(s.total_ledger_credit ?? 0),
+        totalDebit: Number(s.total_ledger_debit ?? 0),
+        balance: Number(s.total_ledger_balance ?? 0),
+      };
+    }
+    let credit = 0;
+    for (const r of rows) credit += Number(r.ledger_credit ?? 0);
+    const count = page && typeof page === 'object' && 'count' in page ? Number((page as { count?: unknown }).count) : rows.length;
+    return {
+      supplierCount: Number.isFinite(count) ? count : rows.length,
+      totalCredit: credit,
+      totalDebit: 0,
+      balance: credit,
+    };
+  }, [page, rows]);
+
   const saveMut = useMutation({
     mutationFn: () => {
       if (!vendorId || vendorId === '__all') throw new Error('Choose a vendor');
@@ -110,7 +143,30 @@ export default function AdminSuppliersModule() {
   };
 
   return (
-    <div className="p-4 lg:p-6">
+    <div className="p-4 lg:p-6 space-y-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-lg border bg-card p-4">
+          <p className="text-sm text-muted-foreground">Suppliers</p>
+          <p className="text-xl font-semibold tabular-nums">{supplierStats.supplierCount.toLocaleString()}</p>
+        </div>
+        <div className="rounded-lg border bg-card p-4">
+          <p className="text-sm text-muted-foreground">Total credit</p>
+          <p className="text-xl font-semibold tabular-nums text-emerald-600">{money(supplierStats.totalCredit)}</p>
+        </div>
+        <div className="rounded-lg border bg-card p-4">
+          <p className="text-sm text-muted-foreground">Total debit</p>
+          <p className="text-xl font-semibold tabular-nums text-destructive">{money(supplierStats.totalDebit)}</p>
+        </div>
+        <div className="rounded-lg border bg-card p-4">
+          <p className="text-sm text-muted-foreground">Balance</p>
+          <p
+            className={`text-xl font-semibold tabular-nums ${supplierStats.balance < 0 ? 'text-destructive' : 'text-emerald-600'}`}
+          >
+            {money(supplierStats.balance)}
+          </p>
+        </div>
+      </div>
+
       <SuppliersManagementSection
         rows={rows}
         q={q}

@@ -66,6 +66,49 @@ const VENDOR_KYC_DOC_TYPES = [
   { value: 'driving_license', label: 'Driving license' },
 ] as const;
 
+function toAdminNum(v: unknown): number {
+  if (typeof v === 'number' && !Number.isNaN(v)) return v;
+  if (typeof v === 'string' && v.trim() !== '') {
+    const n = Number(v);
+    return Number.isNaN(n) ? 0 : n;
+  }
+  return 0;
+}
+
+type AdminUserListRow = {
+  id: number;
+  name: string;
+  email?: string;
+  phone: string;
+  role: string;
+  kyc_status: string;
+  is_active?: boolean;
+  created_at?: string;
+  customer_document?: string;
+  avatar?: string;
+  order_count?: unknown;
+  total_spent?: unknown;
+  wallet_balance?: unknown;
+};
+
+function mapAdminUserToCustomerRow(u: AdminUserListRow) {
+  return {
+    id: String(u.id),
+    name: u.name,
+    email: u.email || `${u.phone}@khudrapasal.local`,
+    phone: u.phone,
+    role: u.role,
+    kyc: u.kyc_status,
+    balance: toAdminNum(u.wallet_balance),
+    orders: toAdminNum(u.order_count),
+    status: u.is_active === false ? 'blocked' : 'active',
+    spent: toAdminNum(u.total_spent),
+    joined: u.created_at?.slice(0, 10) ?? '—',
+    customer_document: u.customer_document || '',
+    avatar: u.avatar || '',
+  };
+}
+
 interface UsersModuleProps {
   activeSection: string;
 }
@@ -169,35 +212,7 @@ function CustomersView() {
   });
 
   const dynamicCustomers =
-    usersResponse?.results?.map((user) => {
-      const u = user as {
-        id: number;
-        name: string;
-        email?: string;
-        phone: string;
-        role: string;
-        kyc_status: string;
-        is_active?: boolean;
-        created_at?: string;
-        customer_document?: string;
-        avatar?: string;
-      };
-      return {
-        id: String(u.id),
-        name: u.name,
-        email: u.email || `${u.phone}@khudrapasal.local`,
-        phone: u.phone,
-        role: u.role,
-        kyc: u.kyc_status,
-        balance: 0,
-        orders: 0,
-        status: u.is_active === false ? 'blocked' : 'active',
-        spent: 0,
-        joined: u.created_at?.slice(0, 10) ?? '—',
-        customer_document: u.customer_document || '',
-        avatar: (u as { avatar?: string }).avatar || '',
-      };
-    }) ?? [];
+    usersResponse?.results?.map((user) => mapAdminUserToCustomerRow(user as AdminUserListRow)) ?? [];
 
   const filtered = dynamicCustomers.filter(c => {
     if (statusFilter !== 'all' && c.status !== statusFilter) return false;
@@ -211,6 +226,28 @@ function CustomersView() {
   const resolvedEditOpen = editOpen || adminRoute?.action === 'edit';
   const resolvedViewOpen = viewOpen || adminRoute?.action === 'view';
   const editUserId = adminRoute?.action === 'edit' && adminRoute.itemId ? adminRoute.itemId : selected?.id;
+
+  const viewProfileUserId =
+    resolvedViewOpen && (adminRoute?.itemId ?? selected?.id)
+      ? String(adminRoute?.itemId ?? selected?.id)
+      : null;
+  const { data: viewProfileDetail } = useQuery({
+    queryKey: ['admin-user-detail', viewProfileUserId],
+    queryFn: () => adminApi.userDetail(viewProfileUserId!),
+    enabled: Boolean(resolvedViewOpen && viewProfileUserId),
+    staleTime: 60_000,
+  });
+
+  const customerForView = useMemo(() => {
+    if (viewProfileDetail && typeof viewProfileDetail === 'object' && viewProfileUserId) {
+      const raw = viewProfileDetail as Record<string, unknown>;
+      const idStr = raw.id != null ? String(raw.id) : '';
+      if (idStr === viewProfileUserId) {
+        return mapAdminUserToCustomerRow(viewProfileDetail as unknown as AdminUserListRow);
+      }
+    }
+    return resolvedSelected;
+  }, [viewProfileDetail, viewProfileUserId, resolvedSelected]);
 
   const {
     data: editUserDetail,
@@ -251,30 +288,9 @@ function CustomersView() {
   useEffect(() => {
     if (!resolvedEditOpen || !editUserId || !editUserDetail || typeof editUserDetail !== 'object') return;
     if (selectedFromRoute || selected?.id === editUserId) return;
-    const u = editUserDetail as Record<string, unknown>;
-    const doc =
-      typeof u.customer_document === 'string'
-        ? u.customer_document
-        : '';
-    const av = typeof u.avatar === 'string' ? u.avatar : '';
-    setSelected({
-      id: editUserId,
-      name: String(u.name ?? ''),
-      email: String(u.email ?? '') || `${String(u.phone ?? '')}@khudrapasal.local`,
-      phone: String(u.phone ?? ''),
-      role: String(u.role ?? 'normal'),
-      kyc: String(u.kyc_status ?? 'pending'),
-      balance: 0,
-      orders: 0,
-      status: u.is_active === false ? 'blocked' : 'active',
-      spent: 0,
-      joined:
-        typeof u.created_at === 'string' && u.created_at.length >= 10
-          ? u.created_at.slice(0, 10)
-          : '—',
-      customer_document: doc,
-      avatar: av,
-    });
+    const row = editUserDetail as unknown as AdminUserListRow;
+    const idNum = typeof row.id === 'number' ? row.id : Number(editUserId);
+    setSelected(mapAdminUserToCustomerRow({ ...row, id: Number.isFinite(idNum) ? idNum : 0 }));
   }, [resolvedEditOpen, editUserId, editUserDetail, selectedFromRoute, selected?.id]);
 
   const saveCreate = async () => {
@@ -475,37 +491,37 @@ function CustomersView() {
       />
 
       <CRUDModal open={resolvedViewOpen} onClose={() => { adminRoute?.navigateToList(); setViewOpen(false); }} title="Customer Profile" size="xl" onSave={() => { adminRoute?.navigateToList(); setViewOpen(false); }} saveLabel="Close">
-        {resolvedSelected && (
+        {customerForView && (
           <div className="space-y-4">
             <div className="flex items-center gap-4 p-4 bg-muted/30 rounded-xl">
               <Avatar className="h-16 w-16 text-2xl">
-                {resolvedSelected.avatar ? (
-                  <AvatarImage src={resolveMediaUrlForDisplay(resolvedSelected.avatar)} alt="" className="object-cover" />
+                {customerForView.avatar ? (
+                  <AvatarImage src={resolveMediaUrlForDisplay(customerForView.avatar)} alt="" className="object-cover" />
                 ) : null}
-                <AvatarFallback>{resolvedSelected.name[0]}</AvatarFallback>
+                <AvatarFallback>{customerForView.name[0]}</AvatarFallback>
               </Avatar>
               <div>
-                <h3 className="text-lg font-bold">{resolvedSelected.name}</h3>
-                <p className="text-sm text-muted-foreground flex items-center gap-1"><Mail className="w-3 h-3" />{resolvedSelected.email}</p>
-                <p className="text-sm text-muted-foreground flex items-center gap-1"><Phone className="w-3 h-3" />{resolvedSelected.phone}</p>
+                <h3 className="text-lg font-bold">{customerForView.name}</h3>
+                <p className="text-sm text-muted-foreground flex items-center gap-1"><Mail className="w-3 h-3" />{customerForView.email}</p>
+                <p className="text-sm text-muted-foreground flex items-center gap-1"><Phone className="w-3 h-3" />{customerForView.phone}</p>
                 <div className="flex items-center gap-2 mt-1">
-                  <Badge variant={resolvedSelected.status === 'active' ? 'default' : 'destructive'} className={cn("text-xs", resolvedSelected.status === 'active' && "bg-emerald-500")}>{resolvedSelected.status}</Badge>
-                  <Badge variant="outline" className="text-xs capitalize">{resolvedSelected.role}</Badge>
-                  <Badge variant={resolvedSelected.kyc === 'verified' ? 'outline' : 'secondary'} className="text-xs">{resolvedSelected.kyc}</Badge>
+                  <Badge variant={customerForView.status === 'active' ? 'default' : 'destructive'} className={cn("text-xs", customerForView.status === 'active' && "bg-emerald-500")}>{customerForView.status}</Badge>
+                  <Badge variant="outline" className="text-xs capitalize">{customerForView.role}</Badge>
+                  <Badge variant={customerForView.kyc === 'verified' ? 'outline' : 'secondary'} className="text-xs">{customerForView.kyc}</Badge>
                 </div>
               </div>
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <Card><CardContent className="p-3 text-center"><p className="text-xl font-bold text-foreground">{resolvedSelected.orders}</p><p className="text-xs text-muted-foreground">Orders</p></CardContent></Card>
-              <Card><CardContent className="p-3 text-center"><p className="text-xl font-bold text-foreground">Rs. {resolvedSelected.spent.toLocaleString()}</p><p className="text-xs text-muted-foreground">Total Spent</p></CardContent></Card>
-              <Card><CardContent className="p-3 text-center"><p className="text-xl font-bold text-emerald-600">Rs. {resolvedSelected.balance.toLocaleString()}</p><p className="text-xs text-muted-foreground">Wallet Balance</p></CardContent></Card>
-              <Card><CardContent className="p-3 text-center"><p className="text-xl font-bold text-foreground">{resolvedSelected.joined}</p><p className="text-xs text-muted-foreground">Joined</p></CardContent></Card>
+              <Card><CardContent className="p-3 text-center"><p className="text-xl font-bold text-foreground">{customerForView.orders}</p><p className="text-xs text-muted-foreground">Orders</p></CardContent></Card>
+              <Card><CardContent className="p-3 text-center"><p className="text-xl font-bold text-foreground">Rs. {customerForView.spent.toLocaleString()}</p><p className="text-xs text-muted-foreground">Total Spent</p></CardContent></Card>
+              <Card><CardContent className="p-3 text-center"><p className="text-xl font-bold text-emerald-600">Rs. {customerForView.balance.toLocaleString()}</p><p className="text-xs text-muted-foreground">Wallet Balance</p></CardContent></Card>
+              <Card><CardContent className="p-3 text-center"><p className="text-xl font-bold text-foreground">{customerForView.joined}</p><p className="text-xs text-muted-foreground">Joined</p></CardContent></Card>
             </div>
-            {resolvedSelected.customer_document ? (
+            {customerForView.customer_document ? (
               <div className="rounded-lg border p-3 space-y-2">
                 <p className="text-sm font-medium">Uploaded document</p>
                 {(() => {
-                  const docUrl = resolveMediaUrlForDisplay(resolvedSelected.customer_document);
+                  const docUrl = resolveMediaUrlForDisplay(customerForView.customer_document);
                   const pdf = /\.pdf(\?|$)/i.test(docUrl);
                   if (pdf) {
                     return (
@@ -1225,9 +1241,14 @@ function AdminsView() {
     ...a,
     lastLogin: a.lastLogin ? a.lastLogin.slice(0, 19).replace('T', ' ') : '—',
   }));
-  const selectedFromRoute = adminRoute?.itemId ? rows.find((a) => a.id === adminRoute.itemId) ?? null : null;
+  const routeEdit = adminRoute?.action === 'edit';
+  const routeView = adminRoute?.action === 'view';
+  const selectedFromRoute =
+    routeEdit && adminRoute?.itemId ? rows.find((a) => a.id === adminRoute.itemId) ?? null : null;
   const resolvedEditItem = selectedFromRoute ?? editItem;
-  const resolvedModalOpen = modalOpen || adminRoute?.action === 'add' || adminRoute?.action === 'edit';
+  const resolvedModalOpen = modalOpen || adminRoute?.action === 'add' || routeEdit;
+  const viewAdmin =
+    routeView && adminRoute?.itemId ? rows.find((a) => a.id === adminRoute.itemId) ?? null : null;
 
   useEffect(() => {
     if (resolvedModalOpen && resolvedEditItem) {
@@ -1286,6 +1307,62 @@ function AdminsView() {
   if (isLoading) return <div className="p-4 lg:p-6 text-sm text-muted-foreground">Loading administrators…</div>;
   if (isError) return <div className="p-4 lg:p-6 text-sm text-destructive">Could not load staff users.</div>;
 
+  if (routeView) {
+    if (!viewAdmin) {
+      return (
+        <div className="p-4 lg:p-6 space-y-4">
+          <Button variant="ghost" size="sm" onClick={() => adminRoute?.navigateToList()}>← Back</Button>
+          <p className="text-sm text-muted-foreground">This administrator was not found in the list.</p>
+        </div>
+      );
+    }
+    const v = viewAdmin;
+    return (
+      <div className="p-4 lg:p-6 space-y-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <Button variant="ghost" size="sm" onClick={() => adminRoute?.navigateToList()}>← Back</Button>
+          <h2 className="text-lg font-bold">{v.name}</h2>
+          <Badge variant={v.status === 'active' ? 'default' : 'secondary'} className={cn('text-xs', v.status === 'active' && 'bg-emerald-500')}>
+            {v.status}
+          </Badge>
+        </div>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">Administrator</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <dl className="grid gap-3 sm:grid-cols-2 text-sm">
+              <div>
+                <dt className="text-muted-foreground">Email</dt>
+                <dd className="font-medium break-all">{v.email || '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Phone (login)</dt>
+                <dd className="font-medium">{v.phone || '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Role</dt>
+                <dd>
+                  <Badge variant="outline" className="text-xs capitalize">{v.role.replace('_', ' ')}</Badge>
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Last login</dt>
+                <dd className="font-medium">{v.lastLogin}</dd>
+              </div>
+            </dl>
+          </CardContent>
+        </Card>
+        {crud.canEditAdmins ? (
+          <Button onClick={() => adminRoute?.navigateToEdit(v.id) ?? (setEditItem(v), setModalOpen(true))}>
+            <Edit className="w-4 h-4 mr-2" />
+            Edit
+          </Button>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 lg:p-6">
       {adminErr && !resolvedModalOpen ? <p className="text-sm text-destructive mb-2">{adminErr}</p> : null}
@@ -1294,7 +1371,6 @@ function AdminsView() {
         columns={[
           { key: 'name', label: 'Name', render: (a) => <span className="font-medium">{a.name}</span> },
           { key: 'email', label: 'Email' },
-          { key: 'role', label: 'Role', render: (a) => <Badge variant="outline" className="text-xs capitalize">{a.role.replace('_', ' ')}</Badge> },
           { key: 'lastLogin', label: 'Last Login' },
           { key: 'status', label: 'Status', render: (a) => (
             <Badge variant={a.status === 'active' ? 'default' : 'secondary'} className={cn("text-xs", a.status === 'active' && "bg-emerald-500")}>{a.status}</Badge>
@@ -1303,6 +1379,10 @@ function AdminsView() {
             <DropdownMenu>
               <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => adminRoute?.navigateToView(a.id)}>
+                  <Eye className="w-4 h-4 mr-2 text-emerald-600" />
+                  View
+                </DropdownMenuItem>
                 {crud.canEditAdmins ? (
                   <DropdownMenuItem onClick={() => adminRoute?.navigateToEdit(a.id) ?? (setEditItem(a), setModalOpen(true))}><Edit className="w-4 h-4 mr-2" /> Edit</DropdownMenuItem>
                 ) : null}

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -7,12 +7,20 @@ import {
 } from '@/components/ui/dialog';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Loader2, Trash2 } from 'lucide-react';
-import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 import AdminLayout from '@/components/admin/AdminLayout';
 import AdminSidebar, { type SidebarItem } from '@/components/admin/AdminSidebar';
 import UnifiedAuthLoginPage from '@/components/auth/UnifiedAuthLoginPage';
-import { vendorApi, getAuthToken, clearAllAuthTokens, getLoginSurface, setLoginSurface } from '@/lib/api';
+import {
+  adminApi,
+  vendorApi,
+  getAuthToken,
+  clearAllAuthTokens,
+  getLoginSurface,
+  setAuthToken,
+  setLoginSurface,
+} from '@/lib/api';
 import { PORTAL_LOGIN_PATH, navigateToPortalLogin, setPostLogoutLoginPath } from '@/lib/portalLoginPaths';
 import { useSessionHomeRedirect } from '@/lib/sessionHomeRedirect';
 import { mapApiNavToAdminItems } from '@/lib/navIcons';
@@ -50,6 +58,7 @@ export default function VendorPortal() {
   const queryClient = useQueryClient();
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [sessionTick, setSessionTick] = useState(0);
   const hasToken = Boolean(getAuthToken());
   const sessionHome = useSessionHomeRedirect(hasToken);
@@ -58,6 +67,34 @@ export default function VendorPortal() {
   const vendorQueriesEnabled = surface === 'vendor';
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [logoutPending, setLogoutPending] = useState(false);
+  const impersonateParam = searchParams.get('impersonate');
+  const impersonateVendorPk = useMemo(() => {
+    const raw = impersonateParam?.trim() ?? '';
+    return /^\d+$/.test(raw) ? raw : null;
+  }, [impersonateParam]);
+  const [impersonateErr, setImpersonateErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!hasToken || getLoginSurface() !== 'admin' || !impersonateVendorPk) return;
+    let ignore = false;
+    setImpersonateErr(null);
+    (async () => {
+      try {
+        const r = await adminApi.vendorImpersonate(impersonateVendorPk);
+        if (ignore) return;
+        setAuthToken(r.token, 'vendor');
+        navigate('/vendor', { replace: true });
+        setSessionTick((t) => t + 1);
+      } catch (e) {
+        if (!ignore) {
+          setImpersonateErr(e instanceof Error ? e.message : 'Could not open vendor portal.');
+        }
+      }
+    })();
+    return () => {
+      ignore = true;
+    };
+  }, [hasToken, impersonateVendorPk, navigate]);
 
   const handleVendorLogout = async () => {
     setLogoutPending(true);
@@ -218,6 +255,44 @@ export default function VendorPortal() {
   }
   if (sessionHome.redirectTarget) {
     return <Navigate to={sessionHome.redirectTarget} replace />;
+  }
+
+  if (surface === 'admin' && impersonateVendorPk && !impersonateErr) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-6 text-center">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <p className="text-muted-foreground max-w-md text-sm">Opening vendor portal…</p>
+      </div>
+    );
+  }
+
+  if (surface === 'admin' && impersonateVendorPk && impersonateErr) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-6 text-center">
+        <p className="text-destructive max-w-md text-sm">{impersonateErr}</p>
+        <div className="flex flex-wrap gap-2 justify-center">
+          <Button
+            variant="default"
+            onClick={async () => {
+              setImpersonateErr(null);
+              try {
+                const r = await adminApi.vendorImpersonate(impersonateVendorPk);
+                setAuthToken(r.token, 'vendor');
+                navigate('/vendor', { replace: true });
+                setSessionTick((t) => t + 1);
+              } catch (e) {
+                setImpersonateErr(e instanceof Error ? e.message : 'Could not open vendor portal.');
+              }
+            }}
+          >
+            Try again
+          </Button>
+          <Button variant="outline" onClick={() => navigate('/admin/sellers')}>
+            Back to sellers
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   if (legacyProbe && surfaceProbeQuery.isPending) {

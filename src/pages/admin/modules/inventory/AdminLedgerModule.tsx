@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import AdminTable from '@/components/admin/AdminTable';
 import { Button } from '@/components/ui/button';
@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { adminApi, extractResults } from '@/lib/api';
+import { adminApi, extractResults, type PagedResponse } from '@/lib/api';
 import { toast } from 'sonner';
 
 function entryLabel(t: string) {
@@ -38,10 +38,34 @@ function money(n: number) {
 
 const ALL_VENDORS_VALUE = '__all';
 
+type LedgerTotals = { credit: number; debit: number; balance: number };
+
+function parseLedgerTotals(page: unknown): LedgerTotals | undefined {
+  if (!page || typeof page !== 'object' || !('ledger_totals' in page)) return undefined;
+  const lt = (page as { ledger_totals?: unknown }).ledger_totals;
+  if (!lt || typeof lt !== 'object') return undefined;
+  const c = (lt as { credit?: unknown }).credit;
+  const d = (lt as { debit?: unknown }).debit;
+  const b = (lt as { balance?: unknown }).balance;
+  if (
+    typeof c === 'number' &&
+    Number.isFinite(c) &&
+    typeof d === 'number' &&
+    Number.isFinite(d) &&
+    typeof b === 'number' &&
+    Number.isFinite(b)
+  ) {
+    return { credit: c, debit: d, balance: b };
+  }
+  return undefined;
+}
+
 export default function AdminLedgerModule() {
   const qc = useQueryClient();
   const [vendorId, setVendorId] = useState(ALL_VENDORS_VALUE);
   const [entryType, setEntryType] = useState<string>('');
+  const [listPage, setListPage] = useState(1);
+  const [listPageSize, setListPageSize] = useState(100);
   const [addOpen, setAddOpen] = useState(false);
   const [adjAmount, setAdjAmount] = useState('');
   const [adjDescription, setAdjDescription] = useState('');
@@ -53,11 +77,16 @@ export default function AdminLedgerModule() {
   });
   const vendors = useMemo(() => extractResults<Record<string, unknown>>(vendorsPage), [vendorsPage]);
 
+  useEffect(() => {
+    setListPage(1);
+  }, [vendorId, entryType]);
+
   const { data: page } = useQuery({
-    queryKey: ['admin', 'vendor-ledger', vendorId, entryType],
+    queryKey: ['admin', 'vendor-ledger', vendorId, entryType, listPage, listPageSize],
     queryFn: () => {
       const params = {
-        page_size: 100,
+        page: listPage,
+        page_size: listPageSize,
         ...(entryType ? { entry_type: entryType } : {}),
       };
       return vendorId === ALL_VENDORS_VALUE
@@ -66,6 +95,7 @@ export default function AdminLedgerModule() {
     },
   });
   const rows = useMemo(() => extractResults<Record<string, unknown>>(page), [page]);
+  const totalsFromApi = useMemo(() => parseLedgerTotals(page), [page]);
 
   const ledgerTypeFilterOptions = useMemo(() => {
     const types = new Set<string>(['sale_settlement', 'sale_reversal', 'purchase_cost', 'adjustment']);
@@ -77,7 +107,10 @@ export default function AdminLedgerModule() {
   }, [rows]);
 
   const ledgerStats = useMemo(() => {
-    return rows.reduce(
+    if (totalsFromApi) {
+      return totalsFromApi;
+    }
+    const reduced = rows.reduce(
       (acc, row) => {
         const amount = Number(row.amount ?? 0);
         if (amount > 0) {
@@ -89,8 +122,9 @@ export default function AdminLedgerModule() {
       },
       { credit: 0, debit: 0 },
     );
-  }, [rows]);
-  const ledgerBalance = ledgerStats.credit - ledgerStats.debit;
+    return { ...reduced, balance: reduced.credit - reduced.debit };
+  }, [rows, totalsFromApi]);
+  const ledgerBalance = ledgerStats.balance;
 
   const addLedgerMut = useMutation({
     mutationFn: () => {
@@ -106,7 +140,7 @@ export default function AdminLedgerModule() {
       });
     },
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['admin', 'vendor-ledger', vendorId] });
+      void qc.invalidateQueries({ queryKey: ['admin', 'vendor-ledger'] });
       toast.success('Ledger entry added');
       setAddOpen(false);
       setAdjAmount('');
@@ -177,13 +211,31 @@ export default function AdminLedgerModule() {
           <AdminTable
             title="Vendor ledger"
             subtitle={
-              vendorId === ALL_VENDORS_VALUE ? 'Ledger entries for all vendors' : 'Ledger entries for this vendor'
+              vendorId === ALL_VENDORS_VALUE
+                ? 'Entries grouped by vendor (store name), newest first within each vendor'
+                : 'Ledger entries for this vendor'
             }
             data={rows}
             searchKey="description"
             searchPlaceholder="Search description…"
             onAdd={vendorId === ALL_VENDORS_VALUE ? undefined : () => setAddOpen(true)}
             addLabel={vendorId === ALL_VENDORS_VALUE ? undefined : 'Add ledger'}
+            pagination={
+              page &&
+              typeof (page as PagedResponse<unknown>).count === 'number' &&
+              (page as PagedResponse<unknown>).count > 0
+                ? {
+                    page: listPage,
+                    pageSize: listPageSize,
+                    total: (page as PagedResponse<unknown>).count,
+                    onPageChange: setListPage,
+                    onPageSizeChange: (size: number) => {
+                      setListPageSize(size);
+                      setListPage(1);
+                    },
+                  }
+                : undefined
+            }
             columns={[
               ...(vendorId === ALL_VENDORS_VALUE
                 ? [
