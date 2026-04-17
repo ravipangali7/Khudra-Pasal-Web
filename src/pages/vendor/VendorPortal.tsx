@@ -18,8 +18,10 @@ import {
   getAuthToken,
   clearAllAuthTokens,
   getLoginSurface,
-  setAuthToken,
   setLoginSurface,
+  getVendorTabImpersonationToken,
+  setVendorTabImpersonationToken,
+  clearVendorTabImpersonationToken,
 } from '@/lib/api';
 import { PORTAL_LOGIN_PATH, navigateToPortalLogin, setPostLogoutLoginPath } from '@/lib/portalLoginPaths';
 import { useSessionHomeRedirect } from '@/lib/sessionHomeRedirect';
@@ -61,10 +63,11 @@ export default function VendorPortal() {
   const [searchParams] = useSearchParams();
   const [sessionTick, setSessionTick] = useState(0);
   const hasToken = Boolean(getAuthToken());
-  const sessionHome = useSessionHomeRedirect(hasToken);
+  const vendorTabImpersonation = Boolean(getVendorTabImpersonationToken());
+  const sessionHome = useSessionHomeRedirect(hasToken && !vendorTabImpersonation);
   const surface = getLoginSurface();
   const legacyProbe = hasToken && surface === null;
-  const vendorQueriesEnabled = surface === 'vendor';
+  const vendorQueriesEnabled = surface === 'vendor' || vendorTabImpersonation;
   const [logoutOpen, setLogoutOpen] = useState(false);
   const [logoutPending, setLogoutPending] = useState(false);
   const impersonateParam = searchParams.get('impersonate');
@@ -82,8 +85,8 @@ export default function VendorPortal() {
       try {
         const r = await adminApi.vendorImpersonate(impersonateVendorPk);
         if (ignore) return;
-        setAuthToken(r.token, 'vendor');
-        navigate('/vendor', { replace: true });
+        setVendorTabImpersonationToken(r.token);
+        navigate('/vendor/dashboard', { replace: true });
         setSessionTick((t) => t + 1);
       } catch (e) {
         if (!ignore) {
@@ -98,11 +101,20 @@ export default function VendorPortal() {
 
   const handleVendorLogout = async () => {
     setLogoutPending(true);
+    const tabImpersonation = Boolean(getVendorTabImpersonationToken());
     try {
       await vendorApi.logout();
     } catch {
       // Best-effort server-side logout; always clear local session.
     } finally {
+      if (tabImpersonation && getLoginSurface() === 'admin') {
+        clearVendorTabImpersonationToken();
+        setSessionTick((t) => t + 1);
+        setLogoutPending(false);
+        setLogoutOpen(false);
+        navigate('/admin/sellers', { replace: true });
+        return;
+      }
       setPostLogoutLoginPath(PORTAL_LOGIN_PATH.vendor);
       clearAllAuthTokens();
       setSessionTick((t) => t + 1);
@@ -268,8 +280,8 @@ export default function VendorPortal() {
               setImpersonateErr(null);
               try {
                 const r = await adminApi.vendorImpersonate(impersonateVendorPk!);
-                setAuthToken(r.token, 'vendor');
-                navigate('/vendor', { replace: true });
+                setVendorTabImpersonationToken(r.token);
+                navigate('/vendor/dashboard', { replace: true });
                 setSessionTick((t) => t + 1);
               } catch (e) {
                 setImpersonateErr(e instanceof Error ? e.message : 'Could not open vendor portal.');
@@ -340,7 +352,7 @@ export default function VendorPortal() {
     );
   }
 
-  if (surface === 'admin') {
+  if (surface === 'admin' && !vendorTabImpersonation) {
     return (
       <>
         <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-6 text-center">

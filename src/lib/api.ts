@@ -37,6 +37,41 @@ const AUTH_TOKEN_KEY = "khudrapasal_auth_token";
 const ADMIN_TOKEN_KEY = "khudrapasal_admin_token";
 export const VENDOR_TOKEN_KEY = "khudrapasal_vendor_token";
 export const PORTAL_TOKEN_KEY = "khudrapasal_portal_token";
+/** Tab-local vendor token when an admin opens a vendor session without replacing the shared admin token (sessionStorage). */
+const VENDOR_TAB_IMPERSONATION_TOKEN_KEY = "khudrapasal_vendor_tab_impersonation_token";
+
+export function getVendorTabImpersonationToken(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return sessionStorage.getItem(VENDOR_TAB_IMPERSONATION_TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setVendorTabImpersonationToken(token: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(VENDOR_TAB_IMPERSONATION_TOKEN_KEY, token);
+  } catch {
+    /* private mode / quota */
+  }
+  window.dispatchEvent(new CustomEvent("khudra-auth-changed"));
+}
+
+export function clearVendorTabImpersonationToken(): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.removeItem(VENDOR_TAB_IMPERSONATION_TOKEN_KEY);
+  } catch {
+    /* ignore */
+  }
+  window.dispatchEvent(new CustomEvent("khudra-auth-changed"));
+}
+
+function getVendorApiAuthToken(): string | null {
+  return getVendorTabImpersonationToken() || getAuthToken();
+}
 const LOGIN_SURFACE_KEY = "khudrapasal_login_surface";
 const looksLikeJwt = (token: string) => token.split(".").length === 3;
 
@@ -101,6 +136,7 @@ export function clearAllAuthTokens() {
   [AUTH_TOKEN_KEY, ADMIN_TOKEN_KEY, VENDOR_TOKEN_KEY, PORTAL_TOKEN_KEY].forEach((k) =>
     localStorage.removeItem(k),
   );
+  clearVendorTabImpersonationToken();
   clearLoginSurface();
   clearFcmTokenRegistrationDedup();
   if (typeof window !== "undefined") {
@@ -733,7 +769,7 @@ async function vendorFetch<T>(path: string, init?: RequestInit, authenticated = 
   const isFormData = typeof FormData !== "undefined" && init?.body instanceof FormData;
   setJsonContentTypeIfNeeded(headers, init, isFormData);
   if (authenticated) {
-    const token = getAuthToken();
+    const token = getVendorApiAuthToken();
     if (token) headers.set("Authorization", buildAuthHeaderValue(token));
   }
 
@@ -755,7 +791,7 @@ async function vendorFetch<T>(path: string, init?: RequestInit, authenticated = 
 async function vendorFetchBlob(path: string, authenticated = true): Promise<Blob> {
   const headers = new Headers();
   if (authenticated) {
-    const token = getAuthToken();
+    const token = getVendorApiAuthToken();
     if (token) headers.set("Authorization", buildAuthHeaderValue(token));
   }
   const response = await fetch(`${API_BASE}${path}`, { headers });

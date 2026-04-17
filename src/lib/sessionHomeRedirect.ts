@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useLocation } from 'react-router-dom';
-import { authApi, getAuthToken } from '@/lib/api';
+import { authApi, getAuthToken, getVendorTabImpersonationToken } from '@/lib/api';
 
 export type PortalShellId = 'admin' | 'vendor' | 'family-portal' | 'child-portal' | 'portal';
 
@@ -28,7 +28,7 @@ export function useSessionHomeRedirect(authed: boolean): {
   const q = useQuery({
     queryKey: ['auth', 'session-home'],
     queryFn: () => authApi.sessionHome(),
-    enabled: authed && Boolean(getAuthToken()),
+    enabled: authed && Boolean(getAuthToken()) && !getVendorTabImpersonationToken(),
     staleTime: 60_000,
     retry: false,
   });

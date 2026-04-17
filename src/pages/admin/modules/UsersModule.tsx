@@ -4,7 +4,7 @@ import {
   DollarSign, Star, Store, Phone, Mail, MapPin, Download, ChevronDown,
 } from 'lucide-react';
 import AdminTable from '@/components/admin/AdminTable';
-import { CRUDModal, DeleteConfirm } from '@/components/admin/CRUDModal';
+import { CRUDModal } from '@/components/admin/CRUDModal';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,7 +23,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Sheet,
   SheetContent,
@@ -48,7 +48,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { adminApi, type AdminKycSubmissionRow, type PagedResponse } from '@/lib/api';
+import { adminApi, setVendorTabImpersonationToken, type AdminKycSubmissionRow, type PagedResponse } from '@/lib/api';
 import { useAdminList } from '../hooks/useAdminList';
 import { useAdminRouteContext } from '../adminRouteContext';
 import { useAdminMutation } from '../hooks/useAdminMutation';
@@ -464,9 +464,6 @@ function CustomersView() {
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => adminRoute?.navigateToView(c.id) ?? (setSelected(c), setViewOpen(true))}><Eye className="w-4 h-4 mr-2 text-emerald-600" /> View Profile</DropdownMenuItem>
                 {crud.canCustomerMutate ? (
-                  <DropdownMenuItem onClick={() => adminRoute?.navigateToEdit(c.id) ?? (setSelected(c), setEditOpen(true))}><Edit className="w-4 h-4 mr-2" /> Edit</DropdownMenuItem>
-                ) : null}
-                {crud.canCustomerMutate ? (
                 <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
@@ -695,6 +692,7 @@ function CustomersView() {
 // ==================== SELLERS / VENDORS VIEW ====================
 function SellersView() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const adminRoute = useAdminRouteContext();
   const crud = useAdminCrudPolicy();
   const [addOpen, setAddOpen] = useState(false);
@@ -988,7 +986,18 @@ function SellersView() {
                 {crud.canVendorMutate ? (
                 <>
                 <DropdownMenuItem onClick={() => adminRoute?.navigateToEdit(s.id) ?? (setSelected(s), setEditVendorOpen(true))}><Edit className="w-4 h-4 mr-2" /> Edit Vendor</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => window.open(`/vendor?impersonate=${s.id}&store=${encodeURIComponent(s.name)}`, '_blank')}>
+                <DropdownMenuItem
+                  onClick={async () => {
+                    setVendorErr('');
+                    try {
+                      const r = await adminApi.vendorImpersonate(String(s.id));
+                      setVendorTabImpersonationToken(r.token);
+                      navigate('/vendor/dashboard', { replace: true });
+                    } catch (e) {
+                      setVendorErr(formatApiError(e));
+                    }
+                  }}
+                >
                   <Shield className="w-4 h-4 mr-2 text-blue-500" /> Login as Vendor
                 </DropdownMenuItem>
                 {s.status === 'pending' && (
@@ -1269,8 +1278,6 @@ function AdminsView() {
   const adminRoute = useAdminRouteContext();
   const crud = useAdminCrudPolicy();
   const [modalOpen, setModalOpen] = useState(false);
-  const [deleteOpen, setDeleteOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<StaffAdminRow | null>(null);
   const [editItem, setEditItem] = useState<StaffAdminRow | null>(null);
   const [aName, setAName] = useState('');
   const [aEmail, setAEmail] = useState('');
@@ -1284,7 +1291,6 @@ function AdminsView() {
     ({ id, payload }: { id: string; payload: Record<string, unknown> }) => adminApi.updateUser(id, payload),
     [['admin', 'staff-users'], ['admin-users-list']],
   );
-  const deleteMut = useAdminMutation(adminApi.deleteUser, [['admin', 'staff-users'], ['admin-users-list']]);
   const { data: admins = [], isLoading, isError } = useAdminList<StaffAdminRow>(
     ['admin', 'staff-users'],
     () => adminApi.staffUsers({ page_size: 200 }),
@@ -1436,15 +1442,6 @@ function AdminsView() {
                   <Eye className="w-4 h-4 mr-2 text-emerald-600" />
                   View
                 </DropdownMenuItem>
-                {crud.canEditAdmins ? (
-                  <DropdownMenuItem onClick={() => adminRoute?.navigateToEdit(a.id) ?? (setEditItem(a), setModalOpen(true))}><Edit className="w-4 h-4 mr-2" /> Edit</DropdownMenuItem>
-                ) : null}
-                {crud.canEditAdmins ? (
-                  <>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem className="text-destructive" onClick={() => { setDeleteTarget(a); setDeleteOpen(true); }}><Trash2 className="w-4 h-4 mr-2" /> Delete</DropdownMenuItem>
-                  </>
-                ) : null}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
@@ -1482,23 +1479,6 @@ function AdminsView() {
           <div className="flex items-center justify-between"><Label>Active</Label><Switch checked={aActive} onCheckedChange={setAActive} /></div>
         </div>
       </CRUDModal>
-      <DeleteConfirm
-        open={deleteOpen}
-        onClose={() => { setDeleteOpen(false); setDeleteTarget(null); }}
-        loading={deleteMut.isPending}
-        onConfirm={async () => {
-          if (!deleteTarget) return;
-          try {
-            await deleteMut.mutateAsync(deleteTarget.id);
-            setDeleteOpen(false);
-            setDeleteTarget(null);
-          } catch (e) {
-            setAdminErr(formatApiError(e));
-            setDeleteOpen(false);
-          }
-        }}
-        description="This will remove this administrator's account."
-      />
     </div>
   );
 }
