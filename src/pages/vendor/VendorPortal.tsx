@@ -246,18 +246,9 @@ export default function VendorPortal() {
     );
   }
 
-  if (sessionHome.isPending) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-muted-foreground">
-        Loading vendor portal…
-      </div>
-    );
-  }
-  if (sessionHome.redirectTarget) {
-    return <Navigate to={sessionHome.redirectTarget} replace />;
-  }
+  const adminVendorImpersonate = surface === 'admin' && Boolean(impersonateVendorPk);
 
-  if (surface === 'admin' && impersonateVendorPk && !impersonateErr) {
+  if (adminVendorImpersonate && !impersonateErr) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-6 text-center">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -266,7 +257,7 @@ export default function VendorPortal() {
     );
   }
 
-  if (surface === 'admin' && impersonateVendorPk && impersonateErr) {
+  if (adminVendorImpersonate && impersonateErr) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 p-6 text-center">
         <p className="text-destructive max-w-md text-sm">{impersonateErr}</p>
@@ -276,7 +267,7 @@ export default function VendorPortal() {
             onClick={async () => {
               setImpersonateErr(null);
               try {
-                const r = await adminApi.vendorImpersonate(impersonateVendorPk);
+                const r = await adminApi.vendorImpersonate(impersonateVendorPk!);
                 setAuthToken(r.token, 'vendor');
                 navigate('/vendor', { replace: true });
                 setSessionTick((t) => t + 1);
@@ -293,6 +284,17 @@ export default function VendorPortal() {
         </div>
       </div>
     );
+  }
+
+  if (sessionHome.isPending && !adminVendorImpersonate) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-muted-foreground">
+        Loading vendor portal…
+      </div>
+    );
+  }
+  if (sessionHome.redirectTarget && !adminVendorImpersonate) {
+    return <Navigate to={sessionHome.redirectTarget} replace />;
   }
 
   if (legacyProbe && surfaceProbeQuery.isPending) {

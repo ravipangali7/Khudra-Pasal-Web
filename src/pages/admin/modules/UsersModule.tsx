@@ -950,9 +950,6 @@ function SellersView() {
                 <DropdownMenuItem onClick={() => window.open(`/vendor?impersonate=${s.id}&store=${encodeURIComponent(s.name)}`, '_blank')}>
                   <Shield className="w-4 h-4 mr-2 text-blue-500" /> Login as Vendor
                 </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => toggleSelling(s.id)}>{s.canSell ? <><Ban className="w-4 h-4 mr-2" /> Disable Selling</> : <><CheckCircle className="w-4 h-4 mr-2" /> Enable Selling</>}</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => togglePosting(s.id)}>{s.canPost ? <><Ban className="w-4 h-4 mr-2" /> Disable Posting</> : <><CheckCircle className="w-4 h-4 mr-2" /> Enable Posting</>}</DropdownMenuItem>
                 {s.status === 'pending' && (
                   <>
                     <DropdownMenuSeparator />
@@ -983,18 +980,33 @@ function SellersView() {
                   </>
                 )}
                 <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className="text-destructive"
-                  onClick={async () => {
-                    try {
-                      await vendorMut.mutateAsync({ id: s.id, payload: { status: 'suspended' } });
-                    } catch (e) {
-                      setVendorErr(formatApiError(e));
-                    }
-                  }}
-                >
-                  <Trash2 className="w-4 h-4 mr-2" /> Suspend Vendor
-                </DropdownMenuItem>
+                {s.status === 'suspended' ? (
+                  <DropdownMenuItem
+                    className="text-emerald-600"
+                    onClick={async () => {
+                      try {
+                        await vendorMut.mutateAsync({ id: s.id, payload: { status: 'approved' } });
+                      } catch (e) {
+                        setVendorErr(formatApiError(e));
+                      }
+                    }}
+                  >
+                    <Unlock className="w-4 h-4 mr-2" /> Unsuspend Vendor
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem
+                    className="text-destructive"
+                    onClick={async () => {
+                      try {
+                        await vendorMut.mutateAsync({ id: s.id, payload: { status: 'suspended' } });
+                      } catch (e) {
+                        setVendorErr(formatApiError(e));
+                      }
+                    }}
+                  >
+                    <Trash2 className="w-4 h-4 mr-2" /> Suspend Vendor
+                  </DropdownMenuItem>
+                )}
                 </>
                 ) : null}
               </DropdownMenuContent>
