@@ -34,9 +34,11 @@ function formatLineTotal(qty: string, unitCost: string): string {
 
 export default function AdminStockPurchasesModule() {
   const qc = useQueryClient();
-  const [vendorId, setVendorId] = useState('');
+  const [vendorId, setVendorId] = useState('__all');
   const [filter, setFilter] = useState<string>('');
   const [open, setOpen] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [viewPurchase, setViewPurchase] = useState<{ vendorId: string; purchaseId: string } | null>(null);
   const [supplierId, setSupplierId] = useState('');
   const [tax, setTax] = useState('0');
   const [lines, setLines] = useState<LineRow[]>([{ product_id: '', quantity: '1', unit_cost: '' }]);
@@ -50,14 +52,14 @@ export default function AdminStockPurchasesModule() {
   const { data: supPage } = useQuery({
     queryKey: ['admin', 'vendor-suppliers', vendorId],
     queryFn: () => adminApi.vendorSuppliers(vendorId, { page_size: 200 }),
-    enabled: Boolean(vendorId),
+    enabled: Boolean(vendorId) && vendorId !== '__all',
   });
   const suppliers = useMemo(() => extractResults<Record<string, unknown>>(supPage), [supPage]);
 
   const { data: productsPage, isLoading: productsLoading } = useQuery({
     queryKey: ['admin', 'products', 'stock-purchase-picker', vendorId],
     queryFn: () => adminApi.products({ page_size: 500, seller_id: vendorId }),
-    enabled: Boolean(vendorId) && open,
+    enabled: Boolean(vendorId) && vendorId !== '__all' && open,
   });
   const vendorProducts = useMemo(
     () => extractResults<Record<string, unknown>>(productsPage),
@@ -97,17 +99,50 @@ export default function AdminStockPurchasesModule() {
   });
   const rows = useMemo(() => extractResults<Record<string, unknown>>(page), [page]);
 
+  const activeDetailTarget = editId
+    ? {
+        vendorId,
+        purchaseId: editId,
+      }
+    : viewPurchase;
+
+  const { data: activeDetail } = useQuery({
+    queryKey: ['admin', 'stock-purchase-detail', activeDetailTarget?.vendorId, activeDetailTarget?.purchaseId],
+    queryFn: () =>
+      adminApi.vendorStockPurchaseDetail(activeDetailTarget!.vendorId, activeDetailTarget!.purchaseId),
+    enabled: Boolean(activeDetailTarget?.vendorId && activeDetailTarget?.purchaseId),
+  });
+
   useEffect(() => {
     if (!open) {
+      setEditId(null);
       setSupplierId('');
       setTax('0');
       setLines([{ product_id: '', quantity: '1', unit_cost: '' }]);
     }
   }, [open]);
 
-  const createMut = useMutation({
+  useEffect(() => {
+    setSupplierId('');
+  }, [vendorId]);
+
+  useEffect(() => {
+    if (!open || !editId || !activeDetail) return;
+    setSupplierId(String(activeDetail.supplier_id ?? ''));
+    setTax(String(activeDetail.tax ?? '0'));
+    const nextLines = Array.isArray(activeDetail.lines)
+      ? (activeDetail.lines as Record<string, unknown>[]).map((line) => ({
+          product_id: String(line.product_id ?? ''),
+          quantity: String(line.quantity ?? ''),
+          unit_cost: String(line.unit_cost ?? ''),
+        }))
+      : [];
+    setLines(nextLines.length ? nextLines : [{ product_id: '', quantity: '1', unit_cost: '' }]);
+  }, [open, editId, activeDetail]);
+
+  const saveMut = useMutation({
     mutationFn: () => {
-      if (!vendorId) throw new Error('Choose a vendor');
+      if (!vendorId || vendorId === '__all') throw new Error('Choose a vendor');
       const parsedLines = lines
         .filter((l) => l.product_id.trim() && l.quantity.trim() && l.unit_cost.trim())
         .map((l) => ({
@@ -117,25 +152,42 @@ export default function AdminStockPurchasesModule() {
         }));
       if (!supplierId) throw new Error('Choose a supplier');
       if (!parsedLines.length) throw new Error('Add at least one line with a product, qty, and unit cost');
-      return adminApi.createVendorStockPurchase(vendorId, {
+      const payload = {
         supplier_id: Number(supplierId),
         tax: Number(tax) || 0,
         lines: parsedLines,
-      });
+      };
+      if (editId) return adminApi.updateVendorStockPurchase(vendorId, editId, payload);
+      return adminApi.createVendorStockPurchase(vendorId, payload);
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['admin', 'stock-purchases', vendorId] });
-      toast.success('Purchase draft created');
+      void qc.invalidateQueries({ queryKey: ['admin', 'stock-purchase-detail'] });
+      toast.success(editId ? 'Purchase draft updated' : 'Purchase draft created');
       setOpen(false);
+      setEditId(null);
       setLines([{ product_id: '', quantity: '1', unit_cost: '' }]);
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const deleteMut = useMutation({
+    mutationFn: ({ purchaseId, purchaseVendorId }: { purchaseId: string; purchaseVendorId: string }) =>
+      adminApi.deleteVendorStockPurchase(purchaseVendorId, purchaseId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['admin', 'stock-purchases'] });
+      void qc.invalidateQueries({ queryKey: ['admin', 'stock-purchase-detail'] });
+      toast.success('Purchase draft deleted');
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const postMut = useMutation({
-    mutationFn: (id: string) => {
-      if (!vendorId) throw new Error('Choose a vendor');
-      return adminApi.postVendorStockPurchase(vendorId, id);
+    mutationFn: ({ purchaseId, purchaseVendorId }: { purchaseId: string; purchaseVendorId?: string }) => {
+      const resolvedVendorId =
+        purchaseVendorId && purchaseVendorId !== '__all' ? purchaseVendorId : vendorId;
+      if (!resolvedVendorId || resolvedVendorId === '__all') throw new Error('Choose a vendor');
+      return adminApi.postVendorStockPurchase(resolvedVendorId, purchaseId);
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['admin', 'stock-purchases'] });
@@ -158,6 +210,7 @@ export default function AdminStockPurchasesModule() {
             <SelectValue placeholder="Select vendor" />
           </SelectTrigger>
           <SelectContent>
+            <SelectItem value="__all">All</SelectItem>
             {vendors.map((v) => (
               <SelectItem key={String(v.id)} value={String(v.id)}>
                 {String(v.name ?? '')}
@@ -195,6 +248,7 @@ export default function AdminStockPurchasesModule() {
           subtitle="Receive inventory from suppliers (increases product stock when posted)"
           data={rows}
           columns={[
+            ...(vendorId === '__all' ? [{ key: 'vendor_name', label: 'Vendor' }] : []),
             { key: 'reference', label: 'Reference' },
             { key: 'supplier_name', label: 'Supplier' },
             {
@@ -214,19 +268,67 @@ export default function AdminStockPurchasesModule() {
             },
             { key: 'created_at', label: 'Created' },
             {
-              key: 'id',
-              label: '',
-              render: (r) =>
-                r.status === 'draft' ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={postMut.isPending}
-                    onClick={() => postMut.mutate(String(r.id))}
-                  >
-                    Post
-                  </Button>
-                ) : null,
+              key: 'actions',
+              label: 'Action',
+              render: (r) => {
+                const purchaseId = String(r.id ?? '');
+                const purchaseVendorId =
+                  vendorId !== '__all' ? vendorId : String(r.vendor_id ?? '');
+                const canEdit = r.status === 'draft';
+                return (
+                  <div className="flex flex-wrap gap-1">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={!purchaseId || !purchaseVendorId}
+                      onClick={() => setViewPurchase({ vendorId: purchaseVendorId, purchaseId })}
+                    >
+                      View
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={!canEdit || !purchaseId || !purchaseVendorId}
+                      onClick={() => {
+                        setVendorId(purchaseVendorId);
+                        setEditId(purchaseId);
+                        setOpen(true);
+                      }}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="destructive"
+                      disabled={!canEdit || !purchaseId || !purchaseVendorId || deleteMut.isPending}
+                      onClick={() => {
+                        if (!window.confirm(`Delete draft purchase "${String(r.reference ?? '')}"?`)) return;
+                        deleteMut.mutate({ purchaseId, purchaseVendorId });
+                      }}
+                    >
+                      Delete
+                    </Button>
+                    {canEdit ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={postMut.isPending || !purchaseId || !purchaseVendorId}
+                        onClick={() =>
+                          postMut.mutate({
+                            purchaseId,
+                            purchaseVendorId,
+                          })
+                        }
+                      >
+                        Post
+                      </Button>
+                    ) : null}
+                  </div>
+                );
+              },
             },
           ]}
           />
@@ -236,9 +338,25 @@ export default function AdminStockPurchasesModule() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>New draft purchase</DialogTitle>
+            <DialogTitle>{editId ? 'Edit draft purchase' : 'New draft purchase'}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
+            <div>
+              <Label>Vendor</Label>
+              <Select value={vendorId} onValueChange={setVendorId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select vendor" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all">Select vendor</SelectItem>
+                  {vendors.map((v) => (
+                    <SelectItem key={String(v.id)} value={String(v.id)}>
+                      {String(v.name ?? '')}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div>
               <Label>Supplier</Label>
               <Select value={supplierId} onValueChange={setSupplierId}>
@@ -376,10 +494,50 @@ export default function AdminStockPurchasesModule() {
             <Button variant="outline" type="button" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button type="button" disabled={createMut.isPending} onClick={() => createMut.mutate()}>
-              Create draft
+            <Button
+              type="button"
+              disabled={saveMut.isPending || !vendorId || vendorId === '__all'}
+              onClick={() => saveMut.mutate()}
+            >
+              {editId ? 'Save changes' : 'Create draft'}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(viewPurchase)} onOpenChange={(v) => !v && setViewPurchase(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>
+              Stock purchase {String(activeDetail?.reference ?? viewPurchase?.purchaseId ?? '')}
+            </DialogTitle>
+          </DialogHeader>
+          {!activeDetail ? (
+            <p className="text-sm text-muted-foreground">Loading purchase details...</p>
+          ) : (
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                <div><span className="text-muted-foreground">Supplier:</span> {String(activeDetail.supplier_name ?? '')}</div>
+                <div><span className="text-muted-foreground">Status:</span> {String(activeDetail.status ?? '')}</div>
+                <div><span className="text-muted-foreground">Subtotal:</span> Rs. {Number(activeDetail.subtotal ?? 0).toLocaleString()}</div>
+                <div><span className="text-muted-foreground">Tax:</span> Rs. {Number(activeDetail.tax ?? 0).toLocaleString()}</div>
+                <div><span className="text-muted-foreground">Total:</span> Rs. {Number(activeDetail.total ?? 0).toLocaleString()}</div>
+                <div><span className="text-muted-foreground">Created:</span> {String(activeDetail.created_at ?? '').slice(0, 19).replace('T', ' ')}</div>
+              </div>
+              <AdminTable
+                title="Purchase lines"
+                subtitle="Products in this stock purchase"
+                data={Array.isArray(activeDetail.lines) ? (activeDetail.lines as Record<string, unknown>[]) : []}
+                columns={[
+                  { key: 'product_name', label: 'Product' },
+                  { key: 'sku', label: 'SKU' },
+                  { key: 'quantity', label: 'Qty' },
+                  { key: 'unit_cost', label: 'Unit cost', render: (r) => `Rs. ${Number(r.unit_cost ?? 0).toLocaleString()}` },
+                  { key: 'line_total', label: 'Line total', render: (r) => `Rs. ${Number(r.line_total ?? 0).toLocaleString()}` },
+                ]}
+              />
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>

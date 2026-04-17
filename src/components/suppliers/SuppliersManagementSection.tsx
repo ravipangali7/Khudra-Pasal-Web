@@ -38,6 +38,10 @@ export type SuppliersManagementSectionProps = {
   selectionHint?: ReactNode;
   nameFieldId?: string;
   phoneFieldId?: string;
+  /** Optional fields rendered before name/phone in the add dialog. */
+  dialogFieldsPrefix?: ReactNode;
+  /** Row-level actions (View/Edit/Delete). */
+  renderActions?: (row: Record<string, unknown>) => ReactNode;
 };
 
 export default function SuppliersManagementSection({
@@ -60,7 +64,11 @@ export default function SuppliersManagementSection({
   selectionHint,
   nameFieldId = 'supplier-name',
   phoneFieldId = 'supplier-phone',
+  dialogFieldsPrefix,
+  renderActions,
 }: SuppliersManagementSectionProps) {
+  const hasVendorColumn = rows.some((r) => Boolean(r.vendor_name));
+
   return (
     <div className="space-y-4">
       {toolbarPrefix ? <div className="flex flex-wrap items-center gap-3">{toolbarPrefix}</div> : null}
@@ -94,6 +102,7 @@ export default function SuppliersManagementSection({
             subtitle="Wholesalers and vendors you buy stock from"
             data={rows}
             columns={[
+              ...(hasVendorColumn ? [{ key: 'vendor_name', label: 'Vendor' }] : []),
               { key: 'name', label: 'Name' },
               { key: 'phone', label: 'Phone' },
               {
@@ -101,6 +110,15 @@ export default function SuppliersManagementSection({
                 label: 'Active',
                 render: (r) => (r.is_active ? 'Yes' : 'No'),
               },
+              ...(renderActions
+                ? [
+                    {
+                      key: 'actions',
+                      label: 'Actions',
+                      render: (r: Record<string, unknown>) => renderActions(r),
+                    },
+                  ]
+                : []),
             ]}
           />
         </>
@@ -112,6 +130,7 @@ export default function SuppliersManagementSection({
             <DialogTitle>New supplier</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
+            {dialogFieldsPrefix}
             <div>
               <Label htmlFor={nameFieldId}>Name</Label>
               <Input

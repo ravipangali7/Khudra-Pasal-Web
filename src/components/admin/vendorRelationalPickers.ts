@@ -12,7 +12,7 @@ type VendorCategoryRow = {
   parent_id?: string | null;
 };
 
-function buildVendorCategoryLabels(rows: VendorCategoryRow[]) {
+function buildVendorCategoryTree(rows: VendorCategoryRow[]) {
   const byId = new Map<string, VendorCategoryRow>();
   rows.forEach((row) => {
     const id = String(row.id);
@@ -34,17 +34,42 @@ function buildVendorCategoryLabels(rows: VendorCategoryRow[]) {
     return chain.reverse().join(' > ');
   };
 
+  const toDepth = (id: string): number => {
+    let depth = 0;
+    const seen = new Set<string>();
+    let current = byId.get(id);
+    while (current && !seen.has(current.id)) {
+      seen.add(current.id);
+      const parentId = current.parent_id ? String(current.parent_id) : '';
+      if (!parentId) break;
+      depth += 1;
+      current = byId.get(parentId);
+    }
+    return depth;
+  };
+
   return Array.from(byId.values()).map((row) => {
     const id = String(row.id);
-    return { value: id, label: toLabel(id) };
+    return {
+      value: id,
+      label: String(row.name),
+      description: toLabel(id),
+      parentValue: row.parent_id ? String(row.parent_id) : undefined,
+      depth: toDepth(id),
+    };
   });
 }
 
 export async function fetchCategoryVendorOptions(search: string): Promise<AdminSearchOption[]> {
   const res = await vendorApi.catalogCategories();
   const rows = extractResults<VendorCategoryRow>(res);
-  return buildVendorCategoryLabels(rows)
+  const normalizedSearch = search.trim().toLowerCase();
+  return buildVendorCategoryTree(rows)
     .filter((c) => matchesSearch(c.label, search))
+    .filter((c) => {
+      if (!normalizedSearch) return true;
+      return String(c.description ?? '').toLowerCase().includes(normalizedSearch) || matchesSearch(c.label, search);
+    })
     .slice(0, 80);
 }
 

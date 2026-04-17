@@ -63,6 +63,7 @@ type CategoryRow = {
   name: string;
   parent?: string;
   parentId?: string | null;
+  parent_id?: string | null;
   level?: number;
 };
 
@@ -84,25 +85,53 @@ function buildCategoryTreeLabel(id: string, byId: Map<string, CategoryRow>): str
   while (current && !seen.has(current.id)) {
     seen.add(current.id);
     chain.push(String(current.name));
-    const parentId = current.parentId ? String(current.parentId) : '';
-    current = parentId ? byId.get(parentId) : undefined;
+    const parentId = current.parentId ?? current.parent_id;
+    const normalizedParent = parentId ? String(parentId) : '';
+    current = normalizedParent ? byId.get(normalizedParent) : undefined;
   }
   return chain.reverse().join(' > ');
 }
 
+function buildCategoryDepth(id: string, byId: Map<string, CategoryRow>): number {
+  let depth = 0;
+  const seen = new Set<string>();
+  let current = byId.get(id);
+  while (current && !seen.has(current.id)) {
+    seen.add(current.id);
+    const parentId = current.parentId ?? current.parent_id;
+    const normalizedParent = parentId ? String(parentId) : '';
+    if (!normalizedParent) break;
+    depth += 1;
+    current = byId.get(normalizedParent);
+  }
+  return depth;
+}
+
 export async function fetchCategoryAdminOptions(search: string): Promise<AdminSearchOption[]> {
-  const res = await adminApi.categories({ search: search || undefined, page_size: 200 });
+  const res = await adminApi.categories({ page_size: 400 });
   const rows = extractResults(res) as CategoryRow[];
   const byId = normalizeCategoryRows(rows);
-  return Array.from(byId.values()).map((c) => {
-    const id = String(c.id);
-    const label = buildCategoryTreeLabel(id, byId);
-    return {
-      value: id,
-      label,
-      description: c.parent && c.parent !== '-' ? String(c.parent) : undefined,
-    };
-  });
+  const normalizedSearch = search.trim().toLowerCase();
+  return Array.from(byId.values())
+    .map((c) => {
+      const id = String(c.id);
+      const fullPath = buildCategoryTreeLabel(id, byId);
+      const parentId = c.parentId ?? c.parent_id;
+      return {
+        value: id,
+        label: String(c.name),
+        description: fullPath,
+        parentValue: parentId ? String(parentId) : undefined,
+        depth: buildCategoryDepth(id, byId),
+      };
+    })
+    .filter((c) => {
+      if (!normalizedSearch) return true;
+      return (
+        c.label.toLowerCase().includes(normalizedSearch) ||
+        String(c.description ?? '').toLowerCase().includes(normalizedSearch)
+      );
+    });
 }
 
 /** Parent picker for subcategories (top-level categories only). */

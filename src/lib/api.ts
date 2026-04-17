@@ -1774,9 +1774,19 @@ export const adminApi = {
   updateVendor: (id: string, payload: Record<string, unknown> | FormData) =>
     adminWrite<Record<string, unknown>>(`vendors/${id}`, "PATCH", payload),
   vendorSuppliers: (vendorId: string, params?: QueryParams) =>
-    adminPaged<Record<string, unknown>>(`vendors/${encodeURIComponent(vendorId)}/suppliers`, params),
+    adminPaged<Record<string, unknown>>(
+      vendorId === "__all"
+        ? "vendors/all/suppliers"
+        : `vendors/${encodeURIComponent(vendorId)}/suppliers`,
+      params,
+    ),
   vendorStockPurchases: (vendorId: string, params?: QueryParams) =>
-    adminPaged<Record<string, unknown>>(`vendors/${encodeURIComponent(vendorId)}/stock-purchases`, params),
+    adminPaged<Record<string, unknown>>(
+      vendorId === "__all"
+        ? "vendors/all/stock-purchases"
+        : `vendors/${encodeURIComponent(vendorId)}/stock-purchases`,
+      params,
+    ),
   createVendorStockPurchase: (vendorId: string, payload: Record<string, unknown>) =>
     adminWrite<Record<string, unknown>>(
       `vendors/${encodeURIComponent(vendorId)}/stock-purchases`,
@@ -1788,6 +1798,27 @@ export const adminApi = {
       `vendors/${encodeURIComponent(vendorId)}/stock-purchases/${encodeURIComponent(purchaseId)}/post`,
       "POST",
       {},
+    ),
+  vendorStockPurchaseDetail: (vendorId: string, purchaseId: string) =>
+    apiFetch<Record<string, unknown>>(
+      `/admin/vendors/${encodeURIComponent(vendorId)}/stock-purchases/${encodeURIComponent(purchaseId)}/`,
+      undefined,
+      true,
+    ),
+  updateVendorStockPurchase: (
+    vendorId: string,
+    purchaseId: string,
+    payload: Record<string, unknown>,
+  ) =>
+    adminWrite<Record<string, unknown>>(
+      `vendors/${encodeURIComponent(vendorId)}/stock-purchases/${encodeURIComponent(purchaseId)}`,
+      "PATCH",
+      payload,
+    ),
+  deleteVendorStockPurchase: (vendorId: string, purchaseId: string) =>
+    adminWrite<{ ok: boolean }>(
+      `vendors/${encodeURIComponent(vendorId)}/stock-purchases/${encodeURIComponent(purchaseId)}`,
+      "DELETE",
     ),
   createVendorSupplier: (vendorId: string, payload: Record<string, unknown>) =>
     adminWrite<Record<string, unknown>>(

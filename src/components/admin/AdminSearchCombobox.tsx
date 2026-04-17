@@ -15,7 +15,13 @@ import { cn } from '@/lib/utils';
 
 const DEBOUNCE_MS = 280;
 
-export type AdminSearchOption = { value: string; label: string; description?: string };
+export type AdminSearchOption = {
+  value: string;
+  label: string;
+  description?: string;
+  parentValue?: string | null;
+  depth?: number;
+};
 
 function useDebouncedSearch(value: string, delay: number): string {
   const [debounced, setDebounced] = useState(value);
@@ -82,22 +88,59 @@ export function AdminSearchCombobox({
     return rows;
   }, [emptyOption, options]);
 
+  const isTreeMode = useMemo(
+    () => displayRows.some((row) => typeof row.depth === 'number' || row.parentValue !== undefined),
+    [displayRows],
+  );
+
+  const sortedRows = useMemo(() => {
+    if (!isTreeMode) return displayRows;
+    const nodeMap = new Map<string, AdminSearchOption>();
+    const childrenMap = new Map<string, AdminSearchOption[]>();
+    const roots: AdminSearchOption[] = [];
+    for (const row of displayRows) {
+      nodeMap.set(row.value, row);
+      childrenMap.set(row.value, []);
+    }
+    for (const row of displayRows) {
+      const parentValue = row.parentValue ? String(row.parentValue) : '';
+      if (parentValue && nodeMap.has(parentValue)) {
+        childrenMap.get(parentValue)?.push(row);
+      } else {
+        roots.push(row);
+      }
+    }
+    const ordered: AdminSearchOption[] = [];
+    const visit = (row: AdminSearchOption, parentDepth: number) => {
+      const explicitDepth = typeof row.depth === 'number' ? row.depth : parentDepth;
+      ordered.push({ ...row, depth: explicitDepth });
+      const children = [...(childrenMap.get(row.value) ?? [])].sort((a, b) => a.label.localeCompare(b.label));
+      for (const child of children) {
+        visit(child, explicitDepth + 1);
+      }
+    };
+    for (const root of [...roots].sort((a, b) => a.label.localeCompare(b.label))) {
+      visit(root, 0);
+    }
+    return ordered;
+  }, [displayRows, isTreeMode]);
+
   const triggerText = useMemo(() => {
     if (value === '' && emptyOption) {
       return emptyOption.label;
     }
     if (selectedLabel) return selectedLabel;
-    const found = displayRows.find((r) => r.value === value);
+    const found = sortedRows.find((r) => r.value === value);
     return found?.label ?? (value ? `#${value}` : placeholder);
-  }, [value, selectedLabel, displayRows, emptyOption, placeholder]);
+  }, [value, selectedLabel, sortedRows, emptyOption, placeholder]);
 
   const handleSelect = useCallback(
     (v: string) => {
-      const row = displayRows.find((r) => r.value === v);
+      const row = sortedRows.find((r) => r.value === v);
       onChange(v, row?.label);
       setOpen(false);
     },
-    [displayRows, onChange],
+    [sortedRows, onChange],
   );
 
   return (
@@ -137,14 +180,14 @@ export function AdminSearchCombobox({
             value={inputValue}
             onValueChange={setInputValue}
           />
-          <CommandList>
+          <CommandList className="max-h-80 overflow-y-auto">
             {isFetching ? (
               <div className="py-6 text-center text-sm text-muted-foreground">Loading…</div>
             ) : (
               <>
                 <CommandEmpty>No results.</CommandEmpty>
                 <CommandGroup>
-                  {displayRows.map((row) => (
+                  {sortedRows.map((row) => (
                     <CommandItem
                       key={row.value === '' ? '__empty__' : row.value}
                       value={`${row.value}\t${row.label}`}
@@ -156,7 +199,15 @@ export function AdminSearchCombobox({
                           value === row.value ? 'opacity-100' : 'opacity-0',
                         )}
                       />
-                      <div className="flex flex-col min-w-0">
+                      <div
+                        className="flex flex-col min-w-0"
+                        style={{
+                          paddingLeft:
+                            isTreeMode && typeof row.depth === 'number' && row.depth > 0
+                              ? `${Math.min(row.depth, 5) * 14}px`
+                              : undefined,
+                        }}
+                      >
                         <span className="truncate">{row.label}</span>
                         {row.description ? (
                           <span className="text-xs text-muted-foreground truncate">{row.description}</span>
