@@ -26,6 +26,26 @@ type LineRow = { product_id: string; quantity: string; unit_cost: string };
 
 const ALL_VENDORS_VALUE = '__all';
 
+const STOCK_PURCHASES_PAGE_SIZE = 500;
+
+/** Load every page from the admin “all vendors” list so the table is one combined view. */
+async function fetchAllVendorsStockPurchasesPages(filter: string): Promise<Record<string, unknown>[]> {
+  const baseParams = {
+    page_size: STOCK_PURCHASES_PAGE_SIZE,
+    ...(filter ? { status: filter } : {}),
+  };
+  const merged: Record<string, unknown>[] = [];
+  let page = 1;
+  for (;;) {
+    const res = await adminApi.vendorStockPurchasesAll({ ...baseParams, page });
+    merged.push(...extractResults<Record<string, unknown>>(res));
+    if (!res.next) break;
+    page += 1;
+    if (page > 500) break;
+  }
+  return merged;
+}
+
 function rowPurchaseVendorId(row: Record<string, unknown>, listVendorId: string): string {
   if (listVendorId !== ALL_VENDORS_VALUE) return listVendorId;
   const v = row.vendor_id ?? row.vendorId;
@@ -105,18 +125,28 @@ export default function AdminStockPurchasesModule() {
 
   const { data: page } = useQuery({
     queryKey: ['admin', 'stock-purchases', vendorId, filter],
-    queryFn: () => {
+    queryFn: async () => {
       const params = {
-        page_size: 100,
+        page_size: vendorId === ALL_VENDORS_VALUE ? STOCK_PURCHASES_PAGE_SIZE : 100,
         ...(filter ? { status: filter } : {}),
       };
-      return vendorId === ALL_VENDORS_VALUE
-        ? adminApi.vendorStockPurchasesAll(params)
-        : adminApi.vendorStockPurchases(vendorId, params);
+      if (vendorId === ALL_VENDORS_VALUE) {
+        return fetchAllVendorsStockPurchasesPages(filter);
+      }
+      return adminApi.vendorStockPurchases(vendorId, params);
     },
     enabled: Boolean(vendorId),
   });
-  const rows = useMemo(() => extractResults<Record<string, unknown>>(page), [page]);
+  const rows = useMemo(() => {
+    const raw = extractResults<Record<string, unknown>>(page);
+    if (vendorId !== ALL_VENDORS_VALUE) return raw;
+    return raw.map((r) => ({
+      ...r,
+      _allVendorsSearchText: [r.vendor_name, r.reference, r.supplier_name]
+        .map((x) => String(x ?? '').toLowerCase())
+        .join(' '),
+    }));
+  }, [page, vendorId]);
 
   const activeDetailTarget = editId && editVendorId
     ? {
@@ -281,6 +311,10 @@ export default function AdminStockPurchasesModule() {
           title="Stock purchases"
           subtitle="Receive inventory from suppliers (increases product stock when posted)"
           data={rows}
+          searchKey={vendorId === ALL_VENDORS_VALUE ? '_allVendorsSearchText' : 'reference'}
+          searchPlaceholder={
+            vendorId === ALL_VENDORS_VALUE ? 'Search vendor, reference, supplier…' : 'Search by reference…'
+          }
           columns={[
             ...(vendorId === ALL_VENDORS_VALUE ? [{ key: 'vendor_name', label: 'Vendor' }] : []),
             { key: 'reference', label: 'Reference' },
