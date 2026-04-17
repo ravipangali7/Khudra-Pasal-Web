@@ -450,6 +450,11 @@ function CustomersView() {
           },
           { key: 'balance', label: 'Balance', render: (c) => <span className="font-medium">Rs. {c.balance.toLocaleString()}</span> },
           { key: 'orders', label: 'Orders' },
+          {
+            key: 'spent',
+            label: 'Total Spend',
+            render: (c) => <span className="font-medium">Rs. {c.spent.toLocaleString()}</span>,
+          },
           { key: 'status', label: 'Status', render: (c) => (
             <Badge variant={c.status === 'active' ? 'default' : 'destructive'} className={cn("text-xs", c.status === 'active' && "bg-emerald-500")}>{c.status}</Badge>
           )},
@@ -513,7 +518,7 @@ function CustomersView() {
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
               <Card><CardContent className="p-3 text-center"><p className="text-xl font-bold text-foreground">{customerForView.orders}</p><p className="text-xs text-muted-foreground">Orders</p></CardContent></Card>
-              <Card><CardContent className="p-3 text-center"><p className="text-xl font-bold text-foreground">Rs. {customerForView.spent.toLocaleString()}</p><p className="text-xs text-muted-foreground">Total Spent</p></CardContent></Card>
+              <Card><CardContent className="p-3 text-center"><p className="text-xl font-bold text-foreground">Rs. {customerForView.spent.toLocaleString()}</p><p className="text-xs text-muted-foreground">Total Spend</p></CardContent></Card>
               <Card><CardContent className="p-3 text-center"><p className="text-xl font-bold text-emerald-600">Rs. {customerForView.balance.toLocaleString()}</p><p className="text-xs text-muted-foreground">Wallet Balance</p></CardContent></Card>
               <Card><CardContent className="p-3 text-center"><p className="text-xl font-bold text-foreground">{customerForView.joined}</p><p className="text-xs text-muted-foreground">Joined</p></CardContent></Card>
             </div>
@@ -554,6 +559,42 @@ function CustomersView() {
               <p className="text-sm text-muted-foreground">Loading customer details…</p>
             ) : (
               <>
+                {(() => {
+                  const metricsRow =
+                    editUserDetail && typeof editUserDetail === 'object'
+                      ? (editUserDetail as unknown as AdminUserListRow)
+                      : resolvedSelected
+                        ? ({
+                            id: Number(resolvedSelected.id),
+                            name: resolvedSelected.name,
+                            order_count: resolvedSelected.orders,
+                            total_spent: resolvedSelected.spent,
+                            wallet_balance: resolvedSelected.balance,
+                          } as AdminUserListRow)
+                        : null;
+                  const spend = metricsRow ? toAdminNum(metricsRow.total_spent) : 0;
+                  const ordCt = metricsRow ? toAdminNum(metricsRow.order_count) : 0;
+                  return (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label>Total orders</Label>
+                        <Input
+                          readOnly
+                          className="bg-muted"
+                          value={metricsRow != null ? String(ordCt) : '—'}
+                        />
+                      </div>
+                      <div>
+                        <Label>Total spend</Label>
+                        <Input
+                          readOnly
+                          className="bg-muted"
+                          value={metricsRow != null ? `Rs. ${spend.toLocaleString()}` : '—'}
+                        />
+                      </div>
+                    </div>
+                  );
+                })()}
                 <div><Label>Full Name</Label><Input value={eName} onChange={(e) => setEName(e.target.value)} /></div>
                 <div><Label>Email</Label><Input value={eEmail} onChange={(e) => setEEmail(e.target.value)} /></div>
                 <div><Label>Phone</Label><Input value={ePhone} onChange={(e) => setEPhone(e.target.value)} /></div>
