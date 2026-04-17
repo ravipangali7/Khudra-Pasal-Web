@@ -149,8 +149,9 @@ export default function AdminSuppliersModule() {
                 type="button"
                 size="sm"
                 variant="outline"
-                disabled={vendorId === '__all'}
+                disabled={!targetVendorId || !supplierId}
                 onClick={() => {
+                  setVendorId(targetVendorId);
                   setEditId(supplierId);
                   setName(String(row.name ?? ''));
                   setPhone(String(row.phone ?? ''));

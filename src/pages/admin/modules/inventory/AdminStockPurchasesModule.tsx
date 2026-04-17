@@ -38,6 +38,7 @@ export default function AdminStockPurchasesModule() {
   const [filter, setFilter] = useState<string>('');
   const [open, setOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  const [editVendorId, setEditVendorId] = useState<string | null>(null);
   const [viewPurchase, setViewPurchase] = useState<{ vendorId: string; purchaseId: string } | null>(null);
   const [supplierId, setSupplierId] = useState('');
   const [tax, setTax] = useState('0');
@@ -99,9 +100,9 @@ export default function AdminStockPurchasesModule() {
   });
   const rows = useMemo(() => extractResults<Record<string, unknown>>(page), [page]);
 
-  const activeDetailTarget = editId
+  const activeDetailTarget = editId && editVendorId
     ? {
-        vendorId,
+        vendorId: editVendorId,
         purchaseId: editId,
       }
     : viewPurchase;
@@ -116,6 +117,7 @@ export default function AdminStockPurchasesModule() {
   useEffect(() => {
     if (!open) {
       setEditId(null);
+      setEditVendorId(null);
       setSupplierId('');
       setTax('0');
       setLines([{ product_id: '', quantity: '1', unit_cost: '' }]);
@@ -157,7 +159,8 @@ export default function AdminStockPurchasesModule() {
         tax: Number(tax) || 0,
         lines: parsedLines,
       };
-      if (editId) return adminApi.updateVendorStockPurchase(vendorId, editId, payload);
+      const targetVendorId = editVendorId ?? vendorId;
+      if (editId) return adminApi.updateVendorStockPurchase(targetVendorId, editId, payload);
       return adminApi.createVendorStockPurchase(vendorId, payload);
     },
     onSuccess: () => {
@@ -166,6 +169,7 @@ export default function AdminStockPurchasesModule() {
       toast.success(editId ? 'Purchase draft updated' : 'Purchase draft created');
       setOpen(false);
       setEditId(null);
+      setEditVendorId(null);
       setLines([{ product_id: '', quantity: '1', unit_cost: '' }]);
     },
     onError: (e: Error) => toast.error(e.message),
@@ -238,7 +242,14 @@ export default function AdminStockPurchasesModule() {
                 </SelectContent>
               </Select>
             </div>
-            <Button type="button" onClick={() => setOpen(true)}>
+            <Button
+              type="button"
+              onClick={() => {
+                setEditId(null);
+                setEditVendorId(null);
+                setOpen(true);
+              }}
+            >
               New stock purchase
             </Button>
           </div>
@@ -292,7 +303,9 @@ export default function AdminStockPurchasesModule() {
                       variant="outline"
                       disabled={!canEdit || !purchaseId || !purchaseVendorId}
                       onClick={() => {
+                        setViewPurchase(null);
                         setVendorId(purchaseVendorId);
+                        setEditVendorId(purchaseVendorId);
                         setEditId(purchaseId);
                         setOpen(true);
                       }}
