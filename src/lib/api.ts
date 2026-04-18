@@ -1982,10 +1982,6 @@ export const adminApi = {
   updateFamilyMember: (id: string, payload: Record<string, unknown>) =>
     adminWrite<Record<string, unknown>>(`family-members/${id}`, "PATCH", payload),
   deleteFamilyMember: (id: string) => adminWrite<{ ok: true }>(`family-members/${id}`, "DELETE"),
-  familyPermissions: (familyId: string) =>
-    apiFetch<Record<string, unknown>>(`/admin/families/${familyId}/permissions/`, undefined, true),
-  updateFamilyPermissions: (familyId: string, payload: Record<string, unknown>) =>
-    adminWrite<Record<string, unknown>>(`families/${familyId}/permissions`, "PATCH", payload),
   loyaltySettings: () => apiFetch<Record<string, unknown>>("/admin/loyalty-settings/", undefined, true),
   updateLoyaltySettings: (payload: Record<string, unknown>) =>
     adminWrite<Record<string, unknown>>("loyalty-settings", "PATCH", payload),

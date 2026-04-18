@@ -26,8 +26,6 @@ import { toast } from 'sonner';
 import { useAdminList } from '../hooks/useAdminList';
 import { useAdminMutation } from '../hooks/useAdminMutation';
 import { formatApiError } from '../hooks/adminFormUtils';
-import { AdminSearchCombobox } from '@/components/admin/AdminSearchCombobox';
-import { fetchWalletAdminOptions } from '@/components/admin/adminRelationalPickers';
 
 type WalletRow = {
   id: string;
@@ -152,14 +150,6 @@ function WalletOverviewView() {
   }, [apiWallets]);
   const allTransactions = apiTxns;
 
-  // Manual credit/debit state
-  const [manualUserId, setManualUserId] = useState('');
-  const [manualWalletLabel, setManualWalletLabel] = useState('');
-  const [manualAmount, setManualAmount] = useState('');
-  const [manualReason, setManualReason] = useState('');
-  const [manualType, setManualType] = useState<'credit' | 'debit' | null>(null);
-  const [manualErr, setManualErr] = useState('');
-
   // Credit/Debit modal state
   const [cdAmount, setCdAmount] = useState('');
   const [cdReason, setCdReason] = useState('');
@@ -184,27 +174,6 @@ function WalletOverviewView() {
   const txForSelected = selected
     ? allTransactions.filter((tx) => tx.user === selected.owner)
     : allTransactions;
-
-  const handleManualCreditDebit = async (type: 'credit' | 'debit') => {
-    if (!manualUserId || !manualAmount) return;
-    setManualErr('');
-    try {
-      await adjustMut.mutateAsync({
-        wallet_id: manualUserId.trim(),
-        amount: parseFloat(manualAmount),
-        direction: type,
-        reason: manualReason || undefined,
-      });
-      setManualUserId('');
-      setManualWalletLabel('');
-      setManualAmount('');
-      setManualReason('');
-      setManualType(type);
-      setTimeout(() => setManualType(null), 1200);
-    } catch (e) {
-      setManualErr(formatApiError(e));
-    }
-  };
 
   const handleFreezeWallet = async (id: string, currentStatus: string) => {
     if (!canManageWalletFreeze) {
@@ -304,38 +273,6 @@ function WalletOverviewView() {
         <AdminStatCard icon={Gift} title="Bonus transactions" value={summary != null ? `Rs. ${summary.total_bonus_transactions.toLocaleString()}` : '—'} color="purple" />
         <AdminStatCard icon={Star} title="Active bonus rules" value={summary != null ? String(summary.wallet_bonuses_active_count) : '—'} color="orange" />
       </div>
-
-      {/* Manual Credit/Debit */}
-      <Card>
-        <CardHeader className="pb-3"><CardTitle className="text-base flex items-center gap-2"><DollarSign className="w-4 h-4" /> Manual Credit / Debit</CardTitle></CardHeader>
-        <CardContent>
-          <div className="grid md:grid-cols-4 gap-3 items-end">
-            <div>
-              <Label>Wallet</Label>
-              <AdminSearchCombobox
-                queryKeyPrefix="wallet-manual-adjust"
-                value={manualUserId}
-                selectedLabel={manualWalletLabel}
-                onChange={(v, l) => { setManualUserId(v); setManualWalletLabel(l ?? ''); }}
-                fetchOptions={fetchWalletAdminOptions}
-                placeholder="Search wallet…"
-                clearable
-              />
-            </div>
-            <div><Label>Amount (Rs.)</Label><Input placeholder="0" type="number" value={manualAmount} onChange={e => setManualAmount(e.target.value)} /></div>
-            <div><Label>Reason</Label><Input placeholder="Admin adjustment..." value={manualReason} onChange={e => setManualReason(e.target.value)} /></div>
-            <div className="flex gap-2 md:col-span-4">
-              <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700" size="sm" onClick={() => { void handleManualCreditDebit('credit'); }} disabled={!manualUserId || !manualAmount || adjustMut.isPending}>
-                {manualType === 'credit' ? '✓ Credited' : '+ Credit'}
-              </Button>
-              <Button variant="destructive" className="flex-1" size="sm" onClick={() => { void handleManualCreditDebit('debit'); }} disabled={!manualUserId || !manualAmount || adjustMut.isPending}>
-                {manualType === 'debit' ? '✓ Debited' : '- Debit'}
-              </Button>
-            </div>
-          </div>
-          {manualErr ? <p className="text-sm text-destructive mt-2">{manualErr}</p> : null}
-        </CardContent>
-      </Card>
 
       {/* Freeze All + Filters */}
       <div className="flex flex-wrap gap-2 items-center">

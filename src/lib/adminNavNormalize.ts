@@ -1,6 +1,24 @@
 import type { SidebarItem } from '@/components/admin/AdminSidebar';
 import { BookText, PackagePlus, Truck, Warehouse } from 'lucide-react';
 
+/** Sidebar keys removed from `nav_seed` but possibly still in DB until `seed_navigation` runs. */
+const HIDDEN_ADMIN_NAV_IDS = new Set([
+  'delivery',
+  'wallet-loyalty',
+  'wallet-flagged',
+  'security',
+  'flags',
+]);
+
+function stripHiddenAdminNav(nodes: SidebarItem[]): SidebarItem[] {
+  return nodes
+    .filter((n) => !HIDDEN_ADMIN_NAV_IDS.has(n.id))
+    .map((n) => ({
+      ...n,
+      children: n.children?.length ? stripHiddenAdminNav(n.children) : undefined,
+    }));
+}
+
 /** Canonical Inventory group — matches vendor portal (`nav_seed` VENDOR_NAV / ADMIN_NAV). */
 export const ADMIN_INVENTORY_SIDEBAR_GROUP: SidebarItem = {
   id: 'inventory',
@@ -73,5 +91,5 @@ function normalizeTree(nodes: SidebarItem[]): SidebarItem[] {
 /** Rewrites legacy “Purchase” (and related) nav to the same Inventory tree as the vendor portal. */
 export function normalizeAdminSidebarItems(items: SidebarItem[]): SidebarItem[] {
   if (!items.length) return items;
-  return normalizeTree(items);
+  return stripHiddenAdminNav(normalizeTree(items));
 }

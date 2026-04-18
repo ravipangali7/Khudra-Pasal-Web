@@ -13,7 +13,6 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -97,7 +96,6 @@ function FamiliesView() {
   const [addMemberOpen, setAddMemberOpen] = useState(false);
   const [editMemberOpen, setEditMemberOpen] = useState(false);
   const [memberLimitsOpen, setMemberLimitsOpen] = useState(false);
-  const [permOpen, setPermOpen] = useState(false);
   const [auditOpen, setAuditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [viewDetailOpen, setViewDetailOpen] = useState(false);
@@ -125,9 +123,6 @@ function FamiliesView() {
   const [limitsWeekly, setLimitsWeekly] = useState('');
   const [limitsMonthly, setLimitsMonthly] = useState('');
   const [limitsErr, setLimitsErr] = useState('');
-  const [allowOnline, setAllowOnline] = useState(true);
-  const [allowCash, setAllowCash] = useState(true);
-  const [permErr, setPermErr] = useState('');
   const [delErr, setDelErr] = useState('');
 
   const { data: allFamilies = [], isLoading, isError } = useAdminList<FamilyRow>(
@@ -154,12 +149,6 @@ function FamiliesView() {
     () => adminApi.auditLogs({ object_type: 'FamilyGroup', object_id: selected!.id, page_size: 100 }),
     { enabled: !!selected && auditOpen && canViewFamilyAudit },
   );
-
-  const { data: permPayload } = useQuery({
-    queryKey: ['admin', 'family-perm', selected?.id],
-    queryFn: () => adminApi.familyPermissions(selected!.id),
-    enabled: !!selected && permOpen,
-  });
 
   const famInv = [['admin', 'families']] as const;
   const memInv = [['admin', 'family-members'], ['admin', 'families']] as const;
@@ -193,19 +182,6 @@ function FamiliesView() {
     memInv,
     () => [...famAuditAll],
   );
-  const savePerm = useAdminMutation(
-    ({ fid, payload }: { fid: string; payload: Record<string, unknown> }) => adminApi.updateFamilyPermissions(fid, payload),
-    [['admin', 'family-perm']],
-    (_, v) => [[`admin`, 'family-audit', v.fid]],
-  );
-
-  useEffect(() => {
-    if (permPayload) {
-      setAllowOnline(!!permPayload.allow_online_purchases);
-      setAllowCash(!!permPayload.allow_cash_withdrawal);
-      setPermErr('');
-    }
-  }, [permPayload]);
 
   useEffect(() => {
     if (selectedMember && editMemberOpen) {
@@ -291,7 +267,7 @@ function FamiliesView() {
       </div>
 
       <AdminTable title="All Families & Groups"
-        subtitle="Full CRUD — manage members, override permissions, freeze accounts, audit logs"
+        subtitle="Full CRUD — manage members, freeze accounts, audit logs"
         data={filtered}
         columns={[
           { key: 'name', label: 'Group', render: (f) => (
@@ -313,7 +289,6 @@ function FamiliesView() {
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={() => { setSelected(f); setViewDetailOpen(true); }}><Eye className="w-4 h-4 mr-2" /> View details</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => { setSelected(f); setMembersOpen(true); }}><Users className="w-4 h-4 mr-2" /> View Members</DropdownMenuItem>
-                <DropdownMenuItem onClick={() => { setSelected(f); setPermOpen(true); }}><Shield className="w-4 h-4 mr-2" /> Override Permissions</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => { setSelected(f); setEditOpen(true); }}><Edit className="w-4 h-4 mr-2" /> Edit Group</DropdownMenuItem>
                 <DropdownMenuItem onClick={() => {
                   void updateFam.mutateAsync({
@@ -632,41 +607,6 @@ function FamiliesView() {
           <div><Label>Daily Spending Limit (Rs.)</Label><Input type="number" value={limitsDaily} onChange={(e) => setLimitsDaily(e.target.value)} /></div>
           <div><Label>Weekly Limit (Rs.)</Label><Input type="number" value={limitsWeekly} onChange={(e) => setLimitsWeekly(e.target.value)} /></div>
           <div><Label>Monthly Limit (Rs.)</Label><Input type="number" value={limitsMonthly} onChange={(e) => setLimitsMonthly(e.target.value)} /></div>
-          <p className="text-xs text-muted-foreground">Group-level purchase permissions are edited in Override Permissions.</p>
-        </div>
-      </CRUDModal>
-
-      {/* Override Permissions Modal */}
-      <CRUDModal open={permOpen} onClose={() => { setPermOpen(false); setPermErr(''); }} title={`Override Permissions — ${selected?.name}`} onSave={() => {
-        if (!selected) return;
-        setPermErr('');
-        void (async () => {
-          try {
-            await savePerm.mutateAsync({
-              fid: selected.id,
-              payload: {
-                allow_online_purchases: allowOnline,
-                allow_cash_withdrawal: allowCash,
-              },
-            });
-            setPermOpen(false);
-          } catch (e) {
-            setPermErr(formatApiError(e));
-          }
-        })();
-      }} loading={savePerm.isPending} error={permErr}>
-        <div className="space-y-3">
-          <p className="text-xs text-muted-foreground bg-yellow-50 border border-yellow-200 rounded-lg p-2 dark:bg-yellow-900/20 dark:border-yellow-800">
-            These flags are stored on the family group and enforced server-side.
-          </p>
-          <div className="flex items-center justify-between p-3 border rounded-lg">
-            <div><p className="font-medium text-sm">Allow online purchases</p><p className="text-xs text-muted-foreground">Members can buy from the store</p></div>
-            <Switch checked={allowOnline} onCheckedChange={setAllowOnline} />
-          </div>
-          <div className="flex items-center justify-between p-3 border rounded-lg">
-            <div><p className="font-medium text-sm">Allow cash withdrawal</p><p className="text-xs text-muted-foreground">Wallet withdrawals to cash/bank</p></div>
-            <Switch checked={allowCash} onCheckedChange={setAllowCash} />
-          </div>
         </div>
       </CRUDModal>
 

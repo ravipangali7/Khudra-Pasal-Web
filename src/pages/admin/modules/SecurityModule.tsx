@@ -301,7 +301,7 @@ export default function SecurityModule() {
         <CardContent className="space-y-2">
           {!canViewAuditTrail ? (
             <p className="text-sm text-muted-foreground py-2">
-              Audit trail is only visible to super administrators. Open Employees → Audit Logs for the full history.
+              Audit trail is only visible to super administrators. Open Audit Logs in the sidebar for the full history.
             </p>
           ) : auditErr ? (
             <p className="text-sm text-destructive py-2">Could not load audit trail.</p>
