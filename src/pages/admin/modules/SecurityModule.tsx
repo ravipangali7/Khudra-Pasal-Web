@@ -62,7 +62,6 @@ export default function SecurityModule() {
     ],
   );
 
-  const [otpCrud, setOtpCrud] = useState(true);
   const [rbac, setRbac] = useState(true);
   const [dupPrev, setDupPrev] = useState(true);
   const [autoLock, setAutoLock] = useState(true);
@@ -70,7 +69,6 @@ export default function SecurityModule() {
 
   useEffect(() => {
     if (!secSettings) return;
-    setOtpCrud(!!secSettings.otp_sensitive_crud);
     setRbac(!!secSettings.rbac_enforced);
     setDupPrev(!!secSettings.duplicate_prevention);
     setAutoLock(!!secSettings.auto_lock_failed_logins);
@@ -83,7 +81,7 @@ export default function SecurityModule() {
     setSecOk(false);
     try {
       await updateSec.mutateAsync({
-        otp_sensitive_crud: otpCrud,
+        otp_sensitive_crud: false,
         rbac_enforced: rbac,
         duplicate_prevention: dupPrev,
         auto_lock_failed_logins: autoLock,
@@ -185,7 +183,6 @@ export default function SecurityModule() {
           ) : (
             <>
               {[
-                ['OTP for sensitive CRUD', 'Require OTP for sensitive admin actions', otpCrud, setOtpCrud] as const,
                 ['Role-based access', 'Enforce staff permissions', rbac, setRbac] as const,
                 ['Duplicate prevention', 'Check duplicate users / vendors', dupPrev, setDupPrev] as const,
                 ['Auto-lock failed logins', 'Lock accounts after repeated failures', autoLock, setAutoLock] as const,

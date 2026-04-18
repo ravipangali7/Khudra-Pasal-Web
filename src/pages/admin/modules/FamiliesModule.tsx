@@ -861,7 +861,6 @@ function FamilyWalletControl() {
   const [cdAmount, setCdAmount] = useState('');
   const [cdReason, setCdReason] = useState('');
   const [cdErr, setCdErr] = useState('');
-  const [cdSensitiveOtp, setCdSensitiveOtp] = useState('');
 
   const { data: allFamilies = [], isLoading, isError } = useAdminList<FamilyRow>(
     ['admin', 'families'],
@@ -872,11 +871,6 @@ function FamilyWalletControl() {
     queryKey: ['admin', 'wallets', 'summary'],
     queryFn: () => adminApi.walletsSummary(),
   });
-  const { data: secSettings } = useQuery({
-    queryKey: ['admin', 'security-settings'],
-    queryFn: () => adminApi.securitySettings(),
-  });
-  const otpSensitiveCrud = secSettings?.otp_sensitive_crud !== false;
   const { data: walletDetail } = useQuery({
     queryKey: ['admin', 'family-members', 'wallet-tab', selected?.id],
     queryFn: async () => {
@@ -938,15 +932,6 @@ function FamilyWalletControl() {
       ['admin', 'wallet-transactions', 'wallet', v.id],
     ],
   );
-
-  const sendFamilyWalletSensitiveOtp = async () => {
-    try {
-      await adminApi.sendAdminSensitiveOtp();
-      toast.success('Verification code sent to your phone.');
-    } catch (e) {
-      toast.error(formatApiError(e));
-    }
-  };
 
   if (viewWalletId) {
     return <FamilyWalletDetailView walletId={viewWalletId} />;
@@ -1095,7 +1080,7 @@ function FamilyWalletControl() {
               <Button size="sm" variant="outline" className="h-7" onClick={() => { setSelected(f); setViewOpen(true); }}>
                 <Eye className="w-3 h-3 mr-1" /> Group details
               </Button>
-              <Button size="sm" variant="outline" className="h-7" onClick={() => { setSelected(f); setCdErr(''); setCdSensitiveOtp(''); setCreditOpen(true); }}>
+              <Button size="sm" variant="outline" className="h-7" onClick={() => { setSelected(f); setCdErr(''); setCreditOpen(true); }}>
                 <DollarSign className="w-3 h-3 mr-1" /> Credit/Debit
               </Button>
               {f.status === 'active'
@@ -1210,7 +1195,7 @@ function FamilyWalletControl() {
                   ? <Button variant="destructive" size="sm" onClick={() => { void updateFam.mutateAsync({ id: selected.id, payload: { status: 'frozen' } }); }}><Lock className="w-3 h-3 mr-1" /> Freeze group</Button>
                   : <Button size="sm" className="bg-emerald-500 hover:bg-emerald-600" onClick={() => { void updateFam.mutateAsync({ id: selected.id, payload: { status: 'active' } }); }}><Unlock className="w-3 h-3 mr-1" /> Unfreeze group</Button>
                 }
-                <Button variant="outline" size="sm" onClick={() => { setViewOpen(false); setCdErr(''); setCdSensitiveOtp(''); setCdWalletId(''); setCdWalletLabel(''); setCdAmount(''); setCreditOpen(true); }}><DollarSign className="w-3 h-3 mr-1" /> Wallet adjust</Button>
+                <Button variant="outline" size="sm" onClick={() => { setViewOpen(false); setCdErr(''); setCdWalletId(''); setCdWalletLabel(''); setCdAmount(''); setCreditOpen(true); }}><DollarSign className="w-3 h-3 mr-1" /> Wallet adjust</Button>
               </div>
             </div>
           </div>
@@ -1218,7 +1203,7 @@ function FamilyWalletControl() {
       </CRUDModal>
 
       {/* Credit/Debit Modal */}
-      <CRUDModal open={creditOpen} onClose={() => { setCreditOpen(false); setCdErr(''); setCdSensitiveOtp(''); }} title={`Wallet adjust — ${selected?.name ?? 'group'}`} error={cdErr}>
+      <CRUDModal open={creditOpen} onClose={() => { setCreditOpen(false); setCdErr(''); }} title={`Wallet adjust — ${selected?.name ?? 'group'}`} error={cdErr}>
         {selected && (
           <div className="space-y-4">
             <p className="text-xs text-muted-foreground">Search and select a wallet (e.g. member wallet from the Wallet module).</p>
@@ -1236,35 +1221,9 @@ function FamilyWalletControl() {
             </div>
             <div><Label>Amount (Rs.)</Label><Input type="number" placeholder="0" value={cdAmount} onChange={(e) => setCdAmount(e.target.value)} /></div>
             <div><Label>Reason</Label><Textarea placeholder="Admin adjustment reason..." rows={2} value={cdReason} onChange={(e) => setCdReason(e.target.value)} /></div>
-            {otpSensitiveCrud ? (
-              <div className="space-y-2 p-3 border rounded-lg bg-muted/30">
-                <p className="text-xs text-muted-foreground">
-                  Sensitive CRUD requires a one-time code sent to your admin phone.
-                </p>
-                <div className="flex flex-wrap gap-2 items-end">
-                  <Button type="button" variant="outline" size="sm" onClick={() => { void sendFamilyWalletSensitiveOtp(); }}>
-                    Send code
-                  </Button>
-                  <div className="flex-1 min-w-[140px]">
-                    <Label className="text-xs">Verification code</Label>
-                    <Input
-                      className="h-8 font-mono"
-                      placeholder="6-digit OTP"
-                      value={cdSensitiveOtp}
-                      onChange={(e) => setCdSensitiveOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                      maxLength={6}
-                    />
-                  </div>
-                </div>
-              </div>
-            ) : null}
             <div className="grid grid-cols-2 gap-2">
               <Button className="bg-emerald-600 hover:bg-emerald-700" disabled={!cdWalletId || !cdAmount || adjustMut.isPending} onClick={() => {
                 setCdErr('');
-                if (otpSensitiveCrud && !cdSensitiveOtp.trim()) {
-                  setCdErr('Send a verification code to your phone and enter it here (Security → OTP for sensitive CRUD).');
-                  return;
-                }
                 void (async () => {
                   try {
                     await adjustMut.mutateAsync({
@@ -1272,14 +1231,12 @@ function FamilyWalletControl() {
                       amount: parseFloat(cdAmount),
                       direction: 'credit',
                       reason: cdReason || undefined,
-                      ...(otpSensitiveCrud ? { sensitive_otp: cdSensitiveOtp.trim() } : {}),
                     });
                     setCreditOpen(false);
                     setCdWalletId('');
                     setCdWalletLabel('');
                     setCdAmount('');
                     setCdReason('');
-                    setCdSensitiveOtp('');
                   } catch (e) {
                     setCdErr(formatApiError(e));
                   }
@@ -1287,10 +1244,6 @@ function FamilyWalletControl() {
               }}>+ Credit</Button>
               <Button variant="destructive" disabled={!cdWalletId || !cdAmount || adjustMut.isPending} onClick={() => {
                 setCdErr('');
-                if (otpSensitiveCrud && !cdSensitiveOtp.trim()) {
-                  setCdErr('Send a verification code to your phone and enter it here (Security → OTP for sensitive CRUD).');
-                  return;
-                }
                 void (async () => {
                   try {
                     await adjustMut.mutateAsync({
@@ -1298,14 +1251,12 @@ function FamilyWalletControl() {
                       amount: parseFloat(cdAmount),
                       direction: 'debit',
                       reason: cdReason || undefined,
-                      ...(otpSensitiveCrud ? { sensitive_otp: cdSensitiveOtp.trim() } : {}),
                     });
                     setCreditOpen(false);
                     setCdWalletId('');
                     setCdWalletLabel('');
                     setCdAmount('');
                     setCdReason('');
-                    setCdSensitiveOtp('');
                   } catch (e) {
                     setCdErr(formatApiError(e));
                   }
