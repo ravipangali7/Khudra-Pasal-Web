@@ -173,7 +173,11 @@ export function AdminSearchCombobox({
           </Button>
         ) : null}
       </div>
-      <PopoverContent className="w-[var(--radix-popover-trigger-width)] min-w-[280px] p-0" align="start">
+      <PopoverContent
+        className="w-[var(--radix-popover-trigger-width)] min-w-[280px] p-0"
+        align="start"
+        onWheel={(e) => e.stopPropagation()}
+      >
         <Command shouldFilter={false}>
           <CommandInput
             placeholder={placeholder}

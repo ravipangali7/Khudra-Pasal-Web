@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   TrendingUp,
   ShoppingCart,
@@ -20,7 +20,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { AdminStatCard } from '@/components/admin/AdminStats';
 import { DashboardSectionCard } from '@/components/admin/dashboard/DashboardSectionCard';
 import { SalesOrdersSection } from '@/components/admin/dashboard/SalesOrdersSection';
@@ -49,12 +49,15 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
 import {
   adminApi,
   type AdminKycSubmissionRow,
 } from '@/lib/api';
+import { handleWalletTopupClientResponse } from '@/lib/walletTopupClient';
 import { buildAdminModulePath } from '../moduleRegistry';
+import { toast } from 'sonner';
 
 interface DashboardModuleProps {
   onNavigate: (section: string) => void;
@@ -65,7 +68,13 @@ const DASH_POLL = 30_000;
 
 export default function DashboardModule({ onNavigate }: DashboardModuleProps) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
+  const adminKhaltiHandledRef = useRef<string | null>(null);
+  const adminPidxFromUrl = useMemo(() => (searchParams.get('pidx') || '').trim(), [searchParams]);
+  const [adminTopupAmount, setAdminTopupAmount] = useState('');
+  const [adminTopupMethod, setAdminTopupMethod] = useState<'esewa' | 'khalti'>('esewa');
   const [salesChartPeriod, setSalesChartPeriod] = useState<SalesChartPeriod>('7');
   const [walletChartPeriod, setWalletChartPeriod] = useState<SalesChartPeriod>('7');
   const [productChartPeriod, setProductChartPeriod] = useState<SalesChartPeriod>('30');
@@ -218,6 +227,65 @@ export default function DashboardModule({ onNavigate }: DashboardModuleProps) {
     },
   });
 
+  useEffect(() => {
+    if (!adminPidxFromUrl) return;
+    if (adminKhaltiHandledRef.current === adminPidxFromUrl) return;
+    adminKhaltiHandledRef.current = adminPidxFromUrl;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await adminApi.walletKhaltiVerify({ pidx: adminPidxFromUrl });
+        if (cancelled) return;
+        const st = res.data?.status;
+        if (res.success && st === 'SUCCESS') {
+          toast.success('Wallet topped up successfully (Khalti).');
+          void queryClient.invalidateQueries({ queryKey: ['admin'] });
+        } else if (st === 'FAILED') {
+          toast.error('Khalti payment was cancelled or failed.');
+        } else if (st === 'PENDING') {
+          toast.message('Khalti payment is still pending. Refresh in a moment.');
+        } else if (st === 'ERROR') {
+          toast.error('Could not confirm Khalti payment. Contact support if money was debited.');
+        } else if (res.detail) {
+          toast.error(res.detail);
+        }
+      } catch (e) {
+        if (!cancelled) toast.error(e instanceof Error ? e.message : 'Khalti verification failed.');
+      } finally {
+        if (!cancelled) {
+          setSearchParams(
+            (prev) => {
+              const next = new URLSearchParams(prev);
+              next.delete('pidx');
+              next.delete('khalti_wallet');
+              return next;
+            },
+            { replace: true },
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [adminPidxFromUrl, queryClient, setSearchParams]);
+
+  const adminTopupMut = useMutation({
+    mutationFn: () =>
+      adminApi.walletTopup({
+        amount: Number(adminTopupAmount),
+        method: adminTopupMethod,
+        return_path: `${location.pathname}${location.search}`.split('#')[0],
+      }),
+    onSuccess: (data) => {
+      if (handleWalletTopupClientResponse(data)) return;
+      void queryClient.invalidateQueries({ queryKey: ['admin'] });
+      toast.success('Balance updated.');
+      setAdminTopupAmount('');
+    },
+    onError: (e: Error) => toast.error(e.message || 'Could not start top-up.'),
+  });
+
   const salesChartRows = useMemo(() => {
     if (!salesSeriesApi?.length) return [];
     return salesSeriesApi.map((item) => ({
@@ -337,6 +405,57 @@ export default function DashboardModule({ onNavigate }: DashboardModuleProps) {
           </>
         )}
       </div>
+
+      <Card className="border-dashed">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">My wallet (personal)</CardTitle>
+          <CardDescription>Add funds with eSewa or Khalti for purchases that use your personal wallet.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col sm:flex-row sm:items-end gap-3 max-w-xl">
+          <div className="grid grid-cols-2 gap-2 flex-1">
+            {(
+              [
+                { id: 'esewa' as const, name: 'eSewa', icon: '💚' },
+                { id: 'khalti' as const, name: 'Khalti', icon: '💜' },
+              ] as const
+            ).map((m) => (
+              <Button
+                key={m.id}
+                type="button"
+                variant={adminTopupMethod === m.id ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setAdminTopupMethod(m.id)}
+                className="flex-col h-auto py-2"
+              >
+                <span>{m.icon}</span>
+                <span className="text-xs">{m.name}</span>
+              </Button>
+            ))}
+          </div>
+          <div className="flex-1 space-y-1">
+            <Label className="text-xs">Amount (Rs.)</Label>
+            <Input
+              type="number"
+              value={adminTopupAmount}
+              onChange={(e) => setAdminTopupAmount(e.target.value)}
+              placeholder="Amount"
+            />
+          </div>
+          <Button
+            type="button"
+            className="sm:mb-0.5"
+            onClick={() => adminTopupMut.mutate()}
+            disabled={
+              adminTopupMut.isPending ||
+              !adminTopupAmount ||
+              Number(adminTopupAmount) < 1 ||
+              !Number.isFinite(Number(adminTopupAmount))
+            }
+          >
+            Pay
+          </Button>
+        </CardContent>
+      </Card>
 
       <div className="grid lg:grid-cols-2 gap-4">
         <DashboardSectionCard

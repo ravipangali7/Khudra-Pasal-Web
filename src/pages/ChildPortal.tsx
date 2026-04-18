@@ -22,7 +22,7 @@ import {
   Banknote,
   Store,
 } from 'lucide-react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { PORTAL_LOGIN_PATH, navigateToPortalLogin, setPostLogoutLoginPath } from '@/lib/portalLoginPaths';
 import { useSessionHomeRedirect } from '@/lib/sessionHomeRedirect';
 import { usePortalSectionPath } from '@/lib/portalNavigation';
@@ -56,6 +56,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
+import { handleWalletTopupClientResponse } from '@/lib/walletTopupClient';
 import {
   clearAllAuthTokens,
   extractResults,
@@ -185,6 +186,13 @@ const ChildPortal = () => {
     setCheckoutPlacedPortal('portal_child');
   }, []);
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const khaltiReturnHandledRef = useRef<string | null>(null);
+  const khaltiPidxFromUrl = useMemo(
+    () => (searchParams.get('pidx') || '').trim(),
+    [searchParams],
+  );
+
   const performPortalLogout = () => {
     setPostLogoutLoginPath(PORTAL_LOGIN_PATH.child);
     clearAllAuthTokens();
@@ -259,6 +267,53 @@ const ChildPortal = () => {
   });
 
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!authed || !khaltiPidxFromUrl) return;
+    if (khaltiReturnHandledRef.current === khaltiPidxFromUrl) return;
+    khaltiReturnHandledRef.current = khaltiPidxFromUrl;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await portalApi.walletKhaltiVerify({ pidx: khaltiPidxFromUrl });
+        if (cancelled) return;
+        const st = res.data?.status;
+        if (res.success && st === 'SUCCESS') {
+          toast.success('Wallet topped up successfully (Khalti).');
+          setSessionTick((t) => t + 1);
+          void queryClient.invalidateQueries({ queryKey: ['portal', 'child'] });
+        } else if (st === 'FAILED') {
+          toast.error('Khalti payment was cancelled or failed.');
+        } else if (st === 'PENDING') {
+          toast.message('Khalti payment is still pending. Refresh in a moment.');
+        } else if (st === 'ERROR') {
+          toast.error('Could not confirm Khalti payment. Contact support if money was debited.');
+        } else if (res.detail) {
+          toast.error(res.detail);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          toast.error(e instanceof Error ? e.message : 'Khalti verification failed.');
+        }
+      } finally {
+        if (!cancelled) {
+          setSearchParams(
+            (prev) => {
+              const next = new URLSearchParams(prev);
+              next.delete('pidx');
+              next.delete('khalti_wallet');
+              return next;
+            },
+            { replace: true },
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authed, khaltiPidxFromUrl, queryClient, setSearchParams]);
+
   useEffect(() => {
     if (!authed || activeSection !== 'withdraw') return;
     void queryClient.invalidateQueries({ queryKey: ['portal', 'me'] });
@@ -950,6 +1005,7 @@ const ChildPortal = () => {
 
   // Top Up Content
   function TopUpContent() {
+    const location = useLocation();
     const qc = useQueryClient();
     const [topUpAmount, setTopUpAmount] = useState('');
     const topUpMutation = useMutation({
@@ -957,8 +1013,10 @@ const ChildPortal = () => {
         portalApi.childWalletTopup({
           amount: Number(topUpAmount),
           method: topUpMethod,
+          return_path: `${location.pathname}${location.search}`.split('#')[0],
         }),
       onSuccess: (data) => {
+        if (handleWalletTopupClientResponse(data)) return;
         toast.success(`Added Rs. ${Number(topUpAmount).toLocaleString()}. Balance: Rs. ${data.balance.toLocaleString()}`);
         setTopUpAmount('');
         void qc.invalidateQueries({ queryKey: ['portal', 'child', 'summary'] });

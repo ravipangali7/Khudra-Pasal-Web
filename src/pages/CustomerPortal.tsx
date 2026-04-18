@@ -77,6 +77,7 @@ import PortalWishlistSection from '@/components/portal/PortalWishlistSection';
 import PortalNotificationsModal from '@/components/portal/PortalNotificationsModal';
 import { mapPortalNotificationUiType } from '@/lib/portalNotifications';
 import { useSessionHomeRedirect } from '@/lib/sessionHomeRedirect';
+import { handleWalletTopupClientResponse } from '@/lib/walletTopupClient';
 
 type UserRole = 'normal' | 'parent' | 'child';
 
@@ -1723,27 +1724,12 @@ const CustomerPortal = () => {
           setAddMoneyPrefill('');
         }}
         onConfirmTopup={async ({ amount, method }) => {
-          const resp = await portalApi.walletTopup({ amount, method });
-          if ("flow" in resp && resp.flow === "esewa_redirect") {
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = resp.action_url;
-            form.style.display = 'none';
-            for (const [k, v] of Object.entries(resp.fields || {})) {
-              const input = document.createElement('input');
-              input.type = 'hidden';
-              input.name = k;
-              input.value = String(v);
-              form.appendChild(input);
-            }
-            document.body.appendChild(form);
-            form.submit();
-            return 'navigating';
-          }
-          if ("flow" in resp && resp.flow === "khalti_redirect" && resp.payment_url) {
-            window.location.href = resp.payment_url;
-            return 'navigating';
-          }
+          const resp = await portalApi.walletTopup({
+            amount,
+            method,
+            return_path: `${location.pathname}${location.search}`.split('#')[0],
+          });
+          if (handleWalletTopupClientResponse(resp)) return 'navigating';
           invalidatePortalWallet();
         }}
       />

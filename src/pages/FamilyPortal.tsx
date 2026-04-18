@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import OtpVerificationModal from '@/components/wallet/OtpVerificationModal';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { PORTAL_LOGIN_PATH, navigateToPortalLogin, setPostLogoutLoginPath } from '@/lib/portalLoginPaths';
 import { useSessionHomeRedirect } from '@/lib/sessionHomeRedirect';
 import { findSidebarNodeById, resolvePortalNavViewKey, usePortalSectionPath } from '@/lib/portalNavigation';
@@ -72,6 +72,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { cn } from '@/lib/utils';
+import { handleWalletTopupClientResponse } from '@/lib/walletTopupClient';
 import PortalMyOrdersSection from '@/components/portal/PortalMyOrdersSection';
 import {
   clearAllAuthTokens,
@@ -181,6 +182,59 @@ export function FamilyPortal() {
   useEffect(() => {
     setCheckoutPlacedPortal('portal_family');
   }, []);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const khaltiReturnHandledRef = useRef<string | null>(null);
+  const khaltiPidxFromUrl = useMemo(
+    () => (searchParams.get('pidx') || '').trim(),
+    [searchParams],
+  );
+
+  useEffect(() => {
+    if (!authed || !khaltiPidxFromUrl) return;
+    if (khaltiReturnHandledRef.current === khaltiPidxFromUrl) return;
+    khaltiReturnHandledRef.current = khaltiPidxFromUrl;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await portalApi.walletKhaltiVerify({ pidx: khaltiPidxFromUrl });
+        if (cancelled) return;
+        const st = res.data?.status;
+        if (res.success && st === 'SUCCESS') {
+          toast.success('Wallet topped up successfully (Khalti).');
+          setSessionTick((t) => t + 1);
+          void queryClient.invalidateQueries({ queryKey: ['portal', 'family'] });
+        } else if (st === 'FAILED') {
+          toast.error('Khalti payment was cancelled or failed.');
+        } else if (st === 'PENDING') {
+          toast.message('Khalti payment is still pending. Refresh in a moment.');
+        } else if (st === 'ERROR') {
+          toast.error('Could not confirm Khalti payment. Contact support if money was debited.');
+        } else if (res.detail) {
+          toast.error(res.detail);
+        }
+      } catch (e) {
+        if (!cancelled) {
+          toast.error(e instanceof Error ? e.message : 'Khalti verification failed.');
+        }
+      } finally {
+        if (!cancelled) {
+          setSearchParams(
+            (prev) => {
+              const next = new URLSearchParams(prev);
+              next.delete('pidx');
+              next.delete('khalti_wallet');
+              return next;
+            },
+            { replace: true },
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [authed, khaltiPidxFromUrl, queryClient, setSearchParams]);
 
   const { data: navData, isError: navError, isLoading: navLoading } = useQuery({
     queryKey: ['portal', 'navigation', 'family', sessionTick],
@@ -1681,6 +1735,7 @@ export function FamilyPortal() {
       memberRole?: string;
     };
 
+    const location = useLocation();
     const qc = useQueryClient();
     const [showLoadMoney, setShowLoadMoney] = useState(false);
     const [showDistribute, setShowDistribute] = useState(false);
@@ -1714,8 +1769,10 @@ export function FamilyPortal() {
         portalApi.familyWalletLoad({
           amount: Number(loadAmount),
           method: loadMethod,
+          return_path: `${location.pathname}${location.search}`.split('#')[0],
         }),
-      onSuccess: () => {
+      onSuccess: (data) => {
+        if (handleWalletTopupClientResponse(data)) return;
         setWalletErr('');
         setShowLoadMoney(false);
         setLoadAmount('');
@@ -2062,16 +2119,15 @@ export function FamilyPortal() {
             <DialogHeader>
               <DialogTitle>Load family wallet</DialogTitle>
               <DialogDescription>
-                Funds are added only to the main family wallet (master balance). Use Transfer to move money into a
-                category bucket.
+                Pay with eSewa or Khalti. Funds are added only to the main family wallet (master balance) after the
+                payment completes. Use Transfer to move money into a category bucket.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 {[
                   { id: 'esewa', name: 'eSewa', icon: '💚' },
                   { id: 'khalti', name: 'Khalti', icon: '💜' },
-                  { id: 'bank', name: 'Bank QR', icon: '🏦' },
                 ].map((m) => (
                   <Button
                     key={m.id}

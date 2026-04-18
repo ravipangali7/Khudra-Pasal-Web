@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import AdminTable from '@/components/admin/AdminTable';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -17,6 +17,7 @@ import {
 import PayoutAccountsManager from '@/components/wallet/PayoutAccountsManager';
 import OtpVerificationModal from '@/components/wallet/OtpVerificationModal';
 import { extractResults, isVendorOtpRequiredError, portalApi, vendorApi, VendorApiError } from '@/lib/api';
+import { handleWalletTopupClientResponse } from '@/lib/walletTopupClient';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -50,7 +51,54 @@ function vendorTxnTypeLabel(source: string, type: string) {
 
 export default function VendorWalletModule({ activeSection }: { activeSection: string }) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   const qc = useQueryClient();
+  const vendorKhaltiHandledRef = useRef<string | null>(null);
+  const vendorPidxFromUrl = useMemo(() => (searchParams.get('pidx') || '').trim(), [searchParams]);
+
+  useEffect(() => {
+    if (!vendorPidxFromUrl) return;
+    if (vendorKhaltiHandledRef.current === vendorPidxFromUrl) return;
+    vendorKhaltiHandledRef.current = vendorPidxFromUrl;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await vendorApi.walletKhaltiVerify({ pidx: vendorPidxFromUrl });
+        if (cancelled) return;
+        const st = res.data?.status;
+        if (res.success && st === 'SUCCESS') {
+          toast.success('Wallet topped up successfully (Khalti).');
+          void qc.invalidateQueries({ queryKey: ['vendor'] });
+        } else if (st === 'FAILED') {
+          toast.error('Khalti payment was cancelled or failed.');
+        } else if (st === 'PENDING') {
+          toast.message('Khalti payment is still pending. Refresh in a moment.');
+        } else if (st === 'ERROR') {
+          toast.error('Could not confirm Khalti payment. Contact support if money was debited.');
+        } else if (res.detail) {
+          toast.error(res.detail);
+        }
+      } catch (e) {
+        if (!cancelled) toast.error(e instanceof Error ? e.message : 'Khalti verification failed.');
+      } finally {
+        if (!cancelled) {
+          setSearchParams(
+            (prev) => {
+              const next = new URLSearchParams(prev);
+              next.delete('pidx');
+              next.delete('khalti_wallet');
+              return next;
+            },
+            { replace: true },
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [vendorPidxFromUrl, qc, setSearchParams]);
   const { data: summary } = useQuery({
     queryKey: ['vendor', 'summary'],
     queryFn: () => vendorApi.summary(),
@@ -83,6 +131,8 @@ export default function VendorWalletModule({ activeSection }: { activeSection: s
   const withdrawals = useMemo(() => extractResults<Record<string, unknown>>(wdResp), [wdResp]);
 
   const [amount, setAmount] = useState('');
+  const [vendorTopupAmount, setVendorTopupAmount] = useState('');
+  const [vendorTopupMethod, setVendorTopupMethod] = useState<'esewa' | 'khalti'>('esewa');
   const [payoutId, setPayoutId] = useState('');
   const [vendorWithdrawOtpOpen, setVendorWithdrawOtpOpen] = useState(false);
   const pendingVendorWithdrawRef = useRef<{ amount: number; payout_account_id: string } | null>(null);
@@ -96,6 +146,22 @@ export default function VendorWalletModule({ activeSection }: { activeSection: s
       setPayoutId(vendorPayouts[0].id);
     }
   }, [activeSection, vendorPayouts, payoutId]);
+
+  const vendorTopupMut = useMutation({
+    mutationFn: () =>
+      vendorApi.walletTopup({
+        amount: Number(vendorTopupAmount),
+        method: vendorTopupMethod,
+        return_path: `${location.pathname}${location.search}`.split('#')[0],
+      }),
+    onSuccess: (data) => {
+      if (handleWalletTopupClientResponse(data)) return;
+      void qc.invalidateQueries({ queryKey: ['vendor'] });
+      toast.success('Balance updated.');
+      setVendorTopupAmount('');
+    },
+    onError: (e: Error) => toast.error(e.message || 'Could not start top-up.'),
+  });
 
   const wdMut = useMutation({
     mutationFn: (vars: { amount: number; payout_account_id: string; otp?: string }) =>
@@ -466,6 +532,54 @@ export default function VendorWalletModule({ activeSection }: { activeSection: s
                 {Number((vMe as { commission_rate?: number } | undefined)?.commission_rate ?? 0).toFixed(1)}%
               </Badge>
             </p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Add money</CardTitle>
+            <CardDescription>Top up your vendor wallet with eSewa or Khalti.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4 max-w-md">
+            <div className="grid grid-cols-2 gap-2">
+              {(
+                [
+                  { id: 'esewa' as const, name: 'eSewa', icon: '💚' },
+                  { id: 'khalti' as const, name: 'Khalti', icon: '💜' },
+                ] as const
+              ).map((m) => (
+                <Button
+                  key={m.id}
+                  type="button"
+                  variant={vendorTopupMethod === m.id ? 'default' : 'outline'}
+                  onClick={() => setVendorTopupMethod(m.id)}
+                  className="flex-col h-auto py-3"
+                >
+                  <span className="text-xl">{m.icon}</span>
+                  <span className="text-xs mt-1">{m.name}</span>
+                </Button>
+              ))}
+            </div>
+            <div>
+              <Label>Amount (Rs.)</Label>
+              <Input
+                type="number"
+                value={vendorTopupAmount}
+                onChange={(e) => setVendorTopupAmount(e.target.value)}
+                placeholder="Enter amount"
+              />
+            </div>
+            <Button
+              type="button"
+              onClick={() => vendorTopupMut.mutate()}
+              disabled={
+                vendorTopupMut.isPending ||
+                !vendorTopupAmount ||
+                Number(vendorTopupAmount) < 1 ||
+                !Number.isFinite(Number(vendorTopupAmount))
+              }
+            >
+              Continue to pay
+            </Button>
           </CardContent>
         </Card>
       </div>

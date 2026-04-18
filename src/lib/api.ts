@@ -1594,6 +1594,37 @@ export const adminApi = {
       undefined,
       true,
     ),
+  walletTopup: (payload: { amount: number; method?: string; return_path?: string }) =>
+    apiFetch<
+      | { ok: true; balance: number }
+      | {
+          ok: true;
+          flow: 'esewa_redirect';
+          action_url: string;
+          fields: Record<string, string>;
+        }
+      | {
+          ok: true;
+          flow: 'khalti_redirect';
+          payment_url: string;
+          pidx: string;
+          purchase_order_id: string;
+          expires_at?: string;
+          expires_in?: number;
+        }
+    >("/admin/wallet/topup/", { method: "POST", body: JSON.stringify(payload) }, true),
+  walletKhaltiVerify: (params: { pidx: string }) =>
+    apiFetch<{
+      success: boolean;
+      detail?: string;
+      data?: {
+        status: string;
+        khalti_status: string;
+        pidx: string;
+        transaction_id?: string;
+        total_amount?: number;
+      };
+    }>(`/admin/wallet/topup/khalti/verify/${buildQuery(params)}`, undefined, true),
   lowStock: (params?: { threshold?: number; limit?: number }) =>
     apiFetch<AdminDashboardLowStockResponse>(
       `/admin/dashboard/low-stock/${buildQuery({
@@ -2232,6 +2263,37 @@ export const vendorApi = {
   updateReview: (id: string, payload: Record<string, unknown>) =>
     vendorWrite<Record<string, unknown>>(`reviews/${id}`, "PATCH", payload),
   walletTransactions: (params?: QueryParams) => vendorPaged<Record<string, unknown>>("wallet-transactions", params),
+  walletTopup: (payload: { amount: number; method?: string; return_path?: string }) =>
+    vendorWrite<
+      | { ok: true; balance: number }
+      | {
+          ok: true;
+          flow: 'esewa_redirect';
+          action_url: string;
+          fields: Record<string, string>;
+        }
+      | {
+          ok: true;
+          flow: 'khalti_redirect';
+          payment_url: string;
+          pidx: string;
+          purchase_order_id: string;
+          expires_at?: string;
+          expires_in?: number;
+        }
+    >("wallet/topup", "POST", payload),
+  walletKhaltiVerify: (params: { pidx: string }) =>
+    vendorFetch<{
+      success: boolean;
+      detail?: string;
+      data?: {
+        status: string;
+        khalti_status: string;
+        pidx: string;
+        transaction_id?: string;
+        total_amount?: number;
+      };
+    }>(`/vendor/wallet/topup/khalti/verify/${buildQuery(params)}`, undefined, true),
   commissionSettlements: (params?: QueryParams) =>
     vendorPaged<Record<string, unknown>>("commission-settlements", params),
   withdrawals: (params?: QueryParams) => vendorPaged<Record<string, unknown>>("withdrawals", params),
@@ -3161,12 +3223,25 @@ export const portalApi = {
       method: "POST",
       body: JSON.stringify(payload ?? {}),
     }, true),
-  familyWalletLoad: (payload: { amount: number; method?: string }) =>
-    portalFetch<{ ok: boolean; balance: number; wallet_id: string }>(
-      "/portal/family/wallet/load/",
-      { method: "POST", body: JSON.stringify(payload) },
-      true,
-    ),
+  familyWalletLoad: (payload: { amount: number; method?: string; return_path?: string }) =>
+    portalFetch<
+      | { ok: boolean; balance: number; wallet_id: string }
+      | {
+          ok: true;
+          flow: 'esewa_redirect';
+          action_url: string;
+          fields: Record<string, string>;
+        }
+      | {
+          ok: true;
+          flow: 'khalti_redirect';
+          payment_url: string;
+          pidx: string;
+          purchase_order_id: string;
+          expires_at?: string;
+          expires_in?: number;
+        }
+    >("/portal/family/wallet/load/", { method: "POST", body: JSON.stringify(payload) }, true),
   familyWalletDistribute: (payload: {
     member_id?: number | string;
     amount?: number;
@@ -3240,12 +3315,25 @@ export const portalApi = {
       { method: "POST", body: JSON.stringify(payload) },
       true,
     ),
-  childWalletTopup: (payload: { amount: number; method?: string }) =>
-    portalFetch<{ ok: boolean; balance: number }>(
-      "/portal/child/wallet/topup/",
-      { method: "POST", body: JSON.stringify(payload) },
-      true,
-    ),
+  childWalletTopup: (payload: { amount: number; method?: string; return_path?: string }) =>
+    portalFetch<
+      | { ok: boolean; balance: number }
+      | {
+          ok: true;
+          flow: 'esewa_redirect';
+          action_url: string;
+          fields: Record<string, string>;
+        }
+      | {
+          ok: true;
+          flow: 'khalti_redirect';
+          payment_url: string;
+          pidx: string;
+          purchase_order_id: string;
+          expires_at?: string;
+          expires_in?: number;
+        }
+    >("/portal/child/wallet/topup/", { method: "POST", body: JSON.stringify(payload) }, true),
   childWalletWithdraw: (payload: { amount: number; payout_account_id: number | string; otp?: string }) =>
     portalFetch<{ id: string; withdrawal_number: string; status: string }>(
       "/child-portal/child/wallet/withdraw/",
@@ -3309,7 +3397,7 @@ export const portalApi = {
       undefined,
       true,
     ),
-  walletTopup: (payload: { amount: number; method?: string }) =>
+  walletTopup: (payload: { amount: number; method?: string; return_path?: string }) =>
     portalFetch<
       | { ok: boolean; balance: number }
       | {
