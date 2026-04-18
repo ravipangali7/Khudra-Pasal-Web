@@ -253,7 +253,7 @@ function CommissionLogView() {
       </Card>
       <AdminTable
         title="Commission settlements"
-        subtitle="Per-order platform commission and vendor payout (paid orders)"
+        subtitle="Per-order platform commission (rate × order total) and vendor payout (paid orders)"
         data={rows}
         columns={[
           { key: 'order_number', label: 'Order' },
