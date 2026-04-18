@@ -338,8 +338,6 @@ export type AdminRefundPreview = {
   gross: number;
   platform_fee: number;
   net_credit: number;
-  /** Vendor setting: % of the proportional commission slice retained on refund. */
-  refund_commission_percent?: number;
 };
 
 export type AdminCommissionSettlement = {
@@ -2474,7 +2472,6 @@ export type PortalRefundEstimate = {
   gross: number;
   platform_fee: number;
   net_credit: number;
-  refund_commission_percent?: number;
 };
 
 export type PortalOrderRow = {
