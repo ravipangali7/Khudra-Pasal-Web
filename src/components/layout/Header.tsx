@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Menu, Search, MapPin, ShoppingCart, User } from "lucide-react";
+import { Menu, Search, ShoppingCart, User } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
 import { useAuthUi } from "@/contexts/AuthUiContext";
@@ -144,16 +144,6 @@ const Header = () => {
               <Link to="/" className="flex-shrink-0">
                 <img src={logo} alt="Khudra Pasal" className="h-8 md:h-12 w-auto object-contain" />
               </Link>
-              <button
-                type="button"
-                className="hidden xl:flex items-center gap-2 px-3 py-2 rounded-full hover:bg-primary/10 transition-colors text-sm"
-              >
-                <MapPin className="w-4 h-4 text-primary" />
-                <span className="text-muted-foreground whitespace-nowrap">Select Location</span>
-                <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
-              </button>
             </div>
 
             <div className="hidden md:flex md:flex-1 md:justify-center min-w-0 max-w-2xl mx-2 md:mx-6">

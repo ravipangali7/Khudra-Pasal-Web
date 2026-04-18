@@ -3048,6 +3048,11 @@ export const portalApi = {
       true,
     );
   },
+  orderDetailForSurface: (surface: "main" | "family" | "child", orderPk: number) => {
+    const prefix =
+      surface === "main" ? "/portal" : surface === "family" ? "/family-portal" : "/child-portal";
+    return portalFetch<PortalOrderRow>(`${prefix}/orders/${orderPk}/`, undefined, true);
+  },
   walletTransactions: (params?: QueryParams) => portalPaged<PortalWalletTxnRow>("wallet-transactions", params),
   /** Alias for /portal/wallet-transactions/ */
   transactions: (params?: QueryParams) =>

@@ -4,7 +4,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { PORTAL_LOGIN_PATH, navigateToPortalLogin, setPostLogoutLoginPath } from '@/lib/portalLoginPaths';
 import { useSessionHomeRedirect } from '@/lib/sessionHomeRedirect';
-import { findSidebarNodeById, resolvePortalNavViewKey, usePortalSectionPath } from '@/lib/portalNavigation';
+import {
+  findSidebarNodeById,
+  resolvePortalNavViewKey,
+  usePortalOrderPkFromPath,
+  usePortalSectionPath,
+} from '@/lib/portalNavigation';
 import { createFamilyPortalViewRegistry } from '@/portal/family/familyPortalViewRegistry';
 import { toast } from 'sonner';
 import {
@@ -246,6 +251,7 @@ export function FamilyPortal() {
   const sidebarItems = useMemo(() => mapApiNavToPortalItems(navData?.items), [navData]);
 
   const { segment: activeSection, goTo, isSegmentKnown } = usePortalSectionPath('/family-portal', sidebarItems);
+  const orderPk = usePortalOrderPkFromPath('/family-portal', 'my-orders');
 
   const performPortalLogout = () => {
     setPostLogoutLoginPath(PORTAL_LOGIN_PATH.family);
@@ -455,8 +461,16 @@ export function FamilyPortal() {
       products: () => <PortalProductsCatalogSection variant="family" />,
       myOrders: () => (
         <div className="p-4 lg:p-6">
-          <h2 className="text-lg font-semibold mb-4">My orders</h2>
-          <PortalMyOrdersSection surface="family" sessionTick={sessionTick} authed={authed} />
+          <h2 className="text-lg font-semibold mb-4">
+            {orderPk != null ? 'Order details' : 'My orders'}
+          </h2>
+          <PortalMyOrdersSection
+            surface="family"
+            sessionTick={sessionTick}
+            authed={authed}
+            ordersListHref="/family-portal/my-orders"
+            orderPk={orderPk}
+          />
         </div>
       ),
       support: () => (

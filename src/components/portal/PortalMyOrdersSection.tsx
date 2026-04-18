@@ -1,4 +1,5 @@
 import { Fragment, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
 import { toast } from "sonner";
@@ -20,6 +21,7 @@ import {
   PortalApiError,
   type PortalOrderRow,
 } from "@/lib/api";
+import PortalOrderDetail from "@/components/portal/PortalOrderDetail";
 
 export type PortalOrdersSurface = "main" | "family" | "child";
 
@@ -49,9 +51,19 @@ type Props = {
   surface: PortalOrdersSurface;
   sessionTick: number;
   authed: boolean;
+  /** List URL without trailing slash; used for View links and order detail back navigation. */
+  ordersListHref: string;
+  /** When set (deep link), renders full order view instead of the table. */
+  orderPk?: number | null;
 };
 
-export default function PortalMyOrdersSection({ surface, sessionTick, authed }: Props) {
+export default function PortalMyOrdersSection({
+  surface,
+  sessionTick,
+  authed,
+  ordersListHref,
+  orderPk = null,
+}: Props) {
   const queryClient = useQueryClient();
   const [expandedOrderPk, setExpandedOrderPk] = useState<number | null>(null);
   const [refundOrder, setRefundOrder] = useState<PortalOrderRow | null>(null);
@@ -61,7 +73,7 @@ export default function PortalMyOrdersSection({ surface, sessionTick, authed }: 
   const { data: ordersResp, isError: ordersError, isLoading: ordersLoading } = useQuery({
     queryKey: ["portal", "orders", surface, sessionTick],
     queryFn: () => portalApi.ordersForSurface(surface, { page_size: 100 }),
-    enabled: authed,
+    enabled: authed && orderPk == null,
     retry: false,
   });
 
@@ -99,6 +111,18 @@ export default function PortalMyOrdersSection({ surface, sessionTick, authed }: 
     },
   });
 
+  if (orderPk != null) {
+    return (
+      <PortalOrderDetail
+        surface={surface}
+        orderPk={orderPk}
+        listHref={ordersListHref}
+        sessionTick={sessionTick}
+        authed={authed}
+      />
+    );
+  }
+
   return (
     <div className="space-y-4">
       {ordersError && (
@@ -122,7 +146,7 @@ export default function PortalMyOrdersSection({ surface, sessionTick, authed }: 
                 <th className="text-left p-4 font-medium">Vendor</th>
                 <th className="text-left p-4 font-medium">Status</th>
                 <th className="text-right p-4 font-medium">Total</th>
-                <th className="text-right p-4 font-medium w-36">Actions</th>
+                <th className="text-right p-4 font-medium min-w-[11rem]">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -166,23 +190,32 @@ export default function PortalMyOrdersSection({ surface, sessionTick, authed }: 
                         <td className="p-4 capitalize">{o.status}</td>
                         <td className="p-4 text-right font-medium">{formatPrice(o.total)}</td>
                         <td className="p-4 text-right">
-                          {canRequestRefund(o) ? (
+                          <div className="flex flex-wrap justify-end gap-2">
                             <Button
                               type="button"
                               variant="outline"
                               size="sm"
                               className="h-8 text-xs"
-                              onClick={() => {
-                                setRefundOrder(o);
-                                setRefundReason("");
-                                setRefundNotes("");
-                              }}
+                              asChild
                             >
-                              Request refund
+                              <Link to={`${ordersListHref}/${o.pk}`}>View</Link>
                             </Button>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">—</span>
-                          )}
+                            {canRequestRefund(o) ? (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-8 text-xs"
+                                onClick={() => {
+                                  setRefundOrder(o);
+                                  setRefundReason("");
+                                  setRefundNotes("");
+                                }}
+                              >
+                                Request refund
+                              </Button>
+                            ) : null}
+                          </div>
                         </td>
                       </tr>
                       {expandedOrderPk === o.pk &&

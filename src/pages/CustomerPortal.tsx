@@ -31,7 +31,7 @@ import { DEFAULT_REDIRECT_AFTER_LOGIN } from '@/config/authDefaults';
 import { sanitizeNextPath } from '@/lib/authRedirect';
 import { PORTAL_LOGIN_PATH, navigateToPortalLogin, setPostLogoutLoginPath } from '@/lib/portalLoginPaths';
 import { cn } from '@/lib/utils';
-import { usePortalSectionPath } from '@/lib/portalNavigation';
+import { usePortalOrderPkFromPath, usePortalSectionPath } from '@/lib/portalNavigation';
 import { toast } from 'sonner';
 import {
   clearAllAuthTokens,
@@ -460,6 +460,7 @@ const CustomerPortal = () => {
   }, [navData, userRole]);
 
   const { segment: activeSection, goTo, isSegmentKnown } = usePortalSectionPath('/portal', sidebarItems);
+  const orderPk = usePortalOrderPkFromPath('/portal', 'orders');
 
   const walletNavSections = new Set(['wallet', 'wallet-payout-accounts', 'wallet-withdraw']);
 
@@ -1647,7 +1648,16 @@ const CustomerPortal = () => {
 
           {activeSection === 'orders' && (
             <div className="space-y-4 px-1">
-              <PortalMyOrdersSection surface="main" sessionTick={sessionTick} authed={authed} />
+              <h2 className="text-lg font-semibold">
+                {orderPk != null ? 'Order details' : 'My orders'}
+              </h2>
+              <PortalMyOrdersSection
+                surface="main"
+                sessionTick={sessionTick}
+                authed={authed}
+                ordersListHref="/portal/orders"
+                orderPk={orderPk}
+              />
             </div>
           )}
 

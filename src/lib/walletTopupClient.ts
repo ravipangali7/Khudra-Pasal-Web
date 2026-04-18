@@ -20,9 +20,16 @@ export type WalletTopupRedirectResponse =
 export function isWalletTopupRedirect(resp: unknown): resp is WalletTopupRedirectResponse {
   if (!resp || typeof resp !== 'object') return false;
   const r = resp as Record<string, unknown>;
-  if (r.ok !== true || typeof r.flow !== 'string') return false;
+  if (typeof r.flow !== 'string') return false;
+  /** Gateway bodies use ok: true; tolerate omitted ok when flow + payload match. */
+  if (r.ok !== undefined && r.ok !== true) return false;
   if (r.flow === 'esewa_redirect') {
-    return typeof r.action_url === 'string' && r.fields != null && typeof r.fields === 'object';
+    return (
+      typeof r.action_url === 'string' &&
+      r.fields != null &&
+      typeof r.fields === 'object' &&
+      !Array.isArray(r.fields)
+    );
   }
   if (r.flow === 'khalti_redirect') {
     return typeof r.payment_url === 'string';

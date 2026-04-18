@@ -1,5 +1,20 @@
 import { useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+
+/**
+ * Deep link: `/portal/orders/123`, `/family-portal/my-orders/123`, etc.
+ * Returns null on the list URL or unknown trailing segments.
+ */
+export function usePortalOrderPkFromPath(basePath: string, ordersSegment: string): number | null {
+  const { pathname } = useLocation();
+  const base = basePath.replace(/\/$/, "");
+  const prefix = `${base}/${ordersSegment}/`;
+  if (!pathname.startsWith(prefix)) return null;
+  const rest = pathname.slice(prefix.length);
+  const first = rest.split("/").filter(Boolean)[0];
+  if (!first || !/^\d+$/.test(first)) return null;
+  return Number(first);
+}
 import type { SidebarItem } from "@/components/portal/PortalSidebar";
 
 /** Default dashboard URL for a portal user from `/portal/me/` `role` (parent / child / normal). */

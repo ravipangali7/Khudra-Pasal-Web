@@ -144,7 +144,7 @@ export function AdminSearchCombobox({
   );
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover modal open={open} onOpenChange={setOpen}>
       <div className={cn('flex gap-1 w-full', className)}>
         <PopoverTrigger asChild>
           <Button
@@ -176,7 +176,6 @@ export function AdminSearchCombobox({
       <PopoverContent
         className="w-[var(--radix-popover-trigger-width)] min-w-[280px] p-0"
         align="start"
-        onWheel={(e) => e.stopPropagation()}
       >
         <Command shouldFilter={false}>
           <CommandInput

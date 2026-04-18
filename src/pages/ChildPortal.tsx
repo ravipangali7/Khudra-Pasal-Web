@@ -25,7 +25,7 @@ import {
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { PORTAL_LOGIN_PATH, navigateToPortalLogin, setPostLogoutLoginPath } from '@/lib/portalLoginPaths';
 import { useSessionHomeRedirect } from '@/lib/sessionHomeRedirect';
-import { usePortalSectionPath } from '@/lib/portalNavigation';
+import { usePortalOrderPkFromPath, usePortalSectionPath } from '@/lib/portalNavigation';
 import PortalMyOrdersSection from '@/components/portal/PortalMyOrdersSection';
 import WalletHubPanel from '@/components/wallet/WalletHubPanel';
 import PortalLayout from '@/components/portal/PortalLayout';
@@ -211,6 +211,7 @@ const ChildPortal = () => {
   const sidebarItems = useMemo(() => mapApiNavToPortalItems(navData?.items), [navData]);
 
   const { segment: activeSection, goTo, isSegmentKnown } = usePortalSectionPath('/child-portal', sidebarItems);
+  const orderPk = usePortalOrderPkFromPath('/child-portal', 'my-orders');
 
   const pollOpts = { refetchInterval: 45_000 as const, refetchOnWindowFocus: true as const };
 
@@ -516,8 +517,16 @@ const ChildPortal = () => {
       case 'my-orders':
         return (
           <div className="p-4 lg:p-6">
-            <h2 className="text-lg font-semibold mb-4">My orders</h2>
-            <PortalMyOrdersSection surface="child" sessionTick={sessionTick} authed={authed} />
+            <h2 className="text-lg font-semibold mb-4">
+              {orderPk != null ? 'Order details' : 'My orders'}
+            </h2>
+            <PortalMyOrdersSection
+              surface="child"
+              sessionTick={sessionTick}
+              authed={authed}
+              ordersListHref="/child-portal/my-orders"
+              orderPk={orderPk}
+            />
           </div>
         );
       case 'topup':
@@ -1017,7 +1026,19 @@ const ChildPortal = () => {
         }),
       onSuccess: (data) => {
         if (handleWalletTopupClientResponse(data)) return;
-        toast.success(`Added Rs. ${Number(topUpAmount).toLocaleString()}. Balance: Rs. ${data.balance.toLocaleString()}`);
+        const added = Number(topUpAmount);
+        const bal =
+          data &&
+          typeof data === 'object' &&
+          'balance' in data &&
+          typeof (data as { balance?: unknown }).balance === 'number'
+            ? (data as { balance: number }).balance
+            : undefined;
+        toast.success(
+          bal !== undefined
+            ? `Added Rs. ${added.toLocaleString()}. Balance: Rs. ${bal.toLocaleString()}`
+            : `Added Rs. ${added.toLocaleString()} to your wallet.`,
+        );
         setTopUpAmount('');
         void qc.invalidateQueries({ queryKey: ['portal', 'child', 'summary'] });
         void qc.invalidateQueries({ queryKey: ['portal', 'child', 'txns'] });
