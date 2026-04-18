@@ -2,11 +2,12 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { QRCodeSVG } from 'qrcode.react';
 import { Loader2, QrCode, RefreshCw, Send, Upload } from 'lucide-react';
-import { portalApi, PortalApiError } from '@/lib/api';
+import { isPortalOtpRequiredError, portalApi, PortalApiError } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
+import OtpVerificationModal from '@/components/wallet/OtpVerificationModal';
 
 export type WalletHubPortalPrefix = 'portal' | 'family-portal' | 'child-portal';
 
@@ -39,7 +40,8 @@ const WalletHubPanel = ({ portalPrefix, onSent }: WalletHubPanelProps) => {
   const [createBusy, setCreateBusy] = useState(false);
   const [recipientCode, setRecipientCode] = useState('');
   const [amount, setAmount] = useState('');
-  const [otp, setOtp] = useState('');
+  const [otpModalOpen, setOtpModalOpen] = useState(false);
+  const pendingTransferRef = useRef<{ c: string; n: number; idemKey: string } | null>(null);
   const [sendBusy, setSendBusy] = useState(false);
   const [lookupBusy, setLookupBusy] = useState(false);
   const [preview, setPreview] = useState<{ display_name: string; code: string } | null>(null);
@@ -152,6 +154,18 @@ const WalletHubPanel = ({ portalPrefix, onSent }: WalletHubPanelProps) => {
     }
   };
 
+  const executeHubTransfer = async (c: string, n: number, idemKey: string, otp?: string) => {
+    await portalApi.walletHubWalletTransfer(
+      { transfer_id: c, amount: n, ...(otp?.trim() ? { otp: otp.trim() } : {}) },
+      idemKey,
+    );
+    toast.success('Transfer sent');
+    setRecipientCode('');
+    setAmount('');
+    setPreview(null);
+    onSent?.();
+  };
+
   const handleSend = async () => {
     const c = recipientCode.replace(/[^A-Z0-9]/gi, '').toUpperCase();
     const n = Number(amount);
@@ -160,40 +174,27 @@ const WalletHubPanel = ({ portalPrefix, onSent }: WalletHubPanelProps) => {
       setSendError('Enter a valid transfer ID and amount.');
       return;
     }
-    if (otpRequired && !otp.trim()) {
-      setSendError('OTP is required for this amount. Request OTP via SMS first.');
+    const key =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `idem-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    if (otpRequired) {
+      pendingTransferRef.current = { c, n, idemKey: key };
+      setOtpModalOpen(true);
       return;
     }
     setSendBusy(true);
     try {
-      const key =
-        typeof crypto !== 'undefined' && crypto.randomUUID
-          ? crypto.randomUUID()
-          : `idem-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-      await portalApi.walletHubWalletTransfer(
-        { transfer_id: c, amount: n, otp: otp.trim() || undefined },
-        key,
-      );
-      toast.success('Transfer sent');
-      setRecipientCode('');
-      setAmount('');
-      setOtp('');
-      setPreview(null);
-      onSent?.();
+      await executeHubTransfer(c, n, key);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Transfer failed';
-      setSendError(msg);
+      if (e instanceof PortalApiError && isPortalOtpRequiredError(e)) {
+        pendingTransferRef.current = { c, n, idemKey: key };
+        setOtpModalOpen(true);
+        return;
+      }
+      setSendError(e instanceof Error ? e.message : 'Transfer failed');
     } finally {
       setSendBusy(false);
-    }
-  };
-
-  const requestOtp = async () => {
-    try {
-      await portalApi.walletOtpForTransfer(portalPrefix);
-      toast.success('OTP sent to your phone');
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Could not send OTP');
     }
   };
 
@@ -328,22 +329,10 @@ const WalletHubPanel = ({ portalPrefix, onSent }: WalletHubPanelProps) => {
           </div>
         </div>
         {otpRequired ? (
-          <div className="space-y-2 rounded-lg bg-muted/40 p-3">
-            <p className="text-xs text-muted-foreground">
-              This amount needs SMS OTP. Request a code, then enter it below.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <Button type="button" variant="outline" size="sm" onClick={() => void requestOtp()}>
-                Send OTP
-              </Button>
-              <Input
-                value={otp}
-                onChange={(e) => setOtp(e.target.value)}
-                placeholder="6-digit OTP"
-                className="max-w-[10rem]"
-              />
-            </div>
-          </div>
+          <p className="text-xs text-muted-foreground rounded-lg bg-muted/40 p-3">
+            This amount needs SMS OTP. When you tap Send money, a verification window opens to request the code and
+            continue.
+          </p>
         ) : null}
         {sendError ? <p className="text-sm text-destructive">{sendError}</p> : null}
         <Button type="button" disabled={sendBusy} onClick={() => void handleSend()}>
@@ -351,6 +340,22 @@ const WalletHubPanel = ({ portalPrefix, onSent }: WalletHubPanelProps) => {
           Send money
         </Button>
       </div>
+      <OtpVerificationModal
+        open={otpModalOpen}
+        onOpenChange={(o) => {
+          setOtpModalOpen(o);
+          if (!o) pendingTransferRef.current = null;
+        }}
+        variant="portal_wallet"
+        walletPurpose="transfer"
+        portalPrefix={portalPrefix}
+        onContinueWithOtp={async (code) => {
+          const p = pendingTransferRef.current;
+          if (!p) throw new Error('No pending transfer.');
+          await executeHubTransfer(p.c, p.n, p.idemKey, code);
+          pendingTransferRef.current = null;
+        }}
+      />
     </div>
   );
 };

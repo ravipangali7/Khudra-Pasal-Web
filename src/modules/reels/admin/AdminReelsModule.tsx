@@ -898,7 +898,7 @@ const AdminReelsModule: React.FC = () => {
           isOpen={boostOpen}
           onClose={() => { setBoostOpen(false); setBoostReel(null); }}
           reelId={boostReel.id}
-          reelName={boostReel.product.name}
+          reelName={boostReel.product?.name ?? 'Reel'}
           patchReel={(id, body) => adminApi.updateReel(id, body)}
           invalidateQueryKeys={[['admin', 'reels']]}
         />

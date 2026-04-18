@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { X, Zap, TrendingUp, Crown } from 'lucide-react';
+import { websiteApi } from '@/lib/api';
 import { formatApiError } from '@/pages/admin/hooks/adminFormUtils';
 import {
   AlertDialog,
@@ -25,10 +26,10 @@ interface BoostModalProps {
 }
 
 const boostTypes = [
-  { id: 'standard', label: 'Standard', icon: Zap, description: 'Show in trending feed', color: '#3B82F6', multiplier: '2x' },
-  { id: 'premium', label: 'Premium', icon: TrendingUp, description: 'Priority placement + explore page', color: '#F59E0B', multiplier: '5x' },
-  { id: 'mega', label: 'Mega', icon: Crown, description: 'Top of all feeds + push notifications', color: '#F59E0B', multiplier: '10x' },
-];
+  { id: 'standard', label: 'Standard', icon: Zap, description: 'Show in trending feed', color: '#3B82F6' },
+  { id: 'premium', label: 'Premium', icon: TrendingUp, description: 'Priority placement + explore page', color: '#F59E0B' },
+  { id: 'mega', label: 'Mega', icon: Crown, description: 'Top of all feeds + push notifications', color: '#F59E0B' },
+] as const;
 
 const BoostModal: React.FC<BoostModalProps> = ({
   isOpen,
@@ -45,10 +46,23 @@ const BoostModal: React.FC<BoostModalProps> = ({
   const [boostConfirmOpen, setBoostConfirmOpen] = useState(false);
   const [localErr, setLocalErr] = useState('');
 
+  const { data: storeInfo } = useQuery({
+    queryKey: ['website', 'store-info'],
+    queryFn: () => websiteApi.storeInfo(),
+    staleTime: 60_000,
+  });
+  const rb = storeInfo?.reels_boost;
+  const stdM = Number(rb?.standardMultiplier) || 2;
+  const premM = Number(rb?.premiumMultiplier) || 5;
+  const megaM = Number(rb?.megaMultiplier) || 10;
+
+  const tierMultiplier = (tier: string) =>
+    tier === 'mega' ? megaM : tier === 'premium' ? premM : stdM;
+
   const estimatedReach = () => {
     const b = parseInt(budget, 10) || 0;
     const d = parseInt(duration, 10) || 1;
-    const mult = selectedType === 'mega' ? 10 : selectedType === 'premium' ? 5 : 2;
+    const mult = tierMultiplier(selectedType);
     return Math.max(0, Math.floor((b * d * mult) / 10));
   };
 
@@ -149,7 +163,7 @@ const BoostModal: React.FC<BoostModalProps> = ({
                       >
                         <Icon className="w-5 h-5 mx-auto mb-1" style={{ color: bt.color }} />
                         <p className="reels-font-body text-xs font-semibold reels-ui-text">{bt.label}</p>
-                        <p className="reels-font-mono text-[10px]" style={{ color: 'var(--reels-text-muted)' }}>{bt.multiplier} reach</p>
+                        <p className="reels-font-mono text-[10px]" style={{ color: 'var(--reels-text-muted)' }}>{tierMultiplier(bt.id)}x reach</p>
                       </button>
                     );
                   })}

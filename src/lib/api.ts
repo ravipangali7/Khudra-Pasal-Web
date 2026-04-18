@@ -176,6 +176,14 @@ export type WebsiteSocialLinks = {
   tiktok: string;
 };
 
+/** Public multipliers for reel boost UI (from admin Site Settings → Reels). */
+export type WebsiteReelsBoostInfo = {
+  standardMultiplier: number;
+  premiumMultiplier: number;
+  megaMultiplier: number;
+  feedAlgorithm?: string;
+};
+
 export type WebsiteStoreInfo = {
   site_name: string;
   site_description: string;
@@ -185,7 +193,14 @@ export type WebsiteStoreInfo = {
   currency: string;
   footer_text: string;
   site_logo_url: string;
+  /** From site settings; absent on older API responses (treated as open / defaults). */
+  maintenance_mode?: boolean;
+  temporary_shop_close?: boolean;
+  new_registrations?: boolean;
+  kyc_required?: boolean;
+  pos_enabled?: boolean;
   social_links?: WebsiteSocialLinks;
+  reels_boost?: WebsiteReelsBoostInfo;
 };
 
 export type WebsiteShippingZone = {
@@ -338,6 +353,8 @@ export type AdminRefundPreview = {
   gross: number;
   platform_fee: number;
   net_credit: number;
+  /** Wallet settings: fee type/value applied to the commission slice only */
+  platform_retention_label?: string;
 };
 
 export type AdminCommissionSettlement = {
@@ -748,9 +765,55 @@ export function isPortalPayoutRequiredError(error: unknown): error is PortalApiE
   return error instanceof PortalApiError && error.body?.code === "payout_required";
 }
 
+export function isPortalOtpRequiredError(error: unknown): error is PortalApiError {
+  return error instanceof PortalApiError && error.body?.code === "otp_required";
+}
+
+/** Vendor API JSON on failed requests (subset). */
+export type VendorErrorBody = Record<string, unknown> & {
+  detail?: unknown;
+  code?: string;
+};
+
+export class VendorApiError extends Error {
+  readonly status: number;
+  readonly body: VendorErrorBody;
+
+  constructor(message: string, status: number, body: VendorErrorBody) {
+    super(message);
+    this.name = "VendorApiError";
+    this.status = status;
+    this.body = body;
+  }
+}
+
+function formatVendorErrorMessage(body: VendorErrorBody, httpStatus: number): string {
+  const d = body.detail;
+  if (typeof d === "string" && d.trim()) return d.trim();
+  if (Array.isArray(d)) {
+    const parts = d
+      .map((item) => {
+        if (typeof item === "string") return item;
+        if (item && typeof item === "object") {
+          const o = item as Record<string, unknown>;
+          if (typeof o.string === "string") return o.string;
+        }
+        return "";
+      })
+      .filter(Boolean);
+    if (parts.length) return parts.join(", ");
+  }
+  return `Request failed: ${httpStatus}`;
+}
+
+export function isVendorOtpRequiredError(error: unknown): error is VendorApiError {
+  return error instanceof VendorApiError && error.body?.code === "otp_required";
+}
+
 /** HTTP status from `apiFetch` / `vendorFetch` / `portalFetch` thrown `Error` messages (`Request failed: 401`). */
 export function getApiErrorHttpStatus(error: unknown): number | undefined {
   if (error instanceof PortalApiError) return error.status;
+  if (error instanceof VendorApiError) return error.status;
   if (!(error instanceof Error)) return undefined;
   const m = error.message.match(/Request failed:\s*(\d{3})/);
   if (m) return parseInt(m[1], 10);
@@ -775,15 +838,9 @@ async function vendorFetch<T>(path: string, init?: RequestInit, authenticated = 
 
   const response = await fetch(`${API_BASE}${path}`, { ...init, headers });
   if (!response.ok) {
-    const payload = await response.json().catch(() => ({}));
-    const detail = (payload as { detail?: unknown }).detail;
-    const msg =
-      typeof detail === "string"
-        ? detail
-        : Array.isArray(detail)
-          ? detail.map(String).join(", ")
-          : `Request failed: ${response.status}`;
-    throw new Error(msg);
+    const payload = (await response.json().catch(() => ({}))) as VendorErrorBody;
+    const msg = formatVendorErrorMessage(payload, response.status);
+    throw new VendorApiError(msg, response.status, payload);
   }
   return response.json() as Promise<T>;
 }
@@ -796,10 +853,9 @@ async function vendorFetchBlob(path: string, authenticated = true): Promise<Blob
   }
   const response = await fetch(`${API_BASE}${path}`, { headers });
   if (!response.ok) {
-    const payload = await response.json().catch(() => ({}));
-    const detail = (payload as { detail?: unknown }).detail;
-    const msg = typeof detail === "string" ? detail : `Request failed: ${response.status}`;
-    throw new Error(msg);
+    const payload = (await response.json().catch(() => ({}))) as VendorErrorBody;
+    const msg = formatVendorErrorMessage(payload, response.status);
+    throw new VendorApiError(msg, response.status, payload);
   }
   return response.blob();
 }
@@ -1585,6 +1641,7 @@ export const adminApi = {
       gross_amount: number;
       platform_fee: number;
       net_credit: number;
+      platform_retention_label?: string;
       status: string;
       message?: string;
     }>(`/admin/orders/${pk}/refund/`, {
@@ -2460,6 +2517,7 @@ export type PortalRefundEstimate = {
   gross: number;
   platform_fee: number;
   net_credit: number;
+  platform_retention_label?: string;
 };
 
 export type PortalOrderRow = {
@@ -2691,12 +2749,14 @@ export type FamilyWalletTransferPayload =
       to_wallet_id: string | number;
       amount: number;
       category_id?: number | string | null;
+      otp?: string;
     }
   | {
       from_member_id: number | string;
       to_member_id: number | string;
       amount: number;
       category_id?: number | string | null;
+      otp?: string;
     };
 
 export type PortalFamilyProductRestrictionRow = {
@@ -2917,6 +2977,7 @@ export const portalApi = {
       gross_amount: number;
       platform_fee: number;
       net_credit: number;
+      platform_retention_label?: string;
       amount: number;
       status: string;
     }>(
@@ -3185,7 +3246,7 @@ export const portalApi = {
       { method: "POST", body: JSON.stringify(payload) },
       true,
     ),
-  childWalletWithdraw: (payload: { amount: number; payout_account_id: number | string }) =>
+  childWalletWithdraw: (payload: { amount: number; payout_account_id: number | string; otp?: string }) =>
     portalFetch<{ id: string; withdrawal_number: string; status: string }>(
       "/child-portal/child/wallet/withdraw/",
       { method: "POST", body: JSON.stringify(payload) },
@@ -3293,7 +3354,7 @@ export const portalApi = {
         kid: string;
       }>;
     }>(`/portal/wallet/transfer-recipients/${buildQuery(params)}`, undefined, true),
-  walletTransfer: (payload: { recipient: string; amount: number }) =>
+  walletTransfer: (payload: { recipient: string; amount: number; otp?: string }) =>
     portalFetch<{ ok: boolean; balance: number }>(
       "/portal/wallet/transfer/",
       { method: "POST", body: JSON.stringify(payload) },
@@ -3305,6 +3366,7 @@ export const portalApi = {
       daily_transfer_limit: number;
       min_withdrawal: number;
       max_withdrawal_per_day: number;
+      otp_for_withdrawals: boolean;
       otp_for_transfers_above: number;
       individual_wallet_enabled: boolean;
       shared_wallet_enabled: boolean;
@@ -3368,7 +3430,13 @@ export const portalApi = {
       { method: "POST", body: JSON.stringify({}) },
       true,
     ),
-  walletWithdraw: (payload: { amount: number; payout_account_id: number | string }) =>
+  walletOtpForWithdraw: (portalPrefix: "portal" | "family-portal" | "child-portal") =>
+    portalFetch<{ ok: boolean }>(
+      `/${portalPrefix}/wallet/otp/withdraw/`,
+      { method: "POST", body: JSON.stringify({}) },
+      true,
+    ),
+  walletWithdraw: (payload: { amount: number; payout_account_id: number | string; otp?: string }) =>
     portalFetch<{ id: string; withdrawal_number: string; status: string }>(
       "/portal/wallet/withdraw/",
       { method: "POST", body: JSON.stringify(payload) },
@@ -3419,14 +3487,16 @@ export const portalApi = {
     amount: number;
     payout_account_id: number | string;
     proof_image?: File | null;
+    otp?: string;
   }) => {
-    const { proof_image, ...rest } = payload;
+    const { proof_image, otp, ...rest } = payload;
     if (proof_image) {
       const fd = new FormData();
       fd.append("wallet_id", String(rest.wallet_id));
       fd.append("amount", String(rest.amount));
       fd.append("payout_account_id", String(rest.payout_account_id));
       fd.append("proof_image", proof_image);
+      if (otp?.trim()) fd.append("otp", otp.trim());
       return portalFetchMultipart<{ id: string; withdrawal_number: string; status: string }>(
         "/family-portal/family/wallet/withdrawals/",
         { method: "POST", body: fd },
@@ -3435,7 +3505,7 @@ export const portalApi = {
     }
     return portalFetch<{ id: string; withdrawal_number: string; status: string }>(
       "/family-portal/family/wallet/withdrawals/",
-      { method: "POST", body: JSON.stringify(rest) },
+      { method: "POST", body: JSON.stringify({ ...rest, ...(otp?.trim() ? { otp: otp.trim() } : {}) }) },
       true,
     );
   },

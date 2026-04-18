@@ -34,11 +34,11 @@ import { cn } from '@/lib/utils';
 import { usePortalSectionPath } from '@/lib/portalNavigation';
 import { toast } from 'sonner';
 import {
-  authApi,
   clearAllAuthTokens,
   extractResults,
   getAuthToken,
   isPortalKycBlockedError,
+  isPortalOtpRequiredError,
   isPortalPayoutRequiredError,
   mapWebsiteProductToUi,
   portalApi,
@@ -62,6 +62,7 @@ import WalletHubPanel from '@/components/wallet/WalletHubPanel';
 import PayoutAccountsManager from '@/components/wallet/PayoutAccountsManager';
 import WalletWithdraw from '@/components/wallet/WalletWithdraw';
 import WalletAddMoney from '@/components/wallet/WalletAddMoney';
+import OtpVerificationModal from '@/components/wallet/OtpVerificationModal';
 import AIChatbot from '@/components/chat/AIChatbot';
 import MobileFooterNav, { MOBILE_TABBAR_SCROLL_PADDING } from '@/components/layout/MobileFooterNav';
 import AdminTable from '@/components/admin/AdminTable';
@@ -111,11 +112,12 @@ const CustomerPortal = () => {
   const [showAddMoneyModal, setShowAddMoneyModal] = useState(false);
   const [addMoneyPrefill, setAddMoneyPrefill] = useState('');
   const [showTransferModal, setShowTransferModal] = useState(false);
+  const [showWithdrawModal, setShowWithdrawModal] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
   const [newFamilyName, setNewFamilyName] = useState('');
   const [newFamilyType, setNewFamilyType] = useState('family');
-  const [familyInviteOtp, setFamilyInviteOtp] = useState('');
+  const [familyInviteOtpModalOpen, setFamilyInviteOtpModalOpen] = useState(false);
   const [familyInviteErr, setFamilyInviteErr] = useState('');
   const [familyInviteSuccessMsg, setFamilyInviteSuccessMsg] = useState('');
   const [familyInviteTokenInput, setFamilyInviteTokenInput] = useState('');
@@ -307,15 +309,15 @@ const CustomerPortal = () => {
   });
 
   const acceptFamilyInviteMutation = useMutation({
-    mutationFn: () =>
+    mutationFn: ({ otp }: { otp: string }) =>
       portalApi.familyInviteAccept({
         token: inviteTokenEffective,
         phone: me?.phone ?? '',
-        otp: familyInviteOtp,
+        otp,
       }),
     onSuccess: async (data) => {
       setFamilyInviteErr('');
-      setFamilyInviteOtp('');
+      setFamilyInviteOtpModalOpen(false);
       setSearchParams((prev) => {
         const next = new URLSearchParams(prev);
         next.delete('family_invite_token');
@@ -463,7 +465,7 @@ const CustomerPortal = () => {
   const { data: payoutAccounts = [], isLoading: payoutAccountsLoading } = useQuery({
     queryKey: ['portal', 'payout-accounts', sessionTick],
     queryFn: async () => (await portalApi.payoutAccounts()).results,
-    enabled: authed && walletNavSections.has(activeSection),
+    enabled: authed && (walletNavSections.has(activeSection) || showWithdrawModal),
   });
 
   const { data: walletWithdrawals = [] } = useQuery({
@@ -836,39 +838,16 @@ const CustomerPortal = () => {
                       />
                     )}
                   </div>
-                  <button
-                    type="button"
-                    className="text-sm px-4 py-2 rounded-lg border border-border hover:bg-muted"
-                    onClick={() => {
-                      setFamilyInviteErr('');
-                      setFamilyInviteSuccessMsg('');
-                      void authApi.sendOtp({
-                        phone: me?.phone ?? '',
-                        purpose: 'family_invite',
-                        invite_token: inviteTokenEffective,
-                      });
-                    }}
-                  >
-                    Send OTP to my phone
-                  </button>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={6}
-                    className="w-full rounded-lg border border-border bg-background px-3 py-2 text-center text-lg tracking-widest font-mono"
-                    placeholder="6-digit OTP"
-                    value={familyInviteOtp}
-                    onChange={(e) => setFamilyInviteOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  />
                   {familyInviteErr ? (
                     <p className="text-sm text-destructive">{familyInviteErr}</p>
                   ) : null}
                   <button
                     type="button"
-                    disabled={acceptFamilyInviteMutation.isPending || familyInviteOtp.length !== 6}
+                    disabled={acceptFamilyInviteMutation.isPending || !inviteTokenEffective}
                     onClick={() => {
                       setFamilyInviteErr('');
-                      acceptFamilyInviteMutation.mutate();
+                      setFamilyInviteSuccessMsg('');
+                      setFamilyInviteOtpModalOpen(true);
                     }}
                     className="w-full px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50"
                   >
@@ -1385,35 +1364,11 @@ const CustomerPortal = () => {
                   <div className="flex flex-wrap gap-2 w-full">
                     <button
                       type="button"
-                      className="px-3 py-2 rounded-lg border border-border hover:bg-muted text-sm shrink-0"
-                      disabled={!inviteTokenEffective}
+                      disabled={acceptFamilyInviteMutation.isPending || !inviteTokenEffective}
                       onClick={() => {
                         setFamilyInviteErr('');
                         setFamilyInviteSuccessMsg('');
-                        void authApi.sendOtp({
-                          phone: me?.phone ?? '',
-                          purpose: 'family_invite',
-                          invite_token: inviteTokenEffective,
-                        }).catch((e: Error) => setFamilyInviteErr(e.message || 'Failed to send OTP.'));
-                      }}
-                    >
-                      Send OTP
-                    </button>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={6}
-                      className="flex-1 min-w-[120px] rounded-lg border border-border bg-background px-3 py-2 text-center text-sm tracking-widest font-mono"
-                      placeholder="6-digit OTP"
-                      value={familyInviteOtp}
-                      onChange={(e) => setFamilyInviteOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    />
-                    <button
-                      type="button"
-                      disabled={acceptFamilyInviteMutation.isPending || familyInviteOtp.length !== 6 || !inviteTokenEffective}
-                      onClick={() => {
-                        setFamilyInviteErr('');
-                        acceptFamilyInviteMutation.mutate();
+                        setFamilyInviteOtpModalOpen(true);
                       }}
                       className="px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50"
                     >
@@ -1594,6 +1549,7 @@ const CustomerPortal = () => {
               ) : null}
               <WalletWithdraw
                 variant="page"
+                portalPrefix="portal"
                 walletBalance={walletBalance}
                 payoutAccounts={payoutAccounts}
                 payoutLoading={payoutAccountsLoading}
@@ -1711,9 +1667,52 @@ const CustomerPortal = () => {
         isOpen={showTransferModal}
         onClose={() => setShowTransferModal(false)}
         walletBalance={walletBalance}
-        onConfirmTransfer={async ({ recipient, amount }) => {
-          await portalApi.walletTransfer({ recipient, amount });
+        onConfirmTransfer={async ({ recipient, amount, otp }) => {
+          await portalApi.walletTransfer({ recipient, amount, ...(otp ? { otp } : {}) });
           invalidatePortalWallet();
+        }}
+      />
+      <WalletWithdraw
+        isOpen={showWithdrawModal}
+        variant="modal"
+        onClose={() => setShowWithdrawModal(false)}
+        walletBalance={walletBalance}
+        payoutAccounts={payoutAccounts}
+        payoutLoading={payoutAccountsLoading}
+        portalPrefix="portal"
+        onNavigateToPayout={() => {
+          setShowWithdrawModal(false);
+          goTo('wallet-payout-accounts');
+        }}
+        onConfirmWithdraw={async (payload) => {
+          try {
+            await portalApi.walletWithdraw(payload);
+            invalidatePortalWallet();
+            await queryClient.invalidateQueries({ queryKey: ['portal', 'wallet-withdrawals'] });
+          } catch (e) {
+            if (isPortalOtpRequiredError(e)) {
+              throw e;
+            }
+            if (isPortalKycBlockedError(e)) {
+              const msg =
+                typeof e.body.detail === 'string'
+                  ? e.body.detail
+                  : 'Complete KYC verification to withdraw.';
+              toast.error(msg);
+              goTo('kyc');
+              throw e;
+            }
+            if (isPortalPayoutRequiredError(e)) {
+              toast.error(
+                typeof e.body.detail === 'string'
+                  ? e.body.detail
+                  : 'Add a payout account before withdrawing.',
+              );
+              goTo('wallet-payout-accounts');
+              throw e;
+            }
+            throw e;
+          }
         }}
       />
       <WalletAddMoney
@@ -1748,6 +1747,20 @@ const CustomerPortal = () => {
           invalidatePortalWallet();
         }}
       />
+
+      {inviteTokenEffective.length > 0 && me?.phone ? (
+        <OtpVerificationModal
+          open={familyInviteOtpModalOpen}
+          onOpenChange={setFamilyInviteOtpModalOpen}
+          variant="family_invite"
+          phone={me.phone}
+          inviteToken={inviteTokenEffective}
+          onContinueWithOtp={async (otp) => {
+            setFamilyInviteErr('');
+            await acceptFamilyInviteMutation.mutateAsync({ otp });
+          }}
+        />
+      ) : null}
 
       {/* AI Chatbot */}
       <AIChatbot />

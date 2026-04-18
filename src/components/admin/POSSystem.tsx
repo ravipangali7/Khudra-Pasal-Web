@@ -50,15 +50,27 @@ export default function POSSystem({ variant = 'admin' }: POSSystemProps) {
   const queryClient = useQueryClient();
   const isVendor = variant === 'vendor';
 
+  const { data: adminSite } = useQuery({
+    queryKey: ['admin', 'site-settings', 'pos'],
+    queryFn: () => adminApi.siteSettings(),
+    enabled: !isVendor,
+  });
+  const { data: vendorMe } = useQuery({
+    queryKey: ['vendor', 'me'],
+    queryFn: () => vendorApi.me(),
+    enabled: isVendor,
+  });
+  const posSiteEnabled = (isVendor ? vendorMe : adminSite)?.pos_enabled !== false;
+
   const { data: adminProductRows = [] } = useAdminList<Record<string, unknown>>(
     ['admin', 'products', 'pos'],
     () => adminApi.products({ page_size: 300, enable_pos: true }),
-    { enabled: !isVendor },
+    { enabled: !isVendor && posSiteEnabled },
   );
   const { data: vendorProductPage } = useQuery({
     queryKey: ['vendor', 'products', 'pos'],
     queryFn: () => vendorApi.products({ page_size: 300 }),
-    enabled: isVendor,
+    enabled: isVendor && posSiteEnabled,
   });
   const vendorProductRows = isVendor ? extractResults<Record<string, unknown>>(vendorProductPage) : [];
 
@@ -67,12 +79,12 @@ export default function POSSystem({ variant = 'admin' }: POSSystemProps) {
   const { data: adminUserRows = [] } = useAdminList<{ id: number; name: string; phone: string }>(
     ['admin', 'users', 'pos'],
     () => adminApi.users({ page_size: 200 }),
-    { enabled: !isVendor },
+    { enabled: !isVendor && posSiteEnabled },
   );
   const { data: vendorCustomerPage } = useQuery({
     queryKey: ['vendor', 'customers', 'pos'],
     queryFn: () => vendorApi.customers({ page_size: 200 }),
-    enabled: isVendor,
+    enabled: isVendor && posSiteEnabled,
   });
   const vendorCustomerRows = isVendor ? extractResults<Record<string, unknown>>(vendorCustomerPage) : [];
 
@@ -236,6 +248,22 @@ export default function POSSystem({ variant = 'admin' }: POSSystemProps) {
       { onSuccess: onDone },
     );
   };
+
+  if (!posSiteEnabled) {
+    return (
+      <div className="p-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>POS disabled</CardTitle>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            The point-of-sale system is turned off in site settings. Enable &quot;POS system&quot; in
+            Admin → Settings → General, then reload this page.
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="h-[calc(100vh-120px)] flex gap-4 p-4">

@@ -435,7 +435,8 @@ function AllOrdersView() {
             <DialogTitle>Request refund</DialogTitle>
             <p className="text-sm text-muted-foreground">
               Submits a pending request for Super Admin approval. Gross refund uses the full remaining order total.
-              The platform keeps 3% of the commission portion only (not 3% of the full refund).
+              Platform retention uses wallet transaction fee settings on the commission slice only (not on the full
+              refund gross).
             </p>
           </DialogHeader>
           <div className="space-y-3">
@@ -446,7 +447,10 @@ function AllOrdersView() {
                   <span className="font-mono font-medium">Rs. {refundRemaining.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Platform retention (3% of commission slice)</span>
+                  <span className="text-muted-foreground">
+                    Platform retention (
+                    {order.refund_preview?.platform_retention_label ?? 'wallet rules on commission slice'})
+                  </span>
                   <span className="font-mono">
                     Rs.{' '}
                     {(order.refund_preview?.platform_fee ?? 0).toLocaleString(undefined, {

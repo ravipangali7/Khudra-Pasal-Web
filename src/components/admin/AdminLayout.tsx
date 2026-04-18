@@ -52,7 +52,7 @@ export default function AdminLayout({
       )}>
         <div className="flex items-center justify-between h-14 px-3 border-b border-border">
           {!sidebarCollapsed && (
-            <span className="font-bold text-lg text-foreground">Admin Panel</span>
+            <span className="font-bold text-lg text-foreground">{title}</span>
           )}
           <Button 
             variant="ghost" 
@@ -82,7 +82,7 @@ export default function AdminLayout({
         mobileMenuOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         <div className="flex items-center justify-between h-14 px-4 border-b border-border">
-          <span className="font-bold text-lg text-foreground">Admin Panel</span>
+          <span className="font-bold text-lg text-foreground">{title}</span>
           <Button 
             variant="ghost" 
             size="icon"

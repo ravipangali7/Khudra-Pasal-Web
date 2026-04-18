@@ -310,7 +310,10 @@ export default function PortalMyOrdersSection({ surface, sessionTick, authed }: 
                         <span className="font-mono font-medium">{formatPrice(gross)}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Platform retention (3% of commission)</span>
+                        <span className="text-muted-foreground">
+                          Platform retention (
+                          {est?.platform_retention_label ?? 'wallet rules on commission slice'})
+                        </span>
                         <span className="font-mono">−{formatPrice(fee)}</span>
                       </div>
                       <div className="flex justify-between pt-1 border-t border-border font-medium">

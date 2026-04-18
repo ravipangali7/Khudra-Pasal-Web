@@ -91,6 +91,8 @@ type RefundRow = {
   gross_amount?: number;
   platform_fee?: number;
   net_credit?: number;
+  /** From wallet transaction fee rules (commission slice) */
+  platform_retention_label?: string;
   deduction_summary?: string;
   reason: string;
   status: string;
@@ -566,7 +568,9 @@ function RefundFinancialSummaryCard({ r }: { r: RefundRow }) {
         </span>
       </div>
       <div className="flex justify-between text-sm">
-        <span className="text-muted-foreground">Platform retention (3% of commission)</span>
+        <span className="text-muted-foreground">
+          Platform retention ({r.platform_retention_label ?? 'wallet rules on commission slice'})
+        </span>
         <span className="font-mono tabular-nums">
           Rs.{' '}
           {Number(r.platform_fee ?? 0).toLocaleString(undefined, {
@@ -704,7 +708,7 @@ function RefundsView() {
       <FilterBar filters={filters} onChange={setFilter} />
       <AdminTable
         title="Refund Requests"
-        subtitle="Super Admin approves or rejects; 3% applies to the commission portion only"
+        subtitle="Super Admin approves or rejects; wallet transaction fee rules apply to the commission portion only"
         data={filtered}
         rowKey="id"
         columns={[
@@ -892,8 +896,9 @@ function RefundsView() {
                 {approveTarget ? (
                   <>
                     <p>
-                      This credits the customer wallet and debits vendor plus platform commission per settlement (3% of
-                      commission slice retained).
+                      This credits the customer wallet and debits vendor plus platform commission per settlement. The
+                      retention line follows wallet transaction fee rules on the commission slice only (
+                      {approveTarget.platform_retention_label ?? 'see summary below'}).
                     </p>
                     <RefundFinancialSummaryCard r={approveTarget} />
                   </>

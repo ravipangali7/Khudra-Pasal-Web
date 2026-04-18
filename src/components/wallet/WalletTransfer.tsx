@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { X, Send, CheckCircle, Loader2, Search } from 'lucide-react';
-import { portalApi } from '@/lib/api';
+import { isPortalOtpRequiredError, portalApi } from '@/lib/api';
+import OtpVerificationModal from '@/components/wallet/OtpVerificationModal';
 import {
   Select,
   SelectContent,
@@ -17,7 +18,7 @@ interface WalletTransferProps {
   onClose: () => void;
   /** Shown in the header; defaults to 0 when omitted. */
   walletBalance?: number;
-  onConfirmTransfer?: (payload: { recipient: string; amount: number }) => Promise<void>;
+  onConfirmTransfer?: (payload: { recipient: string; amount: number; otp?: string }) => Promise<void>;
 }
 
 const WalletTransfer = ({
@@ -48,6 +49,16 @@ const WalletTransfer = ({
     staleTime: 30_000,
   });
 
+  const { data: walletPub } = useQuery({
+    queryKey: ['wallet-settings-public', 'portal', 'transfer-modal'],
+    queryFn: () => portalApi.walletSettingsPublic('portal'),
+    enabled: isOpen && Boolean(onConfirmTransfer),
+    staleTime: 60_000,
+  });
+
+  const [otpModalOpen, setOtpModalOpen] = useState(false);
+  const pendingTransferRef = useRef<{ recipient: string; amount: number } | null>(null);
+
   const recipients = recipientsData?.results ?? [];
 
   useEffect(() => {
@@ -60,6 +71,8 @@ const WalletTransfer = ({
       setError('');
       setSearchQ('');
       setDebouncedQ('');
+      setOtpModalOpen(false);
+      pendingTransferRef.current = null;
     }
   }, [isOpen]);
 
@@ -83,6 +96,13 @@ const WalletTransfer = ({
     return resolvedRecipient || '—';
   }, [onConfirmTransfer, recipientSelect, manualRecipient, resolvedRecipient, recipients]);
 
+  const transferOtpRequired = useMemo(() => {
+    const n = Number(amount);
+    const thr = walletPub?.otp_for_transfers_above ?? 0;
+    if (!Number.isFinite(n) || n <= 0) return false;
+    return n >= thr;
+  }, [amount, walletPub?.otp_for_transfers_above]);
+
   if (!isOpen) return null;
 
   const canContinue =
@@ -90,17 +110,33 @@ const WalletTransfer = ({
     Number(amount) >= 1 &&
     (!onConfirmTransfer || recipientSelect.startsWith('id:'));
 
+  const runTransfer = async (recipient: string, n: number, otp?: string) => {
+    if (onConfirmTransfer) {
+      await onConfirmTransfer({ recipient, amount: n, ...(otp?.trim() ? { otp: otp.trim() } : {}) });
+      setStep('success');
+      setTimeout(() => onClose(), 1500);
+    }
+  };
+
   const handleTransfer = async () => {
     const n = Number(amount);
     if (!resolvedRecipient || !Number.isFinite(n) || n < 1) return;
     setError('');
     if (onConfirmTransfer) {
+      if (transferOtpRequired) {
+        pendingTransferRef.current = { recipient: resolvedRecipient, amount: n };
+        setOtpModalOpen(true);
+        return;
+      }
       setPending(true);
       try {
-        await onConfirmTransfer({ recipient: resolvedRecipient, amount: n });
-        setStep('success');
-        setTimeout(() => onClose(), 1500);
+        await runTransfer(resolvedRecipient, n);
       } catch (e) {
+        if (isPortalOtpRequiredError(e)) {
+          pendingTransferRef.current = { recipient: resolvedRecipient, amount: n };
+          setOtpModalOpen(true);
+          return;
+        }
         setError(e instanceof Error ? e.message : 'Transfer failed');
       } finally {
         setPending(false);
@@ -276,6 +312,33 @@ const WalletTransfer = ({
           )}
         </div>
       </div>
+      {onConfirmTransfer ? (
+        <OtpVerificationModal
+          open={otpModalOpen}
+          onOpenChange={(o) => {
+            setOtpModalOpen(o);
+            if (!o) pendingTransferRef.current = null;
+          }}
+          variant="portal_wallet"
+          walletPurpose="transfer"
+          portalPrefix="portal"
+          onContinueWithOtp={async (otp) => {
+            const p = pendingTransferRef.current;
+            if (!p) throw new Error('No pending transfer.');
+            setPending(true);
+            setError('');
+            try {
+              await runTransfer(p.recipient, p.amount, otp);
+              pendingTransferRef.current = null;
+            } catch (e) {
+              setError(e instanceof Error ? e.message : 'Transfer failed');
+              throw e;
+            } finally {
+              setPending(false);
+            }
+          }}
+        />
+      ) : null}
     </div>
   );
 };

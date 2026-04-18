@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Wallet,
@@ -61,7 +61,9 @@ import {
   extractResults,
   getAuthToken,
   isPortalKycBlockedError,
+  isPortalOtpRequiredError,
   isPortalPayoutRequiredError,
+  PortalApiError,
   portalApi,
   setCheckoutPlacedPortal,
   websiteApi,
@@ -81,6 +83,7 @@ import PortalNotificationsModal from '@/components/portal/PortalNotificationsMod
 import FloatingCart from '@/components/cart/FloatingCart';
 import { useCart } from '@/contexts/CartContext';
 import PayoutAccountsManager from '@/components/wallet/PayoutAccountsManager';
+import OtpVerificationModal from '@/components/wallet/OtpVerificationModal';
 import { toast } from 'sonner';
 
 function childTxnBadgeLabel(type: string) {
@@ -1221,6 +1224,15 @@ const ChildPortal = () => {
     const qc = useQueryClient();
     const [payoutId, setPayoutId] = useState('');
     const [withdrawAmount, setWithdrawAmount] = useState('');
+    const [childWithdrawOtpOpen, setChildWithdrawOtpOpen] = useState(false);
+    const pendingChildWithdrawRef = useRef<{ amount: number; payout_account_id: string } | null>(null);
+
+    const { data: childWalletPub } = useQuery({
+      queryKey: ['wallet-settings-public', 'child-portal', 'child-withdraw'],
+      queryFn: () => portalApi.walletSettingsPublic('child-portal'),
+      staleTime: 60_000,
+      enabled: authed && activeSection === 'withdraw',
+    });
 
     const { data: childPayouts = [], isLoading: childPayoutLoading } = useQuery({
       queryKey: ['portal', 'child', 'payout-accounts'],
@@ -1250,20 +1262,24 @@ const ChildPortal = () => {
     }, [childPayouts, payoutId]);
 
     const withdrawMutation = useMutation({
-      mutationFn: () =>
-        portalApi.childWalletWithdraw({
-          amount: Number(withdrawAmount),
-          payout_account_id: payoutId,
-        }),
+      mutationFn: (vars: { amount: number; payout_account_id: string; otp?: string }) =>
+        portalApi.childWalletWithdraw(vars),
       onSuccess: (data) => {
         toast.success(`Request submitted (${data.withdrawal_number}). Pending admin approval.`);
         setWithdrawAmount('');
+        setChildWithdrawOtpOpen(false);
+        pendingChildWithdrawRef.current = null;
         void qc.invalidateQueries({ queryKey: ['portal', 'child', 'summary'] });
         void qc.invalidateQueries({ queryKey: ['portal', 'child', 'txns'] });
         void qc.invalidateQueries({ queryKey: ['portal', 'child', 'rules'] });
         void qc.invalidateQueries({ queryKey: ['portal', 'child', 'wallet-withdrawals'] });
       },
       onError: (e: Error) => {
+        if (e instanceof PortalApiError && isPortalOtpRequiredError(e)) {
+          const p = pendingChildWithdrawRef.current;
+          if (p) setChildWithdrawOtpOpen(true);
+          return;
+        }
         if (isPortalKycBlockedError(e)) {
           const msg = typeof e.body.detail === 'string' ? e.body.detail : 'Complete KYC verification to withdraw.';
           toast.error(msg);
@@ -1278,6 +1294,16 @@ const ChildPortal = () => {
         toast.error(e.message || 'Withdrawal failed.');
       },
     });
+
+    const submitChildWithdraw = () => {
+      const payload = { amount: Number(withdrawAmount), payout_account_id: payoutId };
+      pendingChildWithdrawRef.current = payload;
+      if (childWalletPub?.otp_for_withdrawals) {
+        setChildWithdrawOtpOpen(true);
+        return;
+      }
+      withdrawMutation.mutate(payload);
+    };
     const wAmt = Number(withdrawAmount);
     const canSubmit =
       allowWithdraw &&
@@ -1373,12 +1399,28 @@ const ChildPortal = () => {
             <Button
               className="w-full"
               disabled={!canSubmit || withdrawMutation.isPending}
-              onClick={() => withdrawMutation.mutate()}
+              onClick={() => submitChildWithdraw()}
             >
               {withdrawMutation.isPending ? 'Submitting…' : 'Submit withdrawal request'}
             </Button>
           </CardContent>
         </Card>
+
+        <OtpVerificationModal
+          open={childWithdrawOtpOpen}
+          onOpenChange={(o) => {
+            setChildWithdrawOtpOpen(o);
+            if (!o) pendingChildWithdrawRef.current = null;
+          }}
+          variant="portal_wallet"
+          walletPurpose="withdraw"
+          portalPrefix="child-portal"
+          onContinueWithOtp={async (otp) => {
+            const p = pendingChildWithdrawRef.current;
+            if (!p) throw new Error('No pending withdrawal.');
+            await withdrawMutation.mutateAsync({ ...p, otp });
+          }}
+        />
 
         {childWds.length > 0 ? (
           <Card>

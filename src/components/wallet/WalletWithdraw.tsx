@@ -1,6 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { X, ArrowDownCircle, CheckCircle } from 'lucide-react';
 import type { PortalPayoutAccountRow } from '@/lib/api';
+import { isPortalOtpRequiredError, portalApi } from '@/lib/api';
 import {
   Select,
   SelectContent,
@@ -11,6 +13,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import OtpVerificationModal from '@/components/wallet/OtpVerificationModal';
 
 interface WalletWithdrawProps {
   /** Modal mode: controlled open state. Ignored when variant is `page`. */
@@ -20,9 +23,11 @@ interface WalletWithdrawProps {
   walletBalance?: number;
   payoutAccounts: PortalPayoutAccountRow[];
   payoutLoading?: boolean;
-  onConfirmWithdraw?: (payload: { amount: number; payout_account_id: string }) => Promise<void>;
+  onConfirmWithdraw?: (payload: { amount: number; payout_account_id: string; otp?: string }) => Promise<void>;
   /** Shown in page mode when user has no payout accounts yet. */
   onNavigateToPayout?: () => void;
+  /** Used to send/consume wallet withdrawal OTP. */
+  portalPrefix?: 'portal' | 'family-portal' | 'child-portal';
 }
 
 function accountLabel(a: PortalPayoutAccountRow) {
@@ -39,14 +44,24 @@ const WalletWithdraw = ({
   payoutLoading = false,
   onConfirmWithdraw,
   onNavigateToPayout,
+  portalPrefix = 'portal',
 }: WalletWithdrawProps) => {
   const [step, setStep] = useState<'form' | 'success'>('form');
   const [payoutId, setPayoutId] = useState('');
   const [amount, setAmount] = useState('');
   const [pending, setPending] = useState(false);
   const [error, setError] = useState('');
+  const [otpModalOpen, setOtpModalOpen] = useState(false);
+  const pendingWithdrawRef = useRef<{ amount: number; payout_account_id: string } | null>(null);
 
   const isPage = variant === 'page';
+
+  const { data: walletPub } = useQuery({
+    queryKey: ['wallet-settings-public', portalPrefix, 'withdraw-ui'],
+    queryFn: () => portalApi.walletSettingsPublic(portalPrefix),
+    staleTime: 60_000,
+    enabled: isPage || isOpen,
+  });
 
   useEffect(() => {
     if (isPage) return;
@@ -56,6 +71,8 @@ const WalletWithdraw = ({
       setAmount('');
       setPending(false);
       setError('');
+      setOtpModalOpen(false);
+      pendingWithdrawRef.current = null;
     }
   }, [isOpen, isPage]);
 
@@ -68,23 +85,42 @@ const WalletWithdraw = ({
 
   if (!isPage && !isOpen) return null;
 
+  const runWithdraw = async (payload: { amount: number; payout_account_id: string; otp?: string }) => {
+    if (!onConfirmWithdraw) return;
+    await onConfirmWithdraw(payload);
+    setStep('success');
+    if (!isPage) {
+      setTimeout(() => onClose?.(), 1500);
+    }
+  };
+
   const handleWithdraw = async () => {
     const n = Number(amount);
     if (!payoutId || !Number.isFinite(n) || n < 1 || n > walletBalance) return;
     setError('');
-    if (onConfirmWithdraw) {
-      setPending(true);
-      try {
-        await onConfirmWithdraw({ amount: n, payout_account_id: payoutId });
-        setStep('success');
-        if (!isPage) {
-          setTimeout(() => onClose?.(), 1500);
-        }
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Withdrawal failed');
-      } finally {
-        setPending(false);
+    if (!onConfirmWithdraw) return;
+
+    const payload = { amount: n, payout_account_id: payoutId };
+    const needsOtp = walletPub?.otp_for_withdrawals === true;
+
+    if (needsOtp) {
+      pendingWithdrawRef.current = payload;
+      setOtpModalOpen(true);
+      return;
+    }
+
+    setPending(true);
+    try {
+      await runWithdraw(payload);
+    } catch (e) {
+      if (isPortalOtpRequiredError(e)) {
+        pendingWithdrawRef.current = payload;
+        setOtpModalOpen(true);
+        return;
       }
+      setError(e instanceof Error ? e.message : 'Withdrawal failed');
+    } finally {
+      setPending(false);
     }
   };
 
@@ -216,6 +252,37 @@ const WalletWithdraw = ({
     </>
   );
 
+  const shell = (
+    <>
+      {formInner}
+      <OtpVerificationModal
+        open={otpModalOpen}
+        onOpenChange={(o) => {
+          setOtpModalOpen(o);
+          if (!o) pendingWithdrawRef.current = null;
+        }}
+        variant="portal_wallet"
+        walletPurpose="withdraw"
+        portalPrefix={portalPrefix}
+        onContinueWithOtp={async (otp) => {
+          const p = pendingWithdrawRef.current;
+          if (!p) throw new Error('No pending withdrawal.');
+          setPending(true);
+          setError('');
+          try {
+            await runWithdraw({ ...p, otp });
+            pendingWithdrawRef.current = null;
+          } catch (e) {
+            setError(e instanceof Error ? e.message : 'Withdrawal failed');
+            throw e;
+          } finally {
+            setPending(false);
+          }
+        }}
+      />
+    </>
+  );
+
   if (isPage) {
     return (
       <div className="bg-card rounded-xl border border-border p-4 md:p-6">
@@ -223,7 +290,7 @@ const WalletWithdraw = ({
           <ArrowDownCircle className="w-5 h-5 text-category-cafe" />
           <h3 className="font-bold text-foreground">Request withdrawal</h3>
         </div>
-        {formInner}
+        {shell}
       </div>
     );
   }
@@ -241,7 +308,7 @@ const WalletWithdraw = ({
           </button>
         </div>
 
-        <div className="p-4">{formInner}</div>
+        <div className="p-4">{shell}</div>
       </div>
     </div>
   );

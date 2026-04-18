@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import OtpVerificationModal from '@/components/wallet/OtpVerificationModal';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { PORTAL_LOGIN_PATH, navigateToPortalLogin, setPostLogoutLoginPath } from '@/lib/portalLoginPaths';
@@ -77,6 +78,7 @@ import {
   extractResults,
   getAuthToken,
   isPortalKycBlockedError,
+  isPortalOtpRequiredError,
   isPortalPayoutRequiredError,
   PortalApiError,
   portalApi,
@@ -87,6 +89,7 @@ import {
   type PortalFamilyMemberRow,
   type PortalFamilyProductRestrictionRow,
   type PortalFamilyWalletTxnRow,
+  type FamilyWalletTransferPayload,
   type PortalWithdrawalRow,
   type PortalPurchaseApprovalRequestRow,
   type WebsiteCategory,
@@ -1692,6 +1695,14 @@ export function FamilyPortal() {
     const [transCategoryId, setTransCategoryId] = useState('');
     const [transAmount, setTransAmount] = useState('');
     const [walletErr, setWalletErr] = useState('');
+    const [transferOtpModalOpen, setTransferOtpModalOpen] = useState(false);
+    const pendingFamilyTransferRef = useRef<FamilyWalletTransferPayload | null>(null);
+
+    const { data: famWalletPubTransfer } = useQuery({
+      queryKey: ['wallet-settings-public', 'family-portal', 'family-transfer-dialog'],
+      queryFn: () => portalApi.walletSettingsPublic('family-portal'),
+      staleTime: 60_000,
+    });
 
     const invFamily = () => {
       void qc.invalidateQueries({ queryKey: ['portal', 'family', 'overview'] });
@@ -1734,15 +1745,10 @@ export function FamilyPortal() {
     });
 
     const transferMutation = useMutation({
-      mutationFn: () =>
+      mutationFn: (vars: { payload: FamilyWalletTransferPayload; otp?: string }) =>
         portalApi.familyWalletTransfer({
-          from_wallet_id: transFromWallet,
-          to_wallet_id: transToWallet,
-          amount: Number(transAmount),
-          category_id:
-            transCategoryId && transCategoryId !== 'default'
-              ? Number(transCategoryId)
-              : undefined,
+          ...vars.payload,
+          ...(vars.otp?.trim() ? { otp: vars.otp.trim() } : {}),
         }),
       onSuccess: () => {
         setWalletErr('');
@@ -1751,10 +1757,42 @@ export function FamilyPortal() {
         setTransToWallet('');
         setTransCategoryId('');
         setTransAmount('');
+        setTransferOtpModalOpen(false);
+        pendingFamilyTransferRef.current = null;
         invFamily();
       },
-      onError: (e: Error) => setWalletErr(e.message),
+      onError: (e: Error) => {
+        if (e instanceof PortalApiError && isPortalOtpRequiredError(e)) {
+          const p = pendingFamilyTransferRef.current;
+          if (p) setTransferOtpModalOpen(true);
+          return;
+        }
+        pendingFamilyTransferRef.current = null;
+        setWalletErr(e.message);
+      },
     });
+
+    const buildFamilyTransferPayload = (): FamilyWalletTransferPayload => ({
+      from_wallet_id: transFromWallet,
+      to_wallet_id: transToWallet,
+      amount: Number(transAmount),
+      category_id:
+        transCategoryId && transCategoryId !== 'default' ? Number(transCategoryId) : undefined,
+    });
+
+    const submitFamilyTransfer = () => {
+      const payload = buildFamilyTransferPayload();
+      const n = Number(transAmount);
+      const thr = famWalletPubTransfer?.otp_for_transfers_above ?? 0;
+      const otpLikely = Number.isFinite(n) && n > 0 && n >= thr;
+      if (otpLikely) {
+        pendingFamilyTransferRef.current = payload;
+        setTransferOtpModalOpen(true);
+        return;
+      }
+      pendingFamilyTransferRef.current = payload;
+      transferMutation.mutate({ payload });
+    };
 
     const categoryOptions = walletCategories.filter((w) => w.category_id);
 
@@ -2171,6 +2209,8 @@ export function FamilyPortal() {
               setTransCategoryId('');
               setTransFromWallet('');
               setTransToWallet('');
+              setTransferOtpModalOpen(false);
+              pendingFamilyTransferRef.current = null;
             }
           }}
         >
@@ -2255,13 +2295,28 @@ export function FamilyPortal() {
                   Number(transAmount) <= 0 ||
                   transferMutation.isPending
                 }
-                onClick={() => transferMutation.mutate()}
+                onClick={() => submitFamilyTransfer()}
               >
                 {transferMutation.isPending ? 'Working…' : 'Transfer'}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        <OtpVerificationModal
+          open={transferOtpModalOpen}
+          onOpenChange={(o) => {
+            setTransferOtpModalOpen(o);
+            if (!o) pendingFamilyTransferRef.current = null;
+          }}
+          variant="portal_wallet"
+          walletPurpose="transfer"
+          portalPrefix="family-portal"
+          onContinueWithOtp={async (otp) => {
+            const p = pendingFamilyTransferRef.current;
+            if (!p) throw new Error('No pending transfer.');
+            await transferMutation.mutateAsync({ payload: p, otp });
+          }}
+        />
       </>
     );
   }
@@ -2374,41 +2429,80 @@ export function FamilyPortal() {
       }
     }, [famPayoutAccounts, famWithdrawPayout]);
 
+    const [withdrawOtpModalOpen, setWithdrawOtpModalOpen] = useState(false);
+    const pendingFamWithdrawRef = useRef<{
+      wallet_id: string;
+      amount: number;
+      payout_account_id: string;
+      proof_image: File | null;
+    } | null>(null);
+
+    const { data: famWalletPubWithdraw } = useQuery({
+      queryKey: ['wallet-settings-public', 'family-portal', 'family-withdraw-ui'],
+      queryFn: () => portalApi.walletSettingsPublic('family-portal'),
+      staleTime: 60_000,
+    });
+
     const invFamily = () => {
       void qc.invalidateQueries({ queryKey: ['portal', 'family', 'overview'] });
       void qc.invalidateQueries({ queryKey: ['portal', 'family', 'txns'] });
     };
 
     const famWithdrawMut = useMutation({
-      mutationFn: () =>
-        portalApi.familyWalletWithdraw({
-          wallet_id: famWithdrawWallet,
-          amount: Number(famWithdrawAmt),
-          payout_account_id: famWithdrawPayout,
-          proof_image: famWithdrawProofFile,
-        }),
+      mutationFn: (vars: {
+        wallet_id: string;
+        amount: number;
+        payout_account_id: string;
+        proof_image: File | null;
+        otp?: string;
+      }) => portalApi.familyWalletWithdraw(vars),
       onSuccess: (data) => {
         setFamWithdrawAmt('');
         setFamWithdrawProofFile(null);
+        setWithdrawOtpModalOpen(false);
+        pendingFamWithdrawRef.current = null;
         toast.success(`Withdrawal request ${data.withdrawal_number} submitted (pending approval).`);
         invFamily();
         void qc.invalidateQueries({ queryKey: ['portal', 'family', 'wallet-withdrawals'] });
         void qc.invalidateQueries({ queryKey: ['portal', 'summary', 'family'] });
       },
       onError: (e: Error) => {
+        if (e instanceof PortalApiError && isPortalOtpRequiredError(e)) {
+          const p = pendingFamWithdrawRef.current;
+          if (p) setWithdrawOtpModalOpen(true);
+          return;
+        }
         if (e instanceof PortalApiError && isPortalKycBlockedError(e)) {
+          pendingFamWithdrawRef.current = null;
           toast.error(typeof e.body.detail === 'string' ? e.body.detail : 'Complete KYC to withdraw.');
           goTo('kyc');
           return;
         }
         if (e instanceof PortalApiError && isPortalPayoutRequiredError(e)) {
+          pendingFamWithdrawRef.current = null;
           toast.error(typeof e.body.detail === 'string' ? e.body.detail : 'Add a payout account first.');
           goTo('wallets-payout-accounts');
           return;
         }
         toast.error(e.message || 'Withdrawal request failed.');
+        pendingFamWithdrawRef.current = null;
       },
     });
+
+    const submitFamWithdraw = () => {
+      const payload = {
+        wallet_id: famWithdrawWallet,
+        amount: Number(famWithdrawAmt),
+        payout_account_id: famWithdrawPayout,
+        proof_image: famWithdrawProofFile,
+      };
+      pendingFamWithdrawRef.current = payload;
+      if (famWalletPubWithdraw?.otp_for_withdrawals) {
+        setWithdrawOtpModalOpen(true);
+        return;
+      }
+      famWithdrawMut.mutate(payload);
+    };
 
     const selectedWithdrawOpt = withdrawWalletOptions.find((o) => o.id === famWithdrawWallet);
     const famWMax = selectedWithdrawOpt?.balance ?? 0;
@@ -2603,7 +2697,7 @@ export function FamilyPortal() {
                 type="button"
                 className="w-full sm:w-auto"
                 disabled={!canFamWithdraw || famWithdrawMut.isPending}
-                onClick={() => famWithdrawMut.mutate()}
+                onClick={() => submitFamWithdraw()}
               >
                 {famWithdrawMut.isPending ? 'Submitting…' : 'Submit withdrawal request'}
               </Button>
@@ -2697,6 +2791,21 @@ export function FamilyPortal() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        <OtpVerificationModal
+          open={withdrawOtpModalOpen}
+          onOpenChange={(o) => {
+            setWithdrawOtpModalOpen(o);
+            if (!o) pendingFamWithdrawRef.current = null;
+          }}
+          variant="portal_wallet"
+          walletPurpose="withdraw"
+          portalPrefix="family-portal"
+          onContinueWithOtp={async (otp) => {
+            const p = pendingFamWithdrawRef.current;
+            if (!p) throw new Error('No pending withdrawal.');
+            await famWithdrawMut.mutateAsync({ ...p, otp });
+          }}
+        />
       </>
     );
   }

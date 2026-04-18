@@ -8,6 +8,8 @@ const HIDDEN_ADMIN_NAV_IDS = new Set([
   'wallet-flagged',
   'security',
   'flags',
+  'shipping-methods',
+  'shipping-calculator',
 ]);
 
 function stripHiddenAdminNav(nodes: SidebarItem[]): SidebarItem[] {

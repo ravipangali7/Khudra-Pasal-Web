@@ -66,7 +66,7 @@ const ENTRIES = [
   ["security", () => <SecurityModule />] as const,
   ["reels-admin", () => <AdminReelsModule />] as const,
   ["reports", () => <ReportsModule />] as const,
-  ...list(["shipping", "shipping-methods", "shipping-zones", "shipping-calculator"], (ctx) => (
+  ...list(["shipping", "shipping-zones"], (ctx) => (
     <ShippingModule activeSection={ctx.activeSection} />
   )),
   ["settings", () => <SettingsModule />] as const,

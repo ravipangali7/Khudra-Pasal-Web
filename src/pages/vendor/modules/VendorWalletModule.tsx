@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import AdminTable from '@/components/admin/AdminTable';
@@ -15,7 +15,8 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import PayoutAccountsManager from '@/components/wallet/PayoutAccountsManager';
-import { extractResults, vendorApi } from '@/lib/api';
+import OtpVerificationModal from '@/components/wallet/OtpVerificationModal';
+import { extractResults, isVendorOtpRequiredError, portalApi, vendorApi, VendorApiError } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -72,11 +73,19 @@ export default function VendorWalletModule({ activeSection }: { activeSection: s
     queryFn: async () => (await vendorApi.payoutAccounts()).results,
     enabled: activeSection === 'withdrawals' || activeSection === 'payout-accounts',
   });
+  const { data: portalWalletPub } = useQuery({
+    queryKey: ['wallet-settings-public', 'portal', 'vendor-withdraw'],
+    queryFn: () => portalApi.walletSettingsPublic('portal'),
+    enabled: activeSection === 'withdrawals',
+    staleTime: 60_000,
+  });
   const transactions = useMemo(() => extractResults<Record<string, unknown>>(txResp), [txResp]);
   const withdrawals = useMemo(() => extractResults<Record<string, unknown>>(wdResp), [wdResp]);
 
   const [amount, setAmount] = useState('');
   const [payoutId, setPayoutId] = useState('');
+  const [vendorWithdrawOtpOpen, setVendorWithdrawOtpOpen] = useState(false);
+  const pendingVendorWithdrawRef = useRef<{ amount: number; payout_account_id: string } | null>(null);
 
   useEffect(() => {
     if (
@@ -89,17 +98,25 @@ export default function VendorWalletModule({ activeSection }: { activeSection: s
   }, [activeSection, vendorPayouts, payoutId]);
 
   const wdMut = useMutation({
-    mutationFn: () =>
+    mutationFn: (vars: { amount: number; payout_account_id: string; otp?: string }) =>
       vendorApi.createWithdrawal({
-        amount: Number(amount),
-        payout_account_id: payoutId,
+        amount: vars.amount,
+        payout_account_id: vars.payout_account_id,
+        ...(vars.otp?.trim() ? { otp: vars.otp.trim() } : {}),
       }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['vendor'] });
       toast.success('Withdrawal requested');
       setAmount('');
+      setVendorWithdrawOtpOpen(false);
+      pendingVendorWithdrawRef.current = null;
     },
     onError: (e: Error) => {
+      if (e instanceof VendorApiError && isVendorOtpRequiredError(e)) {
+        const p = pendingVendorWithdrawRef.current;
+        if (p) setVendorWithdrawOtpOpen(true);
+        return;
+      }
       const msg = (e.message ?? '').toLowerCase();
       if (msg.includes('kyc')) {
         toast.error(e.message);
@@ -109,6 +126,16 @@ export default function VendorWalletModule({ activeSection }: { activeSection: s
       toast.error(e.message);
     },
   });
+
+  const submitVendorWithdraw = () => {
+    const payload = { amount: Number(amount), payout_account_id: payoutId };
+    pendingVendorWithdrawRef.current = payload;
+    if (portalWalletPub?.otp_for_withdrawals) {
+      setVendorWithdrawOtpOpen(true);
+      return;
+    }
+    wdMut.mutate(payload);
+  };
 
   const txRows = transactions.map((t) => {
     const source = String((t as { source?: string }).source ?? 'wallet');
@@ -474,60 +501,77 @@ export default function VendorWalletModule({ activeSection }: { activeSection: s
 
   if (activeSection === 'withdrawals') {
     return (
-      <div className="p-4 lg:p-6 space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Request withdrawal</CardTitle>
-            <CardDescription>Creates a pending request (balance unchanged until approved).</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4 max-w-md">
-            <div>
-              <Label>Payout account</Label>
-              <Select value={payoutId} onValueChange={setPayoutId} disabled={vendorPayoutLoading}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select saved account" />
-                </SelectTrigger>
-                <SelectContent>
-                  {vendorPayouts.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {a.type} · {a.phone || a.bank_account_no || '—'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Amount (Rs.)</Label>
-              <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} />
-            </div>
-            <Button
-              onClick={() => wdMut.mutate()}
-              disabled={wdMut.isPending || !payoutId || !amount || Number(amount) < 1}
-            >
-              Submit
-            </Button>
-          </CardContent>
-        </Card>
-        <AdminTable
-          title="Withdrawal history"
-          data={withdrawals}
-          columns={[
-            { key: 'id', label: 'ID' },
-            {
-              key: 'amount',
-              label: 'Amount',
-              render: (w) => (
-                <span className="font-medium tabular-nums text-destructive">
-                  -Rs. {Math.round(Number(w.amount)).toLocaleString()}
-                </span>
-              ),
-            },
-            { key: 'method', label: 'Method' },
-            { key: 'status', label: 'Status', render: (w) => <Badge className="text-xs">{String(w.status)}</Badge> },
-            { key: 'date', label: 'Date' },
-          ]}
+      <>
+        <div className="p-4 lg:p-6 space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Request withdrawal</CardTitle>
+              <CardDescription>Creates a pending request (balance unchanged until approved).</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 max-w-md">
+              <div>
+                <Label>Payout account</Label>
+                <Select value={payoutId} onValueChange={setPayoutId} disabled={vendorPayoutLoading}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select saved account" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {vendorPayouts.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.type} · {a.phone || a.bank_account_no || '—'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Amount (Rs.)</Label>
+                <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} />
+              </div>
+              <Button
+                onClick={() => submitVendorWithdraw()}
+                disabled={wdMut.isPending || !payoutId || !amount || Number(amount) < 1}
+              >
+                Submit
+              </Button>
+            </CardContent>
+          </Card>
+          <AdminTable
+            title="Withdrawal history"
+            data={withdrawals}
+            columns={[
+              { key: 'id', label: 'ID' },
+              {
+                key: 'amount',
+                label: 'Amount',
+                render: (w) => (
+                  <span className="font-medium tabular-nums text-destructive">
+                    -Rs. {Math.round(Number(w.amount)).toLocaleString()}
+                  </span>
+                ),
+              },
+              { key: 'method', label: 'Method' },
+              { key: 'status', label: 'Status', render: (w) => <Badge className="text-xs">{String(w.status)}</Badge> },
+              { key: 'date', label: 'Date' },
+            ]}
+          />
+        </div>
+        <OtpVerificationModal
+          open={vendorWithdrawOtpOpen}
+          onOpenChange={(o) => {
+            setVendorWithdrawOtpOpen(o);
+            if (!o) pendingVendorWithdrawRef.current = null;
+          }}
+          variant="portal_wallet"
+          walletPurpose="withdraw"
+          portalPrefix="portal"
+          onContinueWithOtp={async (otp) => {
+            const p = pendingVendorWithdrawRef.current;
+            if (!p) throw new Error('No pending withdrawal.');
+            await wdMut.mutateAsync({ ...p, otp });
+          }}
         />
-      </div>
+      </>
     );
   }
 

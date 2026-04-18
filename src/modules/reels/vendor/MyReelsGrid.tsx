@@ -424,7 +424,7 @@ const MyReelsGrid: React.FC<MyReelsGridProps> = ({ onNewReel, vendorId, vendorSl
           isOpen={boostOpen}
           onClose={() => { setBoostOpen(false); setBoostReel(null); }}
           reelId={boostReel.id}
-          reelName={boostReel.product.name}
+          reelName={boostReel.product?.name ?? 'Reel'}
           patchReel={(id, body) => vendorApi.updateReel(id, body)}
           invalidateQueryKeys={[['vendor', 'reels'], ['website', 'my-reels']]}
         />

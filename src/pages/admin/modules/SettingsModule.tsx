@@ -10,7 +10,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
-import { QrCode } from 'lucide-react';
 import { adminApi } from '@/lib/api';
 import { useAdminMutation } from '../hooks/useAdminMutation';
 import { formatApiError, resolveMediaUrl } from '../hooks/adminFormUtils';
@@ -93,6 +92,193 @@ function ReelsSettingsPanel({
   );
 }
 
+type GatewayMutator = {
+  mutateAsync: (args: { gateway: string; payload: Record<string, unknown> }) => Promise<unknown>;
+  isPending: boolean;
+};
+
+function EsewaGatewayForm({
+  row,
+  updateGateway,
+}: {
+  row: Record<string, unknown> | undefined;
+  updateGateway: GatewayMutator;
+}) {
+  const [isEnabled, setIsEnabled] = useState(false);
+  const [environment, setEnvironment] = useState('test');
+  const [productCode, setProductCode] = useState('');
+  const [secretTest, setSecretTest] = useState('');
+  const [secretLive, setSecretLive] = useState('');
+  const [formUrl, setFormUrl] = useState('');
+  const [statusUrlBase, setStatusUrlBase] = useState('');
+  const [err, setErr] = useState('');
+
+  useEffect(() => {
+    if (!row) return;
+    setIsEnabled(!!row.is_enabled);
+    setEnvironment(String(row.environment ?? 'test'));
+    setProductCode(String(row.product_code ?? ''));
+    setSecretTest(String(row.secret_key_test ?? ''));
+    setSecretLive(String(row.secret_key_live ?? ''));
+    setFormUrl(String(row.form_url ?? ''));
+    setStatusUrlBase(String(row.status_url_base ?? ''));
+    setErr('');
+  }, [row]);
+
+  const save = async () => {
+    setErr('');
+    try {
+      await updateGateway.mutateAsync({
+        gateway: 'esewa',
+        payload: {
+          is_enabled: isEnabled,
+          environment,
+          product_code: productCode,
+          secret_key_test: secretTest,
+          secret_key_live: secretLive,
+          form_url: formUrl,
+          status_url_base: statusUrlBase,
+        },
+      });
+    } catch (e) {
+      setErr(formatApiError(e));
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="font-medium text-sm">Enable eSewa top-up</p>
+          <p className="text-xs text-muted-foreground">Turn on when credentials are configured</p>
+        </div>
+        <Switch checked={isEnabled} onCheckedChange={setIsEnabled} />
+      </div>
+      <div className="grid md:grid-cols-2 gap-4">
+        <div>
+          <Label>Environment</Label>
+          <Select value={environment} onValueChange={setEnvironment}>
+            <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="test">Test</SelectItem>
+              <SelectItem value="sandbox">Sandbox</SelectItem>
+              <SelectItem value="live">Live</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label>Product code</Label>
+          <Input className="mt-1.5 font-mono text-sm" value={productCode} onChange={(e) => setProductCode(e.target.value)} placeholder="e.g. EPAYTEST" />
+        </div>
+        <div>
+          <Label>Secret key (test / non-live)</Label>
+          <Input className="mt-1.5 font-mono text-sm" type="password" autoComplete="off" value={secretTest} onChange={(e) => setSecretTest(e.target.value)} placeholder="Used when environment is not Live" />
+        </div>
+        <div>
+          <Label>Secret key (live)</Label>
+          <Input className="mt-1.5 font-mono text-sm" type="password" autoComplete="off" value={secretLive} onChange={(e) => setSecretLive(e.target.value)} placeholder="Used when environment is Live" />
+        </div>
+        <div className="md:col-span-2">
+          <Label>Payment form URL</Label>
+          <Input className="mt-1.5 font-mono text-sm" value={formUrl} onChange={(e) => setFormUrl(e.target.value)} placeholder="https://rc-epay.esewa.com.np/api/epay/main/v2/form" />
+        </div>
+        <div className="md:col-span-2">
+          <Label>Transaction status URL base</Label>
+          <Input className="mt-1.5 font-mono text-sm" value={statusUrlBase} onChange={(e) => setStatusUrlBase(e.target.value)} placeholder="https://rc.esewa.com.np/api/epay/transaction/status/" />
+        </div>
+      </div>
+      {err ? <p className="text-sm text-destructive">{err}</p> : null}
+      <Button type="button" onClick={() => { void save(); }} disabled={updateGateway.isPending}>
+        {updateGateway.isPending ? 'Saving…' : 'Save eSewa settings'}
+      </Button>
+    </div>
+  );
+}
+
+function KhaltiGatewayForm({
+  row,
+  updateGateway,
+}: {
+  row: Record<string, unknown> | undefined;
+  updateGateway: GatewayMutator;
+}) {
+  const [isEnabled, setIsEnabled] = useState(false);
+  const [environment, setEnvironment] = useState('test');
+  const [secretTest, setSecretTest] = useState('');
+  const [secretLive, setSecretLive] = useState('');
+  const [apiBaseUrl, setApiBaseUrl] = useState('');
+  const [err, setErr] = useState('');
+
+  useEffect(() => {
+    if (!row) return;
+    setIsEnabled(!!row.is_enabled);
+    setEnvironment(String(row.environment ?? 'test'));
+    setSecretTest(String(row.secret_key_test ?? ''));
+    setSecretLive(String(row.secret_key_live ?? ''));
+    setApiBaseUrl(String(row.api_base_url ?? ''));
+    setErr('');
+  }, [row]);
+
+  const save = async () => {
+    setErr('');
+    try {
+      await updateGateway.mutateAsync({
+        gateway: 'khalti',
+        payload: {
+          is_enabled: isEnabled,
+          environment,
+          secret_key_test: secretTest,
+          secret_key_live: secretLive,
+          api_base_url: apiBaseUrl,
+        },
+      });
+    } catch (e) {
+      setErr(formatApiError(e));
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="font-medium text-sm">Enable Khalti top-up</p>
+          <p className="text-xs text-muted-foreground">Turn on when the secret key is configured</p>
+        </div>
+        <Switch checked={isEnabled} onCheckedChange={setIsEnabled} />
+      </div>
+      <div className="grid md:grid-cols-2 gap-4">
+        <div>
+          <Label>Environment</Label>
+          <Select value={environment} onValueChange={setEnvironment}>
+            <SelectTrigger className="mt-1.5"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="test">Test</SelectItem>
+              <SelectItem value="sandbox">Sandbox</SelectItem>
+              <SelectItem value="live">Live</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label>API base URL (optional)</Label>
+          <Input className="mt-1.5 font-mono text-sm" value={apiBaseUrl} onChange={(e) => setApiBaseUrl(e.target.value)} placeholder="https://khalti.com/api/v2" />
+        </div>
+        <div>
+          <Label>Secret key (test / non-live)</Label>
+          <Input className="mt-1.5 font-mono text-sm" type="password" autoComplete="off" value={secretTest} onChange={(e) => setSecretTest(e.target.value)} />
+        </div>
+        <div>
+          <Label>Secret key (live)</Label>
+          <Input className="mt-1.5 font-mono text-sm" type="password" autoComplete="off" value={secretLive} onChange={(e) => setSecretLive(e.target.value)} />
+        </div>
+      </div>
+      {err ? <p className="text-sm text-destructive">{err}</p> : null}
+      <Button type="button" onClick={() => { void save(); }} disabled={updateGateway.isPending}>
+        {updateGateway.isPending ? 'Saving…' : 'Save Khalti settings'}
+      </Button>
+    </div>
+  );
+}
+
 export default function SettingsModule() {
   const [tab, setTab] = useState('general');
 
@@ -111,6 +297,15 @@ export default function SettingsModule() {
     ({ gateway, payload }: { gateway: string; payload: Record<string, unknown> }) =>
       adminApi.updatePaymentGateway(gateway, payload),
     [['admin', 'payment-gateways']],
+  );
+
+  const esewaRow = useMemo(
+    () => (gwData?.results ?? []).find((r) => String(r.gateway) === 'esewa'),
+    [gwData?.results],
+  );
+  const khaltiRow = useMemo(
+    () => (gwData?.results ?? []).find((r) => String(r.gateway) === 'khalti'),
+    [gwData?.results],
   );
 
   const extras = useMemo(() => deepExtras(site?.admin_extras), [site?.admin_extras]);
@@ -196,7 +391,6 @@ export default function SettingsModule() {
 
   const analytics = extras.analytics ?? EMPTY_EXTRAS_SECTION;
   const socialCfg = extras.social ?? EMPTY_EXTRAS_SECTION;
-  const systemCfg = extras.system ?? EMPTY_EXTRAS_SECTION;
 
   const [googleAnalyticsScript, setGoogleAnalyticsScript] = useState('');
   useEffect(() => {
@@ -240,11 +434,6 @@ export default function SettingsModule() {
     });
   }, [socialCfg]);
 
-  const [systemNote, setSystemNote] = useState('');
-  useEffect(() => {
-    setSystemNote(String(systemCfg.note ?? ''));
-  }, [systemCfg]);
-
   if (isLoading) {
     return <div className="p-4 lg:p-6 text-sm text-muted-foreground">Loading settings…</div>;
   }
@@ -262,7 +451,6 @@ export default function SettingsModule() {
           <TabsTrigger value="payment">Payment</TabsTrigger>
           <TabsTrigger value="reels">Reels</TabsTrigger>
           <TabsTrigger value="social">Social Media</TabsTrigger>
-          <TabsTrigger value="system">System</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general">
@@ -440,63 +628,29 @@ export default function SettingsModule() {
         </TabsContent>
 
         <TabsContent value="payment">
-          <div className="space-y-4">
+          <div className="space-y-6">
             <Card>
-              <CardHeader><CardTitle>Payment Gateways</CardTitle><CardDescription>Keys and environment (stored in database).</CardDescription></CardHeader>
-              <CardContent className="space-y-4">
-                {(gwData?.results ?? []).map((gw) => (
-                  <div key={String(gw.gateway)} className="border rounded-lg p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">{String(gw.label ?? gw.gateway)}</span>
-                      <Switch
-                        checked={!!gw.is_enabled}
-                        onCheckedChange={(checked) => {
-                          void updateGateway.mutateAsync({ gateway: String(gw.gateway), payload: { is_enabled: checked } });
-                        }}
-                      />
-                    </div>
-                    <div className="grid md:grid-cols-2 gap-3">
-                      <div><Label>Environment</Label>
-                        <Select
-                          value={String(gw.environment ?? 'test')}
-                          onValueChange={(v) => {
-                            void updateGateway.mutateAsync({ gateway: String(gw.gateway), payload: { environment: v } });
-                          }}
-                        >
-                          <SelectTrigger><SelectValue /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="test">Test</SelectItem>
-                            <SelectItem value="sandbox">Sandbox</SelectItem>
-                            <SelectItem value="live">Live</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div><Label>Merchant ID</Label><Input className="font-mono text-xs" defaultValue={String(gw.merchant_id ?? '')} onBlur={(e) => {
-                        void updateGateway.mutateAsync({ gateway: String(gw.gateway), payload: { merchant_id: e.target.value } });
-                      }} />
-                      </div>
-                      <div><Label>API key (test)</Label><Input type="password" className="font-mono text-xs" placeholder="••••" defaultValue={String(gw.api_key_test ?? '')} onBlur={(e) => {
-                        void updateGateway.mutateAsync({ gateway: String(gw.gateway), payload: { api_key_test: e.target.value } });
-                      }} />
-                      </div>
-                      <div><Label>API key (live)</Label><Input type="password" className="font-mono text-xs" placeholder="••••" defaultValue={String(gw.api_key_live ?? '')} onBlur={(e) => {
-                        void updateGateway.mutateAsync({ gateway: String(gw.gateway), payload: { api_key_live: e.target.value } });
-                      }} />
-                      </div>
-                      <div className="md:col-span-2"><Label>Callback URL</Label><Input className="font-mono text-xs" defaultValue={String(gw.callback_url ?? '')} onBlur={(e) => {
-                        void updateGateway.mutateAsync({ gateway: String(gw.gateway), payload: { callback_url: e.target.value } });
-                      }} />
-                      </div>
-                    </div>
-                  </div>
-                ))}
+              <CardHeader>
+                <CardTitle>eSewa (ePay)</CardTitle>
+                <CardDescription>
+                  Product code, signing secret, and endpoints used for wallet top-up. Empty URL fields fall back to UAT defaults; secrets fall back to{' '}
+                  <span className="font-mono">ESEWA_EPAY_*</span> environment variables when unset.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <EsewaGatewayForm row={esewaRow} updateGateway={updateGateway} />
               </CardContent>
             </Card>
-
             <Card>
-              <CardHeader><CardTitle className="flex items-center gap-2"><QrCode className="w-5 h-5" /> NCHL QR</CardTitle></CardHeader>
-              <CardContent className="space-y-2 text-sm text-muted-foreground">
-                Configure the <strong className="text-foreground">nchl_qr</strong> gateway above (keys, QR expiry). Certificate upload can be added via Django admin if needed.
+              <CardHeader>
+                <CardTitle>Khalti (ePayment v2)</CardTitle>
+                <CardDescription>
+                  Secret key and optional API base URL. When unset, <span className="font-mono">KHALTI_SECRET_KEY</span> and{' '}
+                  <span className="font-mono">KHALTI_BASE_URL</span> from the environment are used.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <KhaltiGatewayForm row={khaltiRow} updateGateway={updateGateway} />
               </CardContent>
             </Card>
           </div>
@@ -510,16 +664,6 @@ export default function SettingsModule() {
                 <div key={k}><Label className="capitalize">{k}</Label><Input value={socialState[k]} onChange={(e) => setSocialState((s) => ({ ...s, [k]: e.target.value }))} placeholder={`https://…`} /></div>
               ))}
               <Button type="button" onClick={() => void saveExtrasSection('social', { ...socialCfg, ...socialState })}>Save social links</Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="system">
-          <Card>
-            <CardHeader><CardTitle>System notes</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <Textarea rows={4} value={systemNote} onChange={(e) => setSystemNote(e.target.value)} placeholder="Internal notes (stored in admin_extras.system)" />
-              <Button type="button" onClick={() => void saveExtrasSection('system', { ...systemCfg, note: systemNote })}>Save system notes</Button>
             </CardContent>
           </Card>
         </TabsContent>
