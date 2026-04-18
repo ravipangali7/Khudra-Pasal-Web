@@ -186,6 +186,12 @@ const Checkout = () => {
     navigate('/login', { replace: true, state: { from: '/checkout' } });
   }, [hasStorefrontSession, navigate]);
 
+  /** Reconcile with server cart (drops unpurchasable lines) before checkout-quote runs. */
+  useEffect(() => {
+    if (!hasStorefrontSession || buyNow) return;
+    void refreshServerCart();
+  }, [hasStorefrontSession, buyNow, refreshServerCart]);
+
   useEffect(() => {
     let cancelled = false;
     if (!hasStorefrontSession) return;
