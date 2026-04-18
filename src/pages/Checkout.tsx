@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
@@ -105,7 +105,15 @@ const Checkout = () => {
   const location = useLocation();
   const hasStorefrontSession = isStorefrontCustomerSession();
   const queryClient = useQueryClient();
-  const { cartItems, cartTotal, cartCount, updateQuantity, removeFromCart, clearCart } = useCart();
+  const {
+    cartItems,
+    cartTotal,
+    cartCount,
+    updateQuantity,
+    removeFromCart,
+    clearCart,
+    refreshServerCart,
+  } = useCart();
   const {
     isChildShopper,
     rules,
@@ -251,13 +259,20 @@ const Checkout = () => {
 
   const checkoutItems = useMemo(() => {
     if (buyNow) {
-      return [{ product_id: buyNow.productId, quantity: buyNowQuantity }];
+      const q = Math.max(1, Math.floor(Number(buyNowQuantity)) || 1);
+      const pid = Number(buyNow.productId);
+      if (!Number.isFinite(pid) || pid <= 0) return [];
+      return [{ product_id: pid, quantity: q }];
     }
-    return cartItems.map((item) => ({
-      product_id: parseInt(item.product.id, 10),
-      quantity: item.quantity,
-    }));
-  }, [buyNow, buyNowQuantity, cartItems]);
+    const out: Array<{ product_id: number; quantity: number }> = [];
+    for (const item of cartItems) {
+      const pid = parseInt(item.product.id, 10);
+      const q = Math.floor(Number(item.quantity)) || 0;
+      if (!Number.isFinite(pid) || pid <= 0 || q < 1) continue;
+      out.push({ product_id: pid, quantity: q });
+    }
+    return out;
+  }, [buyNow, buyNowQuantity, buyNow?.productId, cartItems]);
 
   const quotePayload = useMemo((): Record<string, unknown> | null => {
     if (!checkoutItems.length) return null;
@@ -320,16 +335,37 @@ const Checkout = () => {
     }, 0);
   }, [buyNow, buyNowQuantity, cartItems, flashOverrideProductIds]);
 
+  const quoteRecoveryMsgRef = useRef<string | null>(null);
+
   const {
     data: quoteData,
     isFetching: quoteFetching,
     isError: quoteIsError,
+    error: quoteError,
+    isSuccess: quoteIsSuccess,
   } = useQuery({
     queryKey: ['portal', 'checkout-quote', JSON.stringify(quotePayload)],
     queryFn: () => portalApi.checkoutQuote(quotePayload!),
     enabled: Boolean(hasStorefrontSession && quotePayload),
     staleTime: 15_000,
+    retry: false,
   });
+
+  useEffect(() => {
+    if (quoteIsSuccess) quoteRecoveryMsgRef.current = null;
+  }, [quoteIsSuccess]);
+
+  useEffect(() => {
+    if (!quoteIsError || !quoteError || buyNow) return;
+    if (!(quoteError instanceof PortalApiError) || quoteError.status !== 400) return;
+    const msg = quoteError.message.trim();
+    if (!/not available/i.test(msg)) return;
+    if (quoteRecoveryMsgRef.current === msg) return;
+    quoteRecoveryMsgRef.current = msg;
+    void refreshServerCart().then(() => {
+      void queryClient.invalidateQueries({ queryKey: ['portal', 'checkout-quote'] });
+    });
+  }, [quoteIsError, quoteError, buyNow, refreshServerCart, queryClient]);
 
   const clientListSavings = useMemo(() => {
     if (buyNow) return 0;

@@ -61,6 +61,8 @@ interface CartContextType {
   getItemQuantity: (productId: string) => number;
   isListingCartActive: (listingScope: string, productId: string) => boolean;
   clearCart: () => void;
+  /** Re-fetch server cart into context (e.g. after checkout quote says a product is unavailable). */
+  refreshServerCart: () => Promise<void>;
   cartCount: number;
   cartTotal: number;
   isCartOpen: boolean;
@@ -377,6 +379,7 @@ export const CartProvider = ({ children }: { children: ReactNode }) => {
         getItemQuantity,
         isListingCartActive,
         clearCart,
+        refreshServerCart,
         cartCount,
         cartTotal,
         isCartOpen,
