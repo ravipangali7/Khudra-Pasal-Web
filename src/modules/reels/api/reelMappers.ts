@@ -84,6 +84,7 @@ export function mapApiReelToUi(row: ApiReelPublicRow): Reel {
     product: p
       ? {
           id: p.id,
+          purchasable: p.purchasable !== false,
           name: p.name,
           price: p.price,
           originalPrice: p.original_price,
@@ -98,6 +99,7 @@ export function mapApiReelToUi(row: ApiReelPublicRow): Reel {
         }
       : {
           id: 0,
+          purchasable: false,
           name: "No product linked",
           price: 0,
           originalPrice: 0,

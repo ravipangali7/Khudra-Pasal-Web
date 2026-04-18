@@ -30,6 +30,7 @@ const ReelProductOverlay: React.FC<ReelProductOverlayProps> = ({
   const storeSlug = reel.vendor.storeSlug;
   const { product, vendor, caption } = reel;
   const productLinked = Boolean(reel.product?.id);
+  const commerceEnabled = productLinked && product.purchasable !== false;
 
   const captionText = (caption ?? '').trim();
   const hasCaption = captionText.length > 0;
@@ -88,8 +89,12 @@ const ReelProductOverlay: React.FC<ReelProductOverlayProps> = ({
           <h3 className="reels-font-display font-bold text-white text-sm truncate">{product.name}</h3>
           <ReelsPriceTag price={product.price} originalPrice={product.originalPrice} discount={product.discount} size="sm" />
           <div className="flex items-center gap-1.5 mt-0.5">
-            <span className="w-2 h-2 rounded-full bg-green-500" />
-            <span className="reels-font-body text-[11px]" style={{ color: 'var(--reels-text-secondary)' }}>In Stock</span>
+            <span
+              className={`w-2 h-2 rounded-full ${commerceEnabled ? 'bg-green-500' : 'bg-amber-500'}`}
+            />
+            <span className="reels-font-body text-[11px]" style={{ color: 'var(--reels-text-secondary)' }}>
+              {commerceEnabled ? 'In Stock' : 'Not available to buy'}
+            </span>
           </div>
         </div>
       </div>
@@ -99,7 +104,7 @@ const ReelProductOverlay: React.FC<ReelProductOverlayProps> = ({
           variant="cart"
           onClick={onAddToCart}
           className="flex-[55] px-4 text-sm"
-          disabled={!productLinked}
+          disabled={!commerceEnabled}
         >
           🛒 Add to Cart
         </ReelsButton>
@@ -107,7 +112,7 @@ const ReelProductOverlay: React.FC<ReelProductOverlayProps> = ({
           variant="buy"
           onClick={onBuyNow}
           className="flex-[45] px-4 text-sm"
-          disabled={!productLinked}
+          disabled={!commerceEnabled}
         >
           ⚡ Buy Now
         </ReelsButton>

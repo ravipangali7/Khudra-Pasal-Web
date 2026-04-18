@@ -1,5 +1,7 @@
 export interface ReelProduct {
   id: number;
+  /** False when the linked catalog row is not ACTIVE / seller not approved (matches cart API). */
+  purchasable?: boolean;
   name: string;
   price: number;
   originalPrice: number;

@@ -256,6 +256,12 @@ const VendorReelsViewerOverlay: React.FC<Props> = ({ vendorId, initialReelId, on
   const handleAddToCart = useCallback(
     (reel: Reel) => {
       if (!reel.product?.id) return;
+      if (reel.product.purchasable === false) {
+        toast.error(
+          'This product is not available for purchase. It may be inactive or the seller is not approved yet.',
+        );
+        return;
+      }
       if (!isStorefrontCustomerSession()) {
         redirectToLogin(reel, 1);
         return;
@@ -366,6 +372,12 @@ const VendorReelsViewerOverlay: React.FC<Props> = ({ vendorId, initialReelId, on
   const handleBuyNow = useCallback(
     (reel: Reel, quantity = 1) => {
       if (!reel.product?.id) return;
+      if (reel.product.purchasable === false) {
+        toast.error(
+          'This product is not available for purchase. It may be inactive or the seller is not approved yet.',
+        );
+        return;
+      }
       if (!isStorefrontCustomerSession()) {
         redirectToLogin(reel, quantity);
         return;

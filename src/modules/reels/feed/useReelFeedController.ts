@@ -143,6 +143,12 @@ export function useReelFeedController(
         toast.error('No product is linked to this reel.');
         return;
       }
+      if (reel.product.purchasable === false) {
+        toast.error(
+          'This product is not available for purchase. It may be inactive or the seller is not approved yet.',
+        );
+        return;
+      }
       if (!isStorefrontCustomerSession()) {
         addToCart(toCartProduct(reel));
         return;
@@ -205,6 +211,12 @@ export function useReelFeedController(
     (reel: Reel, quantity = 1) => {
       if (!reel.product?.id) {
         toast.error('No product is linked to this reel.');
+        return;
+      }
+      if (reel.product.purchasable === false) {
+        toast.error(
+          'This product is not available for purchase. It may be inactive or the seller is not approved yet.',
+        );
         return;
       }
       if (!isStorefrontCustomerSession()) {

@@ -53,6 +53,8 @@ const ReelCard: React.FC<ReelCardProps> = ({
   const immersive = variant === 'immersive';
 
   const posterSrc = reel.thumbnail || reel.product?.image;
+  const reelCommerceEnabled =
+    Boolean(reel.product?.id) && reel.product.purchasable !== false;
 
   return (
     <motion.div
@@ -121,7 +123,7 @@ const ReelCard: React.FC<ReelCardProps> = ({
 
       <ProductQuickSheet
         product={reel.product}
-        hasLinkedProduct={Boolean(reel.product?.id)}
+        hasLinkedProduct={reelCommerceEnabled}
         isOpen={sheetOpen}
         onClose={() => setSheetOpen(false)}
         onAddToCart={() => {

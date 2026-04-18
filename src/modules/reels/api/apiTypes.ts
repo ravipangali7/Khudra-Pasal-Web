@@ -27,6 +27,7 @@ export interface ApiReelPublicRow {
   };
   product: {
     id: number;
+    purchasable?: boolean;
     name: string;
     price: number;
     original_price: number;
