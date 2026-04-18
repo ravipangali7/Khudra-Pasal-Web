@@ -122,6 +122,7 @@ type VendorRow = {
   revenue: number;
   status: string;
   commission: number;
+  refund_commission_percent: number;
   walletBalance: number;
   canPost: boolean;
   canSell: boolean;
@@ -715,6 +716,7 @@ function SellersView() {
   const [aContactEmail, setAContactEmail] = useState('');
   const [aPassword, setAPassword] = useState('');
   const [aCommission, setACommission] = useState('10');
+  const [aRefundCommission, setARefundCommission] = useState('3');
   const [aCanPost, setACanPost] = useState(true);
   const [aCanSell, setACanSell] = useState(true);
   const [aStatus, setAStatus] = useState('pending');
@@ -733,6 +735,7 @@ function SellersView() {
   const [eContactEmail, setEContactEmail] = useState('');
   const [eAddress, setEAddress] = useState('');
   const [eCommission, setECommission] = useState('');
+  const [eRefundCommission, setERefundCommission] = useState('');
   const [eCanPost, setECanPost] = useState(true);
   const [eCanSell, setECanSell] = useState(true);
   const [eStatus, setEStatus] = useState('pending');
@@ -771,6 +774,7 @@ function SellersView() {
     setAContactEmail('');
     setAPassword('');
     setACommission('10');
+    setARefundCommission('3');
     setACanPost(true);
     setACanSell(true);
     setAStatus('pending');
@@ -817,6 +821,7 @@ function SellersView() {
         fd.append('address', aAddress.trim());
         fd.append('contact_email', aContactEmail.trim());
         fd.append('commission_rate', String(Number(aCommission) || 10));
+        fd.append('refund_commission_percent', String(Number(aRefundCommission) || 0));
         fd.append('can_post', aCanPost ? 'true' : 'false');
         fd.append('can_sell', aCanSell ? 'true' : 'false');
         fd.append('status', aStatus);
@@ -839,6 +844,7 @@ function SellersView() {
           address: aAddress.trim(),
           contact_email: aContactEmail.trim(),
           commission_rate: Number(aCommission) || 10,
+          refund_commission_percent: Number(aRefundCommission) || 0,
           can_post: aCanPost,
           can_sell: aCanSell,
           status: aStatus,
@@ -871,6 +877,7 @@ function SellersView() {
         address: eAddress.trim(),
         description: eDesc.trim(),
         commission_rate: Number(eCommission) || 0,
+        refund_commission_percent: Number(eRefundCommission) || 0,
         can_post: eCanPost,
         can_sell: eCanSell,
         status: eStatus,
@@ -926,6 +933,7 @@ function SellersView() {
       setEContactEmail(resolvedSelected.contact_email ?? '');
       setEAddress(resolvedSelected.address ?? '');
       setECommission(String(resolvedSelected.commission));
+      setERefundCommission(String(resolvedSelected.refund_commission_percent ?? 3));
       setECanPost(resolvedSelected.canPost);
       setECanSell(resolvedSelected.canSell);
       setEStatus(resolvedSelected.status);
@@ -1084,6 +1092,18 @@ function SellersView() {
           <div><Label>Store address</Label><Input placeholder="Address" value={aAddress} onChange={(e) => setAAddress(e.target.value)} /></div>
           <div><Label>Contact email (store)</Label><Input type="email" placeholder="contact@store.com" value={aContactEmail} onChange={(e) => setAContactEmail(e.target.value)} /></div>
           <div><Label>Commission (%)</Label><Input type="number" placeholder="10" value={aCommission} onChange={(e) => setACommission(e.target.value)} /></div>
+          <div>
+            <Label>Refund commission (%)</Label>
+            <Input
+              type="number"
+              placeholder="3"
+              value={aRefundCommission}
+              onChange={(e) => setARefundCommission(e.target.value)}
+            />
+            <p className="text-[11px] text-muted-foreground mt-1">
+              Portion of the commission slice the platform keeps when processing refunds (0–100).
+            </p>
+          </div>
           <div><Label>Initial status</Label>
             <Select value={aStatus} onValueChange={setAStatus}>
               <SelectTrigger><SelectValue /></SelectTrigger>
@@ -1235,6 +1255,17 @@ function SellersView() {
             <div><Label>Address</Label><Textarea value={eAddress} onChange={(e) => setEAddress(e.target.value)} rows={2} /></div>
             <div><Label>Description</Label><Textarea value={eDesc} onChange={(e) => setEDesc(e.target.value)} rows={2} placeholder="Optional" /></div>
             <div><Label>Commission rate (%)</Label><Input type="number" value={eCommission} onChange={(e) => setECommission(e.target.value)} /></div>
+            <div>
+              <Label>Refund commission (%)</Label>
+              <Input
+                type="number"
+                value={eRefundCommission}
+                onChange={(e) => setERefundCommission(e.target.value)}
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Applied to the proportional commission slice only (not the full refund gross).
+              </p>
+            </div>
             <div><Label>Status</Label>
               <Select value={eStatus} onValueChange={setEStatus}>
                 <SelectTrigger><SelectValue /></SelectTrigger>

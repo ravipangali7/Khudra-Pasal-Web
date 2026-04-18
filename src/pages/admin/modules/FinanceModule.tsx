@@ -91,6 +91,7 @@ type RefundRow = {
   gross_amount?: number;
   platform_fee?: number;
   net_credit?: number;
+  refund_commission_percent?: number | null;
   deduction_summary?: string;
   reason: string;
   status: string;
@@ -556,6 +557,12 @@ function deductionShortLabel(summary: string | undefined): string {
   return 'Settlement';
 }
 
+function refundRetentionLabel(pct: number | null | undefined): string {
+  if (pct == null || Number.isNaN(pct)) return 'Platform retention (commission slice)';
+  const s = Number(pct).toLocaleString(undefined, { maximumFractionDigits: 2 });
+  return `Platform retention (${s}% of commission)`;
+}
+
 function RefundFinancialSummaryCard({ r }: { r: RefundRow }) {
   return (
     <div className="rounded-md border bg-muted/40 p-3 space-y-2 text-foreground">
@@ -566,7 +573,7 @@ function RefundFinancialSummaryCard({ r }: { r: RefundRow }) {
         </span>
       </div>
       <div className="flex justify-between text-sm">
-        <span className="text-muted-foreground">Platform retention (3% of commission)</span>
+        <span className="text-muted-foreground">{refundRetentionLabel(r.refund_commission_percent)}</span>
         <span className="font-mono tabular-nums">
           Rs.{' '}
           {Number(r.platform_fee ?? 0).toLocaleString(undefined, {
@@ -704,7 +711,7 @@ function RefundsView() {
       <FilterBar filters={filters} onChange={setFilter} />
       <AdminTable
         title="Refund Requests"
-        subtitle="Super Admin approves or rejects; 3% applies to the commission portion only"
+        subtitle="Super Admin approves or rejects; the vendor-configured refund commission rate applies to the commission portion only"
         data={filtered}
         rowKey="id"
         columns={[
@@ -892,8 +899,8 @@ function RefundsView() {
                 {approveTarget ? (
                   <>
                     <p>
-                      This credits the customer wallet and debits vendor plus platform commission per settlement (3% of
-                      commission slice retained).
+                      This credits the customer wallet and debits vendor plus platform commission per settlement; the
+                      vendor-configured refund commission is taken from the commission slice only.
                     </p>
                     <RefundFinancialSummaryCard r={approveTarget} />
                   </>
