@@ -1024,27 +1024,6 @@ const ChildPortal = () => {
           method: topUpMethod,
           return_path: `${location.pathname}${location.search}`.split('#')[0],
         }),
-      onSuccess: (data) => {
-        if (handleWalletTopupClientResponse(data)) return;
-        const added = Number(topUpAmount);
-        const bal =
-          data &&
-          typeof data === 'object' &&
-          'balance' in data &&
-          typeof (data as { balance?: unknown }).balance === 'number'
-            ? (data as { balance: number }).balance
-            : undefined;
-        toast.success(
-          bal !== undefined
-            ? `Added Rs. ${added.toLocaleString()}. Balance: Rs. ${bal.toLocaleString()}`
-            : `Added Rs. ${added.toLocaleString()} to your wallet.`,
-        );
-        setTopUpAmount('');
-        void qc.invalidateQueries({ queryKey: ['portal', 'child', 'summary'] });
-        void qc.invalidateQueries({ queryKey: ['portal', 'child', 'txns'] });
-        void qc.invalidateQueries({ queryKey: ['portal', 'child', 'rules'] });
-      },
-      onError: (e: Error) => toast.error(e.message || 'Could not add money.'),
     });
     const n = Number(topUpAmount);
     const canPay = Number.isFinite(n) && n >= 1;
@@ -1106,10 +1085,37 @@ const ChildPortal = () => {
             </div>
 
             <Button
+              type="button"
               className="w-full"
               size="lg"
               disabled={!canPay || topUpMutation.isPending}
-              onClick={() => topUpMutation.mutate()}
+              onClick={() => {
+                void (async () => {
+                  try {
+                    const data = await topUpMutation.mutateAsync();
+                    if (handleWalletTopupClientResponse(data)) return;
+                    const added = Number(topUpAmount);
+                    const bal =
+                      data &&
+                      typeof data === 'object' &&
+                      'balance' in data &&
+                      typeof (data as { balance?: unknown }).balance === 'number'
+                        ? (data as { balance: number }).balance
+                        : undefined;
+                    toast.success(
+                      bal !== undefined
+                        ? `Added Rs. ${added.toLocaleString()}. Balance: Rs. ${bal.toLocaleString()}`
+                        : `Added Rs. ${added.toLocaleString()} to your wallet.`,
+                    );
+                    setTopUpAmount('');
+                    void qc.invalidateQueries({ queryKey: ['portal', 'child', 'summary'] });
+                    void qc.invalidateQueries({ queryKey: ['portal', 'child', 'txns'] });
+                    void qc.invalidateQueries({ queryKey: ['portal', 'child', 'rules'] });
+                  } catch (e) {
+                    toast.error(e instanceof Error ? e.message : 'Could not add money.');
+                  }
+                })();
+              }}
             >
               {topUpMutation.isPending ? 'Processing…' : 'Add to wallet'}
             </Button>

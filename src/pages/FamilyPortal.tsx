@@ -1785,14 +1785,6 @@ export function FamilyPortal() {
           method: loadMethod,
           return_path: `${location.pathname}${location.search}`.split('#')[0],
         }),
-      onSuccess: (data) => {
-        if (handleWalletTopupClientResponse(data)) return;
-        setWalletErr('');
-        setShowLoadMoney(false);
-        setLoadAmount('');
-        invFamily();
-      },
-      onError: (e: Error) => setWalletErr(e.message),
     });
 
     const distributeMutation = useMutation({
@@ -2185,8 +2177,22 @@ export function FamilyPortal() {
                 Cancel
               </Button>
               <Button
+                type="button"
                 disabled={!loadAmount || Number(loadAmount) <= 0 || loadMutation.isPending}
-                onClick={() => loadMutation.mutate()}
+                onClick={() => {
+                  void (async () => {
+                    setWalletErr('');
+                    try {
+                      const data = await loadMutation.mutateAsync();
+                      if (handleWalletTopupClientResponse(data)) return;
+                      setShowLoadMoney(false);
+                      setLoadAmount('');
+                      invFamily();
+                    } catch (e) {
+                      setWalletErr(e instanceof Error ? e.message : 'Could not start payment.');
+                    }
+                  })();
+                }}
               >
                 {loadMutation.isPending ? 'Saving…' : 'Add funds'}
               </Button>

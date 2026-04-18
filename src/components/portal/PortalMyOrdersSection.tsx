@@ -47,6 +47,35 @@ function canRequestRefund(o: PortalOrderRow): boolean {
   return true;
 }
 
+function OrderViewAndRefundActions({
+  order: o,
+  ordersListHref,
+  onRequestRefund,
+}: {
+  order: PortalOrderRow;
+  ordersListHref: string;
+  onRequestRefund: (order: PortalOrderRow) => void;
+}) {
+  return (
+    <div className="flex flex-wrap justify-end gap-2">
+      <Button type="button" variant="outline" size="sm" className="h-8 text-xs" asChild>
+        <Link to={`${ordersListHref}/${o.pk}`}>View order</Link>
+      </Button>
+      {canRequestRefund(o) ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-8 text-xs"
+          onClick={() => onRequestRefund(o)}
+        >
+          Request refund
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
 type Props = {
   surface: PortalOrdersSurface;
   sessionTick: number;
@@ -123,6 +152,12 @@ export default function PortalMyOrdersSection({
     );
   }
 
+  const openRefund = (o: PortalOrderRow) => {
+    setRefundOrder(o);
+    setRefundReason("");
+    setRefundNotes("");
+  };
+
   return (
     <div className="space-y-4">
       {ordersError && (
@@ -133,7 +168,57 @@ export default function PortalMyOrdersSection({
       {ordersLoading && !ordersError && (
         <p className="text-sm text-muted-foreground px-1">Loading orders…</p>
       )}
-      <div className="bg-card rounded-xl border border-border overflow-hidden">
+      {!ordersError && orders.length === 0 && !ordersLoading ? (
+        <div className="md:hidden rounded-xl border border-border bg-card p-8 text-center text-sm text-muted-foreground">
+          No orders yet
+        </div>
+      ) : null}
+      {!ordersError && orders.length > 0 ? (
+        <div className="md:hidden space-y-3">
+          {orders.map((o) => (
+            <div
+              key={o.pk}
+              className="rounded-xl border border-border bg-card p-4 space-y-3 text-sm shadow-sm"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="font-semibold">
+                    <Link
+                      to={`${ordersListHref}/${o.pk}`}
+                      className="text-primary hover:underline underline-offset-2"
+                    >
+                      {o.id}
+                    </Link>
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">{o.date}</p>
+                </div>
+                <p className="font-semibold tabular-nums shrink-0">{formatPrice(o.total)}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+                <span className="text-muted-foreground">Items</span>
+                <span className="text-right">{o.items}</span>
+                <span className="text-muted-foreground">Payment</span>
+                <span className="text-right truncate">{o.payment}</span>
+                <span className="text-muted-foreground">Vendor</span>
+                <span className="text-right truncate">{o.seller}</span>
+                <span className="text-muted-foreground">Status</span>
+                <span className="text-right capitalize">{o.status}</span>
+              </div>
+              <div className="pt-1 border-t border-border">
+                <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide mb-2">
+                  Actions
+                </p>
+                <OrderViewAndRefundActions
+                  order={o}
+                  ordersListHref={ordersListHref}
+                  onRequestRefund={openRefund}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      <div className="hidden md:block bg-card rounded-xl border border-border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-muted/50">
@@ -190,32 +275,11 @@ export default function PortalMyOrdersSection({
                         <td className="p-4 capitalize">{o.status}</td>
                         <td className="p-4 text-right font-medium">{formatPrice(o.total)}</td>
                         <td className="p-4 text-right">
-                          <div className="flex flex-wrap justify-end gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              className="h-8 text-xs"
-                              asChild
-                            >
-                              <Link to={`${ordersListHref}/${o.pk}`}>View</Link>
-                            </Button>
-                            {canRequestRefund(o) ? (
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="sm"
-                                className="h-8 text-xs"
-                                onClick={() => {
-                                  setRefundOrder(o);
-                                  setRefundReason("");
-                                  setRefundNotes("");
-                                }}
-                              >
-                                Request refund
-                              </Button>
-                            ) : null}
-                          </div>
+                          <OrderViewAndRefundActions
+                            order={o}
+                            ordersListHref={ordersListHref}
+                            onRequestRefund={openRefund}
+                          />
                         </td>
                       </tr>
                       {expandedOrderPk === o.pk &&
