@@ -939,7 +939,8 @@ const Checkout = () => {
                                 {shippingZones.map((z) => (
                                   <CommandItem
                                     key={z.id}
-                                    value={`${z.name} ${z.areas || ''}`}
+                                    value={`${z.id}\t${z.name} ${z.areas || ''}`}
+                                    onPointerDown={(e) => e.preventDefault()}
                                     onSelect={() => {
                                       setShippingZoneId(z.id);
                                       setZonePopoverOpen(false);
