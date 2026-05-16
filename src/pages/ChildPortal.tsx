@@ -1912,7 +1912,7 @@ const ChildPortal = () => {
 
   return (
     <>
-    <PortalLayout sidebar={sidebar} headerActions={headerActions}>
+    <PortalLayout sidebar={sidebar} headerActions={headerActions} portalSurface="child">
       {renderContent()}
     </PortalLayout>
     <PortalNotificationsModal

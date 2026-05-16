@@ -6,24 +6,33 @@ import {
   PortalHeaderChromeContext,
   type PortalHeaderChromeValue,
 } from '@/contexts/PortalHeaderChromeContext';
+import PortalAccountSwitch from '@/components/portal/PortalAccountSwitch';
+import type { PortalAccountSurface } from '@/lib/portalAccountSwitch';
 
 interface PortalLayoutProps {
   children: ReactNode;
   sidebar: ReactNode;
   headerActions?: ReactNode;
+  /** When set, shows the account-type switch control in the sticky header on every page. */
+  portalSurface?: PortalAccountSurface;
 }
 
-const PortalLayout = ({ children, sidebar, headerActions }: PortalLayoutProps) => {
+const PortalLayout = ({ children, sidebar, headerActions, portalSurface }: PortalLayoutProps) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const portalChrome = useMemo(
     (): PortalHeaderChromeValue => ({
-      toolbar: headerActions ?? null,
+      toolbar: (
+        <>
+          {portalSurface ? <PortalAccountSwitch currentSurface={portalSurface} /> : null}
+          {headerActions ?? null}
+        </>
+      ),
       sidebar,
       mobileMenuOpen,
       setMobileMenuOpen,
     }),
-    [headerActions, sidebar, mobileMenuOpen],
+    [headerActions, portalSurface, sidebar, mobileMenuOpen],
   );
 
   return (

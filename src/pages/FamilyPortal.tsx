@@ -3732,7 +3732,7 @@ export function FamilyPortal() {
 
   return (
     <>
-    <PortalLayout sidebar={sidebar} headerActions={headerActions}>
+    <PortalLayout sidebar={sidebar} headerActions={headerActions} portalSurface="family">
       {renderContent()}
     </PortalLayout>
     <PortalNotificationsModal

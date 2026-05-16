@@ -706,6 +706,7 @@ function SellersView() {
     () => adminApi.vendors({ page_size: 200 }),
   );
   const [vendorPatch, setVendorPatch] = useState<Record<string, Partial<VendorRow>>>({});
+  const [posTogglingId, setPosTogglingId] = useState<string | null>(null);
   const [vendorErr, setVendorErr] = useState('');
 
   const [aStoreName, setAStoreName] = useState('');
@@ -754,7 +755,12 @@ function SellersView() {
   );
 
   const sellersData = useMemo(
-    () => apiVendors.map((s) => ({ ...s, ...vendorPatch[s.id] })),
+    () =>
+      apiVendors.map((s) => ({
+        ...s,
+        posEnabled: s.posEnabled !== false,
+        ...vendorPatch[s.id],
+      })),
     [apiVendors, vendorPatch],
   );
 
@@ -924,15 +930,18 @@ function SellersView() {
       setVendorErr(formatApiError(e));
     }
   };
-  const togglePos = async (id: string) => {
+  const setVendorPos = async (id: string, enabled: boolean) => {
     const base = sellersData.find((s) => s.id === id);
-    if (!base) return;
-    const next = !base.posEnabled;
+    if (!base || base.posEnabled === enabled) return;
+    setPosTogglingId(id);
+    setVendorErr('');
     try {
-      await vendorMut.mutateAsync({ id, payload: { pos_enabled: next } });
-      setVendorPatch((p) => ({ ...p, [id]: { ...p[id], posEnabled: next } }));
+      await vendorMut.mutateAsync({ id, payload: { pos_enabled: enabled } });
+      setVendorPatch((p) => ({ ...p, [id]: { ...p[id], posEnabled: enabled } }));
     } catch (e) {
       setVendorErr(formatApiError(e));
+    } finally {
+      setPosTogglingId(null);
     }
   };
 
@@ -970,7 +979,7 @@ function SellersView() {
         </Select>
       </div>
 
-      <AdminTable title="Vendors / Sellers" subtitle="Create vendors, edit store details, commissions, and permissions" data={filtered}
+      <AdminTable title="Vendors / Sellers" subtitle="Manage vendors, commissions, and per-vendor POS access (toggle shows or hides POS in the vendor sidebar)" data={filtered}
         columns={[
           { key: 'name', label: 'Store', render: (s) => {
             const lg = s.logo_url ? resolveMediaUrlForDisplay(s.logo_url) : '';

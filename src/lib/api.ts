@@ -3007,7 +3007,11 @@ export type PortalChildRulesResponse = {
 export type PortalSwitchPortalContext = {
   has_family_portal_access: boolean;
   has_child_portal_access: boolean;
+  has_normal_portal_access: boolean;
   can_create_family_group: boolean;
+  kyc_status: string;
+  kyc_required: boolean;
+  kyc_verified: boolean;
   family_group_types: Array<{ value: string; label: string }>;
   create_family_defaults: { status: string };
 };

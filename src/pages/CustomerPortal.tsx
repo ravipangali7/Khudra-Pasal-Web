@@ -76,6 +76,7 @@ import PortalSupportSection from '@/components/portal/PortalSupportSection';
 import PortalProductsCatalogSection from '@/components/portal/PortalProductsCatalogSection';
 import PortalWishlistSection from '@/components/portal/PortalWishlistSection';
 import PortalNotificationsModal from '@/components/portal/PortalNotificationsModal';
+import PortalAccountSwitch from '@/components/portal/PortalAccountSwitch';
 import { mapPortalNotificationUiType } from '@/lib/portalNotifications';
 import { useSessionHomeRedirect } from '@/lib/sessionHomeRedirect';
 import { handleWalletTopupClientResponse } from '@/lib/walletTopupClient';
@@ -726,6 +727,7 @@ const CustomerPortal = () => {
                 <p className="text-[10px] text-muted-foreground">Total Spent</p>
                 <p className="text-sm font-bold">{formatPrice(totalSpent)}</p>
               </div>
+              <PortalAccountSwitch currentSurface="main" />
               <Link
                 to="/homepage"
                 className="relative p-2 hover:bg-muted rounded-lg shrink-0 text-foreground"
