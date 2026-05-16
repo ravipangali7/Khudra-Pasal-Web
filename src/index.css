@@ -383,17 +383,10 @@
     touch-action: manipulation;
   }
 
-  /*
-   * Flutter WebView shell: hide marketing footer + download banner, keep bottom tab bar.
-   * Tab bars use md:hidden; WebViews often report a wide viewport — force the bar visible in-app.
-   */
+  /* Flutter WebView shell: hide marketing footer + download banner only. */
   html.native-app-shell .site-footer,
   html.native-app-shell .download-app-banner {
     display: none !important;
-  }
-
-  html.native-app-shell .mobile-tabbar-fixed {
-    display: flex !important;
   }
 }
 
