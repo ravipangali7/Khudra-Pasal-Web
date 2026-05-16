@@ -997,11 +997,27 @@ function SellersView() {
           { key: 'revenue', label: 'Revenue', render: (s) => <span className="font-medium">Rs. {(s.revenue / 1000).toFixed(0)}K</span> },
           { key: 'walletBalance', label: 'Wallet', render: (s) => <span className="font-medium">Rs. {s.walletBalance.toLocaleString()}</span> },
           { key: 'commission', label: 'Commission', render: (s) => `${s.commission}%` },
+          {
+            key: 'pos',
+            label: 'POS',
+            render: (s) => (
+              <div className="flex items-center gap-2">
+                <Switch
+                  checked={s.posEnabled}
+                  disabled={!crud.canVendorMutate || posTogglingId === s.id}
+                  onCheckedChange={(checked) => void setVendorPos(s.id, checked)}
+                  aria-label={`POS ${s.posEnabled ? 'on' : 'off'} for ${s.name}`}
+                />
+                <span className={cn('text-[10px] font-medium tabular-nums', s.posEnabled ? 'text-emerald-600' : 'text-muted-foreground')}>
+                  {s.posEnabled ? 'On' : 'Off'}
+                </span>
+              </div>
+            ),
+          },
           { key: 'controls', label: 'Controls', render: (s) => (
             <div className="flex items-center gap-2">
               <Badge variant={s.canPost ? 'default' : 'secondary'} className={cn("text-[10px]", crud.canVendorMutate && "cursor-pointer", s.canPost && "bg-emerald-500")} onClick={() => crud.canVendorMutate && togglePosting(s.id)}>Post</Badge>
               <Badge variant={s.canSell ? 'default' : 'secondary'} className={cn("text-[10px]", crud.canVendorMutate && "cursor-pointer", s.canSell && "bg-emerald-500")} onClick={() => crud.canVendorMutate && toggleSelling(s.id)}>Sell</Badge>
-              <Badge variant={s.posEnabled !== false ? 'default' : 'secondary'} className={cn("text-[10px]", crud.canVendorMutate && "cursor-pointer", s.posEnabled !== false && "bg-emerald-500")} onClick={() => crud.canVendorMutate && togglePos(s.id)}>POS</Badge>
             </div>
           )},
           { key: 'status', label: 'Status', render: (s) => (
