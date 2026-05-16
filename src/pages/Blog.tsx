@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { PageSeo } from '@/components/seo/PageSeo';
+import { buildCanonical } from '@/lib/seoUtils';
 import { Calendar, User, ChevronRight, Search } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import Header from '@/components/layout/Header';
@@ -35,6 +37,11 @@ const Blog = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
+      <PageSeo
+        title="Blog"
+        description="Tips, guides, and news from Khudra Pasal — Nepal's multivendor marketplace."
+        canonical={buildCanonical('/blog')}
+      />
       <Header />
 
       <main className="container mx-auto px-4 py-6">

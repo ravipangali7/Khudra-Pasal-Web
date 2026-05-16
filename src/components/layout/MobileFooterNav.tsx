@@ -11,6 +11,7 @@ import {
   navigateToMobileProfile,
   navigateToMobileWallet,
 } from '@/lib/mobileProfileNav';
+import { useNativeAppShell } from '@/hooks/useNativeAppShell';
 
 const FOOTER_HEIGHT = 64;
 
@@ -28,16 +29,16 @@ interface MobileFooterNavProps {
 const MobileFooterNav = ({ skipDocumentPadding = false }: MobileFooterNavProps) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const inNativeApp = useNativeAppShell();
 
   useEffect(() => {
-    if (skipDocumentPadding) return;
+    if (inNativeApp || skipDocumentPadding) return;
     document.body.style.paddingBottom = `${MOBILE_TABBAR_SCROLL_PADDING}px`;
     return () => {
       document.body.style.paddingBottom = '';
     };
-  }, [skipDocumentPadding]);
+  }, [inNativeApp, skipDocumentPadding]);
 
-  const isActive = (path: string) => location.pathname === path;
   const tabs = useMemo(
     () => [
       { id: 'home', icon: Home, label: 'Home', path: '/' },
@@ -48,6 +49,10 @@ const MobileFooterNav = ({ skipDocumentPadding = false }: MobileFooterNavProps) 
     ],
     [],
   );
+
+  if (inNativeApp) return null;
+
+  const isActive = (path: string) => location.pathname === path;
 
   const content = (
     <nav

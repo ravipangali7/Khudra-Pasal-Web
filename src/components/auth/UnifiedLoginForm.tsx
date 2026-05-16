@@ -249,11 +249,9 @@ export default function UnifiedLoginForm({
           Don&apos;t have an account?{" "}
           <Link
             to={
-              authPortal === "family-portal"
-                ? `/signup?portal=family-portal&next=${encodeURIComponent(oauthNext)}`
-                : authPortal === "child-portal"
-                  ? `/signup?portal=portal&next=${encodeURIComponent(oauthNext)}`
-                  : "/signup"
+              oauthNext && oauthNext !== "/portal"
+                ? `/signup?next=${encodeURIComponent(oauthNext)}`
+                : "/signup"
             }
             className="font-semibold hover:underline"
             style={{ color: AUTH_ORANGE }}

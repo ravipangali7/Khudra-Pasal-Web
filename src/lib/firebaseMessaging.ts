@@ -1,6 +1,7 @@
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
 import { getMessaging, getToken, isSupported, onMessage, type Messaging } from "firebase/messaging";
-import { getFirebaseVapidKey, getFirebaseWebConfig } from "@/lib/firebaseWebConfig";
+import { getFirebaseWebConfig } from "@/lib/firebaseWebConfig";
+import { clearFirebaseVapidKeyCache, resolveFirebaseVapidKey } from "@/lib/firebaseVapidKey";
 
 let appInstance: FirebaseApp | null = null;
 
@@ -13,6 +14,7 @@ export function clearFcmTokenRegistrationDedup(): void {
   } catch {
     /* private mode / quota */
   }
+  clearFirebaseVapidKeyCache();
 }
 
 function getOrInitApp(): FirebaseApp | null {
@@ -76,7 +78,7 @@ export async function getFcmRegistrationToken(): Promise<string | null> {
   const supported = await isSupported().catch(() => false);
   if (!supported) return null;
 
-  const vapidKey = getFirebaseVapidKey();
+  const vapidKey = await resolveFirebaseVapidKey();
   if (!vapidKey) return null;
 
   const app = getOrInitApp();

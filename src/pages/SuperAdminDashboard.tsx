@@ -6,7 +6,6 @@ import { useQuery } from "@tanstack/react-query";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import AdminLayout from "@/components/admin/AdminLayout";
 import AdminSidebar from "@/components/admin/AdminSidebar";
-import UnifiedAuthLoginPage from "@/components/auth/UnifiedAuthLoginPage";
 import {
   adminApi,
   clearAllAuthTokens,
@@ -91,29 +90,23 @@ export default function SuperAdminDashboard() {
   const routeState = useMemo(() => parseAdminPath(location.pathname), [location.pathname]);
   const activeSection = routeState.moduleId;
 
-  const adminLogin = (
-    <UnifiedAuthLoginPage
-      variant="admin"
-      formProps={{
-        navigateToRedirect: false,
-        onSuccess: () => setSessionTick((t) => t + 1),
-        oauthNext: "/admin/dashboard",
-        authPortal: "admin",
-      }}
-    />
-  );
+  const loginRedirect = useMemo(() => {
+    const returnPath = `${location.pathname}${location.search}`;
+    const next = encodeURIComponent(returnPath);
+    return `${PORTAL_LOGIN_PATH.admin}?next=${next}`;
+  }, [location.pathname, location.search]);
 
   if (!authed) {
-    return adminLogin;
+    return <Navigate to={loginRedirect} replace />;
   }
 
   if (wrongSurfaceForAdmin) {
-    return adminLogin;
+    return <Navigate to={loginRedirect} replace />;
   }
 
   if (gateAuthFailure) {
     clearAllAuthTokens();
-    return adminLogin;
+    return <Navigate to={loginRedirect} replace />;
   }
 
   if (navError) {

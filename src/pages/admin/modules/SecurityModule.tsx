@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   AlertTriangle, Ban, ShieldAlert, Lock, Globe,
-  Eye, CheckCircle, Trash2,
+  Eye, CheckCircle,
 } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { AdminStatCard } from '@/components/admin/AdminStats';
@@ -17,7 +17,12 @@ import { cn } from '@/lib/utils';
 import { adminApi, type AdminSecuritySummary } from '@/lib/api';
 import { useAdminList } from '../hooks/useAdminList';
 import { useAdminMutation } from '../hooks/useAdminMutation';
-import { formatApiError } from '../hooks/adminFormUtils';
+import { toast } from 'sonner';
+import {
+  formatApiError,
+  isFlagSeverity,
+  validateFlagResolutionNote,
+} from '../hooks/adminFormUtils';
 
 type FlaggedRow = {
   id: string;
@@ -26,6 +31,7 @@ type FlaggedRow = {
   severity: string;
   time: string;
   status?: string;
+  detail?: string;
 };
 type AuditRow = {
   id: string;
@@ -40,6 +46,8 @@ export default function SecurityModule() {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [selected, setSelected] = useState<FlaggedRow | null>(null);
   const [severityFilter, setSeverityFilter] = useState('all');
+  const [resolutionNote, setResolutionNote] = useState('');
+  const [reviewErr, setReviewErr] = useState('');
   const [secErr, setSecErr] = useState('');
   const [secOk, setSecOk] = useState(false);
 
@@ -62,6 +70,7 @@ export default function SecurityModule() {
     ],
   );
 
+  const [otpCrud, setOtpCrud] = useState(true);
   const [rbac, setRbac] = useState(true);
   const [dupPrev, setDupPrev] = useState(true);
   const [autoLock, setAutoLock] = useState(true);
@@ -69,6 +78,7 @@ export default function SecurityModule() {
 
   useEffect(() => {
     if (!secSettings) return;
+    setOtpCrud(!!secSettings.otp_sensitive_crud);
     setRbac(!!secSettings.rbac_enforced);
     setDupPrev(!!secSettings.duplicate_prevention);
     setAutoLock(!!secSettings.auto_lock_failed_logins);
@@ -81,7 +91,7 @@ export default function SecurityModule() {
     setSecOk(false);
     try {
       await updateSec.mutateAsync({
-        otp_sensitive_crud: false,
+        otp_sensitive_crud: otpCrud,
         rbac_enforced: rbac,
         duplicate_prevention: dupPrev,
         auto_lock_failed_logins: autoLock,
@@ -116,11 +126,46 @@ export default function SecurityModule() {
     return true;
   });
 
-  const resolveFlag = async (id: string) => {
+  const openReview = (activity: FlaggedRow) => {
+    setSelected(activity);
+    setResolutionNote('');
+    setReviewErr('');
+    setReviewOpen(true);
+  };
+
+  const closeReview = () => {
+    setReviewOpen(false);
+    setSelected(null);
+    setResolutionNote('');
+    setReviewErr('');
+  };
+
+  const resolveFlag = async (
+    id: string,
+    severity: string,
+    note: string,
+    status: 'resolved' | 'reviewed' = 'resolved',
+  ) => {
+    const validationErr = validateFlagResolutionNote(severity, note);
+    if (validationErr) {
+      setReviewErr(validationErr);
+      toast.error(validationErr);
+      return false;
+    }
+    setReviewErr('');
+    setSecErr('');
     try {
-      await patchFlag.mutateAsync({ id, payload: { status: 'resolved' } });
+      const payload: Record<string, unknown> = { status };
+      if (note.trim()) payload.resolution_note = note.trim();
+      await patchFlag.mutateAsync({ id, payload });
+      toast.success(status === 'reviewed' ? 'Flag marked as reviewed.' : 'Flag resolved.');
+      return true;
     } catch (e) {
-      setSecErr(formatApiError(e));
+      const msg = formatApiError(e);
+      setSecErr(msg);
+      setReviewErr(msg);
+      toast.error(msg);
+      return false;
     }
   };
 
@@ -183,6 +228,7 @@ export default function SecurityModule() {
           ) : (
             <>
               {[
+                ['OTP on sensitive CRUD', 'Require OTP for high-risk wallet/admin actions', otpCrud, setOtpCrud] as const,
                 ['Role-based access', 'Enforce staff permissions', rbac, setRbac] as const,
                 ['Duplicate prevention', 'Check duplicate users / vendors', dupPrev, setDupPrev] as const,
                 ['Auto-lock failed logins', 'Lock accounts after repeated failures', autoLock, setAutoLock] as const,
@@ -211,7 +257,12 @@ export default function SecurityModule() {
           <div className="flex items-center justify-between">
             <CardTitle className="text-base">Flagged Activity Review</CardTitle>
             <div className="flex gap-2">
-              <Select value={severityFilter} onValueChange={setSeverityFilter}>
+              <Select
+                value={severityFilter}
+                onValueChange={(v) => {
+                  if (v === 'all' || isFlagSeverity(v)) setSeverityFilter(v);
+                }}
+              >
                 <SelectTrigger className="h-8 w-32 text-xs">
                   <SelectValue />
                 </SelectTrigger>
@@ -268,10 +319,7 @@ export default function SecurityModule() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {
-                    setSelected(activity);
-                    setReviewOpen(true);
-                  }}
+                  onClick={() => openReview(activity)}
                 >
                   <Eye className="w-3 h-3 mr-1" /> Review
                 </Button>
@@ -281,7 +329,14 @@ export default function SecurityModule() {
                   className="text-emerald-600"
                   disabled={patchFlag.isPending || activity.status === 'resolved'}
                   onClick={() => {
-                    void resolveFlag(activity.id);
+                    const needsNote =
+                      activity.severity === 'high' || activity.severity === 'medium';
+                    if (needsNote) {
+                      toast.error('Open Review and add a resolution note for medium/high severity flags.');
+                      openReview(activity);
+                      return;
+                    }
+                    void resolveFlag(activity.id, activity.severity, '');
                   }}
                 >
                   <CheckCircle className="w-3 h-3 mr-1" /> Resolve
@@ -333,7 +388,20 @@ export default function SecurityModule() {
         </CardContent>
       </Card>
 
-      <CRUDModal open={reviewOpen} onClose={() => setReviewOpen(false)} title="Review Flagged Activity" onSave={() => setReviewOpen(false)}>
+      <CRUDModal
+        open={reviewOpen}
+        onClose={closeReview}
+        title="Review Flagged Activity"
+        onSave={() => {
+          if (!selected) return;
+          void resolveFlag(selected.id, selected.severity, resolutionNote, 'resolved').then((ok) => {
+            if (ok) closeReview();
+          });
+        }}
+        saveLabel="Save & resolve"
+        loading={patchFlag.isPending}
+        error={reviewErr}
+      >
         {selected && (
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
@@ -356,30 +424,68 @@ export default function SecurityModule() {
                 <p className="font-bold">{selected.time}</p>
               </div>
             </div>
+            {selected.detail ? (
+              <div className="rounded-lg border bg-muted/30 p-3">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Details</p>
+                <p className="text-sm mt-1 whitespace-pre-wrap">{selected.detail}</p>
+              </div>
+            ) : null}
             <div>
-              <Label>Resolution Note</Label>
-              <Textarea placeholder="Document your review…" rows={3} />
+              <Label>
+                Resolution Note
+                {(selected.severity === 'high' || selected.severity === 'medium') && (
+                  <span className="text-destructive"> *</span>
+                )}
+              </Label>
+              <Textarea
+                placeholder={
+                  selected.severity === 'high'
+                    ? 'Required for high severity (min 10 characters)…'
+                    : selected.severity === 'medium'
+                      ? 'Required for medium severity (min 5 characters)…'
+                      : 'Document your review (optional for low severity)…'
+                }
+                rows={3}
+                className="mt-1.5"
+                value={resolutionNote}
+                onChange={(e) => {
+                  setResolutionNote(e.target.value);
+                  if (reviewErr) setReviewErr('');
+                }}
+              />
             </div>
             <div>
               <Label className="mb-2 block">Action</Label>
               <div className="grid grid-cols-2 gap-2">
                 <Button
+                  type="button"
                   className="bg-emerald-600 hover:bg-emerald-700"
+                  disabled={patchFlag.isPending || selected.status === 'resolved'}
                   onClick={() => {
-                    void resolveFlag(selected.id);
-                    setReviewOpen(false);
+                    void resolveFlag(selected.id, selected.severity, resolutionNote, 'resolved').then((ok) => {
+                      if (ok) closeReview();
+                    });
                   }}
                 >
                   <CheckCircle className="w-4 h-4 mr-2" /> Mark Resolved
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={patchFlag.isPending || selected.status === 'reviewed' || selected.status === 'resolved'}
+                  onClick={() => {
+                    void resolveFlag(selected.id, selected.severity, resolutionNote, 'reviewed').then((ok) => {
+                      if (ok) closeReview();
+                    });
+                  }}
+                >
+                  <Eye className="w-4 h-4 mr-2" /> Mark Reviewed
                 </Button>
                 <Button variant="destructive" type="button" disabled>
                   <Ban className="w-4 h-4 mr-2" /> Block User
                 </Button>
                 <Button variant="outline" type="button" disabled>
                   <Globe className="w-4 h-4 mr-2" /> Block IP
-                </Button>
-                <Button variant="outline" type="button" disabled>
-                  <Trash2 className="w-4 h-4 mr-2" /> Dismiss
                 </Button>
               </div>
             </div>

@@ -29,6 +29,8 @@ import { findCategoryDisplayName } from '@/lib/categoryDisplayName';
 import { resolveThemeClass } from '@/lib/categoryTheme';
 import { useLocation } from 'react-router-dom';
 import { storefrontRoutes } from '@/lib/routes';
+import { PageSeo } from '@/components/seo/PageSeo';
+import { buildCanonical, organizationJsonLd } from '@/lib/seoUtils';
 
 const categoryHeaderStyles: Record<string, string> = {
   all: '',
@@ -52,6 +54,12 @@ const Index = () => {
     queryKey: ['website-categories-nav'],
     queryFn: () => websiteApi.categories(),
     staleTime: 45_000,
+  });
+
+  const { data: storeInfo } = useQuery({
+    queryKey: ['website', 'store-info'],
+    queryFn: () => websiteApi.storeInfo(),
+    staleTime: 60_000,
   });
 
   const { data: catalog, isLoading: catalogLoading, isError: catalogError } = useQuery({
@@ -185,8 +193,24 @@ const Index = () => {
   const headerClass =
     activeCategory === 'all' ? '' : categoryHeaderStyles[headerThemeKey] ?? categoryHeaderStyles.default;
 
+  const homeCanonical = buildCanonical('/');
+  const homeJsonLd = organizationJsonLd({
+    name: storeInfo?.site_name || 'Khudra Pasal',
+    url: homeCanonical,
+    logo: storeInfo?.site_logo_url || undefined,
+    description: storeInfo?.site_description || undefined,
+  });
+
   return (
     <div className="min-h-screen bg-background pb-0 md:pb-0">
+      <PageSeo
+        title={storeInfo?.site_name}
+        description={storeInfo?.site_description}
+        keywords={storeInfo?.meta_keywords}
+        image={storeInfo?.site_logo_url}
+        canonical={homeCanonical}
+        jsonLd={homeJsonLd}
+      />
       <Header />
       <div className={headerClass}>
         <CategoryNav activeCategory={activeCategory} onCategoryChange={handleCategoryChange} />

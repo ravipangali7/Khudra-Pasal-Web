@@ -390,12 +390,18 @@ export default function SettingsModule() {
   );
 
   const analytics = extras.analytics ?? EMPTY_EXTRAS_SECTION;
+  const chatbotCfg = extras.chatbot ?? EMPTY_EXTRAS_SECTION;
   const socialCfg = extras.social ?? EMPTY_EXTRAS_SECTION;
 
   const [googleAnalyticsScript, setGoogleAnalyticsScript] = useState('');
   useEffect(() => {
     setGoogleAnalyticsScript(String(analytics.google_analytics_script ?? ''));
   }, [analytics]);
+
+  const [chabotScript, setChabotScript] = useState('');
+  useEffect(() => {
+    setChabotScript(String(chatbotCfg.chabot_script ?? ''));
+  }, [chatbotCfg]);
 
   const [emailState, setEmailState] = useState({
     smtpHost: '',
@@ -447,6 +453,7 @@ export default function SettingsModule() {
         <TabsList className="mb-4 flex-wrap h-auto gap-1">
           <TabsTrigger value="general">General</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
+          <TabsTrigger value="chatbot">Chatbot</TabsTrigger>
           <TabsTrigger value="email">Email</TabsTrigger>
           <TabsTrigger value="payment">Payment</TabsTrigger>
           <TabsTrigger value="reels">Reels</TabsTrigger>
@@ -558,6 +565,39 @@ export default function SettingsModule() {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="chatbot">
+          <Card>
+            <CardHeader>
+              <CardTitle>Chatbot embed</CardTitle>
+              <CardDescription>
+                Paste your third-party chat widget snippet (for example Tawk.to or Intercom). It is injected on every web page.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <Label htmlFor="chabot-script">Chatbot script</Label>
+                <Textarea
+                  id="chabot-script"
+                  className="mt-2 font-mono text-sm"
+                  rows={10}
+                  value={chabotScript}
+                  onChange={(e) => setChabotScript(e.target.value)}
+                  placeholder="<!-- Paste script tags here -->"
+                />
+              </div>
+              <Button
+                type="button"
+                onClick={() =>
+                  void saveExtrasSection('chatbot', { ...chatbotCfg, chabot_script: chabotScript })
+                }
+                disabled={updateSite.isPending}
+              >
+                {updateSite.isPending ? 'Saving…' : 'Save chatbot script'}
+              </Button>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="email">

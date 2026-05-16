@@ -3,7 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { User, ArrowRight, Shield, ChevronLeft, Loader2, CheckCircle } from "lucide-react";
 import logo from "@/assets/logo.png";
 import { cn } from "@/lib/utils";
-import { authApi, setAuthToken, type AuthPortalKey, type UnifiedAuthSuccess } from "@/lib/api";
+import { authApi, setAuthToken, type UnifiedAuthSuccess } from "@/lib/api";
 import { DEFAULT_REDIRECT_AFTER_LOGIN } from "@/config/authDefaults";
 import { sanitizeNextPath } from "@/lib/authRedirect";
 import AuthBrandingPanelSignup from "@/components/auth/AuthBrandingPanelSignup";
@@ -26,7 +26,7 @@ const Signup = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [step, setStep] = useState<"info" | "otp">("info");
-  const [formData, setFormData] = useState({ name: "", phone: "", familyName: "" });
+  const [formData, setFormData] = useState({ name: "", phone: "" });
   const [otp, setOtp] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -47,9 +47,17 @@ const Signup = () => {
   const nextPathOnly = (nextSanitized?.split("?")[0] ?? "").split("#")[0] ?? "";
   const isJoinFamilyReturn = nextPathOnly.startsWith("/join-family/");
 
-  const signupPortal = (searchParams.get("portal") || "portal").trim().toLowerCase() as AuthPortalKey;
-  const isFamilySignup = signupPortal === "family-portal" && !isJoinFamilyReturn;
+  const signupIntentRaw = (searchParams.get("intent") || "").trim().toLowerCase();
+  const signupIntent =
+    signupIntentRaw === "parent" || signupIntentRaw === "child" ? signupIntentRaw : null;
   const referralRef = (searchParams.get("ref") ?? "").trim().slice(0, 32) || undefined;
+
+  const postSignupTarget = (fallback: string) => {
+    if (signupIntent) {
+      return `/portal/switch-portal?stay=1&start=${signupIntent}`;
+    }
+    return nextSanitized && nextSanitized !== "" ? nextSanitized : fallback;
+  };
   const oauthPendingToken = searchParams.get("oauth_pending");
 
   const signupReturnPath = useMemo(
@@ -189,9 +197,7 @@ const Signup = () => {
         /* ignore */
       }
       setAuthToken(r.token, r.surface);
-      const target =
-        nextSanitized && nextSanitized !== "" ? nextSanitized : r.redirect;
-      navigate(target, { replace: true });
+      navigate(postSignupTarget(r.redirect), { replace: true });
     } catch (err: unknown) {
       setGoogleOauthError(err instanceof Error ? err.message : "Verification failed.");
     } finally {
@@ -216,7 +222,6 @@ const Signup = () => {
         phone: digits,
         purpose: "signup",
         name: formData.name.trim(),
-        ...(isFamilySignup ? { portal: "family-portal" as const } : {}),
         ...(referralRef ? { ref: referralRef } : {}),
       });
       if (r.debug_otp) console.info("[dev] signup OTP:", r.debug_otp);
@@ -244,20 +249,10 @@ const Signup = () => {
         otp: code,
         purpose: "signup",
         name: formData.name.trim(),
-        ...(isFamilySignup
-          ? {
-              portal: "family-portal" as const,
-              ...(formData.familyName.trim()
-                ? { family_name: formData.familyName.trim().slice(0, 100) }
-                : {}),
-            }
-          : {}),
         ...(referralRef ? { ref: referralRef } : {}),
       });
       setAuthToken(r.token, r.surface);
-      const target =
-        nextSanitized && nextSanitized !== "" ? nextSanitized : r.redirect;
-      navigate(target, { replace: true });
+      navigate(postSignupTarget(r.redirect), { replace: true });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Verification failed.");
     } finally {
@@ -300,9 +295,11 @@ const Signup = () => {
                     ? "Confirm your Nepal mobile number to finish creating your account."
                     : isJoinFamilyReturn
                       ? "Create your account to continue to the family invitation."
-                      : isFamilySignup
-                        ? "Set up your family portal — we’ll create your family group automatically."
-                        : "Join KhudraPasal today"}
+                      : signupIntent === "parent"
+                        ? "Create your account, then set up your family portal in one step."
+                        : signupIntent === "child"
+                          ? "Create your account, then join your family with an invite."
+                          : "Join KhudraPasal today — start as a normal member"}
                 </p>
               </div>
 
@@ -464,11 +461,10 @@ const Signup = () => {
                       return;
                     }
                     setAuthToken(payload.token, payload.surface);
-                    const target =
-                      nextSanitized && nextSanitized !== ""
-                        ? nextSanitized
-                        : (payload as UnifiedAuthSuccess).redirect;
-                    navigate(target, { replace: true });
+                    navigate(
+                      postSignupTarget((payload as UnifiedAuthSuccess).redirect),
+                      { replace: true },
+                    );
                   }}
                   onError={(message) => setError(message)}
                 />
@@ -481,6 +477,60 @@ const Signup = () => {
                 </span>
                 <div className="flex-1 h-px bg-neutral-200" />
               </div>
+
+              {!oauthPendingToken && !isJoinFamilyReturn ? (
+                <div className="mb-6 rounded-xl border border-neutral-200 bg-neutral-50/80 p-4">
+                  <p className="text-sm font-medium text-neutral-900 mb-1">Family features (optional)</p>
+                  <p className="text-xs text-neutral-500 mb-3">
+                    Every account starts as a normal member. After sign-up, one click starts parent or child setup.
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Link
+                      to={(() => {
+                        const p = new URLSearchParams(searchParams);
+                        p.set("intent", "parent");
+                        return `/signup?${p.toString()}`;
+                      })()}
+                      className={cn(
+                        "rounded-lg border px-3 py-2.5 text-center text-sm font-medium transition-colors",
+                        signupIntent === "parent"
+                          ? "border-orange-400 bg-orange-50 text-orange-900"
+                          : "border-neutral-200 bg-white text-neutral-700 hover:border-orange-300",
+                      )}
+                    >
+                      I&apos;m a parent
+                    </Link>
+                    <Link
+                      to={(() => {
+                        const p = new URLSearchParams(searchParams);
+                        p.set("intent", "child");
+                        return `/signup?${p.toString()}`;
+                      })()}
+                      className={cn(
+                        "rounded-lg border px-3 py-2.5 text-center text-sm font-medium transition-colors",
+                        signupIntent === "child"
+                          ? "border-emerald-400 bg-emerald-50 text-emerald-900"
+                          : "border-neutral-200 bg-white text-neutral-700 hover:border-emerald-300",
+                      )}
+                    >
+                      Join as child
+                    </Link>
+                  </div>
+                  {signupIntent ? (
+                    <Link
+                      to={(() => {
+                        const p = new URLSearchParams(searchParams);
+                        p.delete("intent");
+                        const q = p.toString();
+                        return q ? `/signup?${q}` : "/signup";
+                      })()}
+                      className="mt-2 block text-center text-xs text-neutral-500 hover:text-neutral-800"
+                    >
+                      Standard signup only
+                    </Link>
+                  ) : null}
+                </div>
+              ) : null}
 
               <div className="flex items-center justify-center gap-4 mb-6">
                 <div className="flex items-center gap-2">
@@ -553,20 +603,6 @@ const Signup = () => {
                         }
                       />
                     </div>
-                    {isFamilySignup ? (
-                      <div>
-                        <label className="block text-sm font-medium text-neutral-800 mb-2">
-                          Family name <span className="text-neutral-400 font-normal">(optional)</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={formData.familyName}
-                          onChange={(e) => setFormData((p) => ({ ...p, familyName: e.target.value }))}
-                          className="w-full py-3.5 px-4 rounded-xl border-2 border-neutral-200 bg-neutral-50/80 focus:outline-none focus:border-orange-400 text-neutral-900"
-                          placeholder={`e.g. ${formData.name.trim() ? `${formData.name.trim()}'s Family` : "The Sharma Family"}`}
-                        />
-                      </div>
-                    ) : null}
                     {error ? <p className="text-xs text-destructive">{error}</p> : null}
                     <button
                       type="submit"

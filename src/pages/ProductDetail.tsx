@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
+import DOMPurify from 'isomorphic-dompurify';
 import { useLocation, useNavigate, useParams, Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Share2, Heart, Star, Minus, Plus, ShoppingCart, MessageCircle, ChevronRight, ChevronDown, Sparkles, Grid3X3, Shield, Gift } from 'lucide-react';
@@ -31,6 +32,13 @@ import { useChildShoppingRules } from '@/contexts/ChildShoppingRulesContext';
 import { evaluateChildProductCommerce } from '@/lib/childShoppingRules';
 import { useChildPurchaseApprovalRequest } from '@/hooks/useChildPurchaseApprovalRequest';
 import { toast } from 'sonner';
+import { PageSeo } from '@/components/seo/PageSeo';
+import {
+  breadcrumbJsonLd,
+  buildCanonical,
+  productJsonLd,
+  stripHtml,
+} from '@/lib/seoUtils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -38,6 +46,23 @@ import { Textarea } from '@/components/ui/textarea';
 
 const PRODUCT_DESCRIPTION_FALLBACK =
   'Premium quality product sourced from trusted vendors. This product comes with quality assurance and is perfect for your daily needs. Experience the difference with KhudraPasal.';
+
+function ProductRichText({ html, fallback }: { html: string; fallback: string }) {
+  const trimmed = html.trim();
+  if (!trimmed) {
+    return <p className="text-muted-foreground leading-relaxed">{fallback}</p>;
+  }
+  if (/<[a-z][\s\S]*>/i.test(trimmed)) {
+    const safe = DOMPurify.sanitize(trimmed, { USE_PROFILES: { html: true } });
+    return (
+      <div
+        className="prose prose-sm prose-neutral dark:prose-invert max-w-none text-muted-foreground"
+        dangerouslySetInnerHTML={{ __html: safe }}
+      />
+    );
+  }
+  return <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">{trimmed}</p>;
+}
 
 const ProductDetail = () => {
   const navigate = useNavigate();
@@ -320,6 +345,46 @@ const ProductDetail = () => {
     [reviewRows],
   );
 
+  const productSeo = useMemo(() => {
+    if (!detailData) return null;
+    const slug = detailData.slug || identifier || '';
+    const canonical = buildCanonical(`/product/${slug}`);
+    const plain = stripHtml(detailData.description || detailData.short_description || '');
+    const desc =
+      detailData.seo_description?.trim() ||
+      plain.slice(0, 160) ||
+      detailData.short_description ||
+      detailData.name;
+    const title = detailData.seo_title?.trim() || detailData.name;
+    return {
+      title,
+      description: desc,
+      keywords: detailData.seo_keywords?.trim() || undefined,
+      image: detailData.image_url || undefined,
+      canonical,
+      ogType: 'product' as const,
+      jsonLd: [
+        productJsonLd({
+          name: detailData.name,
+          description: desc,
+          image: detailData.image_url,
+          url: canonical,
+          price: detailData.price,
+          currency: storeInfo?.currency || 'NPR',
+          sku: String(detailData.id),
+          rating: detailData.rating,
+          reviewCount: detailData.review_count,
+          brand: detailData.seller?.store_name,
+        }),
+        breadcrumbJsonLd([
+          { name: 'Home', url: buildCanonical('/') },
+          { name: detailData.category_name || 'Products', url: buildCanonical('/products') },
+          { name: detailData.name, url: canonical },
+        ]),
+      ],
+    };
+  }, [detailData, identifier, storeInfo?.currency]);
+
   const handleShare = async () => {
     if (navigator.share) {
       try {
@@ -348,6 +413,7 @@ const ProductDetail = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
+      {productSeo ? <PageSeo {...productSeo} /> : null}
       <Header />
 
       {/* Floating Category Sidebar */}
@@ -516,14 +582,16 @@ const ProductDetail = () => {
             {/* Tab Content */}
             <div className="min-h-[100px]">
               {activeSection === 'highlights' && (
-                <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                  {(detailData?.short_description ?? '').trim() || PRODUCT_DESCRIPTION_FALLBACK}
-                </p>
+                <ProductRichText
+                  html={detailData?.short_description ?? ''}
+                  fallback={PRODUCT_DESCRIPTION_FALLBACK}
+                />
               )}
               {activeSection === 'details' && (
-                <p className="text-muted-foreground leading-relaxed whitespace-pre-wrap">
-                  {(detailData?.description ?? '').trim() || PRODUCT_DESCRIPTION_FALLBACK}
-                </p>
+                <ProductRichText
+                  html={detailData?.description ?? ''}
+                  fallback={PRODUCT_DESCRIPTION_FALLBACK}
+                />
               )}
               {activeSection === 'info' && (
                 <div className="space-y-2 text-sm">

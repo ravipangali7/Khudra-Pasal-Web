@@ -61,6 +61,12 @@ export default function POSSystem({ variant = 'admin' }: POSSystemProps) {
     enabled: isVendor,
   });
   const posSiteEnabled = (isVendor ? vendorMe : adminSite)?.pos_enabled !== false;
+  const vendorPosBlockedByAdmin =
+    isVendor &&
+    posSiteEnabled === false &&
+    (vendorMe as { site_pos_enabled?: boolean; vendor_pos_enabled?: boolean } | undefined)
+      ?.site_pos_enabled !== false &&
+    (vendorMe as { vendor_pos_enabled?: boolean } | undefined)?.vendor_pos_enabled === false;
 
   const { data: adminProductRows = [] } = useAdminList<Record<string, unknown>>(
     ['admin', 'products', 'pos'],
@@ -257,8 +263,11 @@ export default function POSSystem({ variant = 'admin' }: POSSystemProps) {
             <CardTitle>POS disabled</CardTitle>
           </CardHeader>
           <CardContent className="text-sm text-muted-foreground">
-            The point-of-sale system is turned off in site settings. Enable &quot;POS system&quot; in
-            Admin → Settings → General, then reload this page.
+            {vendorPosBlockedByAdmin
+              ? 'POS has been disabled for your store by the administrator. Contact support if you need it turned on.'
+              : isVendor
+                ? 'The point-of-sale system is turned off site-wide. Try again later or contact support.'
+                : 'The point-of-sale system is turned off in site settings. Enable "POS system" in Admin → Settings → General, then reload this page.'}
           </CardContent>
         </Card>
       </div>

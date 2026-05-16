@@ -187,6 +187,7 @@ export type WebsiteReelsBoostInfo = {
 export type WebsiteStoreInfo = {
   site_name: string;
   site_description: string;
+  meta_keywords?: string;
   site_email: string;
   phone: string;
   address: string;
@@ -200,6 +201,8 @@ export type WebsiteStoreInfo = {
   kyc_required?: boolean;
   pos_enabled?: boolean;
   social_links?: WebsiteSocialLinks;
+  /** Third-party chatbot embed HTML from Super Admin site settings. */
+  chabot_script?: string;
   reels_boost?: WebsiteReelsBoostInfo;
 };
 
@@ -281,6 +284,9 @@ export type WebsiteProduct = {
   can_submit_review?: boolean;
   flash_deal_id?: number | null;
   coupon_hints?: { code: string; type: string; value: string }[];
+  seo_title?: string;
+  seo_description?: string;
+  seo_keywords?: string;
 };
 
 export type PagedResponse<T> = {
@@ -597,6 +603,7 @@ export type AdminFlaggedActivityRow = {
   type: string;
   severity: string;
   status: string;
+  detail?: string;
   time: string;
 };
 
@@ -1080,6 +1087,8 @@ export const websiteApi = {
       cover_image_url: string;
       author_name: string;
       published_at: string | null;
+      seo_title: string;
+      seo_description: string;
     }>(`/website/blog-posts/${encodeURIComponent(slug)}/`),
   submitProductReview: (identifier: string, payload: { rating: number; comment?: string }) =>
     apiFetch<{ id: number; status: string }>(
@@ -1860,6 +1869,25 @@ export const adminApi = {
   updateCmsPage: (id: string, payload: Record<string, unknown> | FormData) =>
     adminWrite<Record<string, unknown>>(`cms-pages/${id}`, "PATCH", payload),
   deleteCmsPage: (id: string) => adminWrite<{ ok: true }>(`cms-pages/${id}`, "DELETE"),
+  blogPosts: (params?: QueryParams) => adminPaged<Record<string, unknown>>("blog-posts", params),
+  blogPostDetail: (id: string) =>
+    apiFetch<{
+      id: string;
+      title: string;
+      slug: string;
+      excerpt: string;
+      content: string;
+      status: string;
+      seoTitle: string;
+      seoDesc: string;
+      publishedAt: string;
+      coverUrl: string;
+    }>(`/admin/blog-posts/${encodeURIComponent(id)}/`, undefined, true),
+  createBlogPost: (payload: Record<string, unknown> | FormData) =>
+    adminWrite<Record<string, unknown>>("blog-posts/create", "POST", payload),
+  updateBlogPost: (id: string, payload: Record<string, unknown> | FormData) =>
+    adminWrite<Record<string, unknown>>(`blog-posts/${id}`, "PATCH", payload),
+  deleteBlogPost: (id: string) => adminWrite<{ ok: true }>(`blog-posts/${id}`, "DELETE"),
   createPurchaseOrder: (payload: {
     customer_id?: string | null;
     seller_id?: string | null;

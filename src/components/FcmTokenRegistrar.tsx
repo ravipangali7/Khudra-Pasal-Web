@@ -7,7 +7,7 @@ const VISIBILITY_RESYNC_MS = 400;
 
 /** Sync when authenticated except on auth entry pages (no session yet). */
 function shouldSyncFcmForPath(pathname: string): boolean {
-  if (pathname === "/login" || pathname === "/signup") return false;
+  if (pathname === "/login" || pathname === "/signup" || pathname === "/admin/login") return false;
   return true;
 }
 

@@ -1,11 +1,14 @@
+import { useMemo } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import DOMPurify from 'isomorphic-dompurify';
 import { Calendar, User, ChevronLeft } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
+import { PageSeo } from '@/components/seo/PageSeo';
 import { Button } from '@/components/ui/button';
 import { websiteApi } from '@/lib/api';
+import { articleJsonLd, buildCanonical, stripHtml } from '@/lib/seoUtils';
 
 function formatPostDate(iso: string | null) {
   if (!iso) return '';
@@ -27,6 +30,31 @@ export default function BlogPostDetail() {
     queryFn: () => websiteApi.blogPost(slug || ''),
     enabled: Boolean(slug),
   });
+
+  const seoProps = useMemo(() => {
+    if (!data) return null;
+    const canonical = buildCanonical(`/blog/${data.slug}`);
+    const desc =
+      data.seo_description?.trim() ||
+      data.excerpt?.trim() ||
+      stripHtml(data.content).slice(0, 160) ||
+      data.title;
+    return {
+      title: data.seo_title?.trim() || data.title,
+      description: desc,
+      image: data.cover_image_url || undefined,
+      canonical,
+      ogType: 'article' as const,
+      jsonLd: articleJsonLd({
+        headline: data.title,
+        description: desc,
+        image: data.cover_image_url,
+        url: canonical,
+        datePublished: data.published_at || undefined,
+        authorName: data.author_name || undefined,
+      }),
+    };
+  }, [data]);
 
   if (isLoading) {
     return (
@@ -58,6 +86,7 @@ export default function BlogPostDetail() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
+      {seoProps ? <PageSeo {...seoProps} /> : null}
       <Header />
       <main className="flex-1 container mx-auto px-4 py-8 max-w-3xl">
         <Button asChild variant="ghost" className="mb-6 -ml-2">

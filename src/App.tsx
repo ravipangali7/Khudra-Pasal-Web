@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -10,6 +11,9 @@ import { AuthUiProvider } from "@/contexts/AuthUiContext";
 import FcmForegroundListener from "@/components/FcmForegroundListener";
 import FcmTokenRegistrar from "@/components/FcmTokenRegistrar";
 import ScrollToTopOnNavigate from "@/components/ScrollToTopOnNavigate";
+import DownloadAppBanner from "@/components/layout/DownloadAppBanner";
+import StoreSiteScripts from "@/components/StoreSiteScripts";
+import RouteFallback from "@/components/RouteFallback";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -21,18 +25,20 @@ import BrandDetail from "./pages/BrandDetail";
 import Blog from "./pages/Blog";
 import BlogPostDetail from "./pages/BlogPostDetail";
 import CmsPublicPage from "./pages/CmsPublicPage";
-import CustomerPortal from "./pages/CustomerPortal";
 import ProductListing from "./pages/ProductListing";
-import FamilyPortal from "./pages/FamilyPortal";
-import JoinFamilyPage from "./pages/JoinFamilyPage";
-import ChildPortal from "./pages/ChildPortal";
-import SuperAdminDashboard from "./pages/SuperAdminDashboard";
-import VendorPortal from "./pages/vendor/VendorPortal";
 import NotFound from "./pages/NotFound";
-import ReelsFeedPage from "./modules/reels/feed/ReelsFeedPage";
-import VendorReelsPage from "./modules/reels/vendor/VendorReelsPage";
 import VendorStorePage from "./pages/VendorStorePage";
 import { getApiErrorHttpStatus } from "@/lib/api";
+
+const CustomerPortal = lazy(() => import("./pages/CustomerPortal"));
+const FamilyPortal = lazy(() => import("./pages/FamilyPortal"));
+const ChildPortal = lazy(() => import("./pages/ChildPortal"));
+const JoinFamilyPage = lazy(() => import("./pages/JoinFamilyPage"));
+const AdminLogin = lazy(() => import("./pages/AdminLogin"));
+const SuperAdminDashboard = lazy(() => import("./pages/SuperAdminDashboard"));
+const VendorPortal = lazy(() => import("./pages/vendor/VendorPortal"));
+const ReelsFeedPage = lazy(() => import("./modules/reels/feed/ReelsFeedPage"));
+const VendorReelsPage = lazy(() => import("./modules/reels/vendor/VendorReelsPage"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -93,8 +99,11 @@ const App = () => (
           <Sonner />
           <AuthUiProvider>
             <ScrollToTopOnNavigate />
+            <DownloadAppBanner />
+            <StoreSiteScripts />
             <FcmTokenRegistrar />
             <FcmForegroundListener />
+            <Suspense fallback={<RouteFallback />}>
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/homepage" element={<Navigate to="/" replace />} />
@@ -127,6 +136,7 @@ const App = () => (
               <Route path="/family-portal/*" element={<FamilyPortal />} />
               <Route path="/child-portal" element={<Navigate to="/child-portal/dashboard" replace />} />
               <Route path="/child-portal/*" element={<ChildPortal />} />
+              <Route path="/admin/login" element={<AdminLogin />} />
               <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
               <Route path="/admin/*" element={<SuperAdminDashboard />} />
               <Route path="/vendor/*" element={<VendorPortal />} />
@@ -136,6 +146,7 @@ const App = () => (
               <Route path="/vendor/reels" element={<VendorReelsPage />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </Suspense>
             <CartDrawer />
           </AuthUiProvider>
         </CartProvider>

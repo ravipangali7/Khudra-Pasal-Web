@@ -21,6 +21,8 @@ import {
 import { resolveMediaUrl, slugifyText } from '@/pages/admin/hooks/adminFormUtils';
 import { computeEffectiveSalePrice, MAX_PRODUCT_GALLERY } from '@/components/admin/productFormUtils';
 import { X } from 'lucide-react';
+import { CmsRichTextEditor } from '@/components/admin/CmsRichTextEditor';
+import { stripHtml } from '@/lib/seoUtils';
 
 export type ProductFormTabsVariant = 'admin' | 'vendor';
 
@@ -202,12 +204,19 @@ export function ProductFormTabs({
         </div>
         <div>
           <Label>Full Description</Label>
-          <Textarea
-            rows={5}
-            placeholder="Detailed product description..."
-            value={String(formData.description ?? '')}
-            onChange={(e) => updateField('description', e.target.value)}
-          />
+          <div className="mt-2">
+            <CmsRichTextEditor
+              value={String(formData.description ?? '')}
+              minHeight="200px"
+              onChange={(html) => {
+                updateField('description', html);
+                const plain = stripHtml(html);
+                if (!String(formData.seoDescription ?? '').trim() && plain) {
+                  updateField('seoDescription', plain.slice(0, 160));
+                }
+              }}
+            />
+          </div>
         </div>
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-2">

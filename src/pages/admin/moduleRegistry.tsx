@@ -4,6 +4,7 @@ import ProductsModule from "./modules/ProductsModule";
 import OrdersModule from "./modules/OrdersModule";
 import MarketingModule from "./modules/MarketingModule";
 import CMSModule from "./modules/CMSModule";
+import BlogModule from "./modules/BlogModule";
 import FinanceModule from "./modules/FinanceModule";
 import UsersModule from "./modules/UsersModule";
 import EmployeeModule from "./modules/EmployeeModule";
@@ -49,6 +50,7 @@ const ENTRIES = [
     <MarketingModule activeSection={ctx.activeSection} />
   )),
   ["cms", () => <CMSModule />] as const,
+  ["blog", () => <BlogModule />] as const,
   ...list(["transactions", "refunds", "withdrawals", "commission-log"], (ctx) => (
     <FinanceModule activeSection={ctx.activeSection} />
   )),

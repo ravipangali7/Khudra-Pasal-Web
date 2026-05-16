@@ -125,6 +125,7 @@ type VendorRow = {
   walletBalance: number;
   canPost: boolean;
   canSell: boolean;
+  posEnabled: boolean;
   phone?: string;
   contact_email?: string;
   address?: string;
@@ -717,6 +718,7 @@ function SellersView() {
   const [aCommission, setACommission] = useState('10');
   const [aCanPost, setACanPost] = useState(true);
   const [aCanSell, setACanSell] = useState(true);
+  const [aPosEnabled, setAPosEnabled] = useState(true);
   const [aStatus, setAStatus] = useState('pending');
   const [aLogo, setALogo] = useState<File | null>(null);
   const [aBanner, setABanner] = useState<File | null>(null);
@@ -735,6 +737,7 @@ function SellersView() {
   const [eCommission, setECommission] = useState('');
   const [eCanPost, setECanPost] = useState(true);
   const [eCanSell, setECanSell] = useState(true);
+  const [ePosEnabled, setEPosEnabled] = useState(true);
   const [eStatus, setEStatus] = useState('pending');
   const [eDesc, setEDesc] = useState('');
   const [eLogo, setELogo] = useState<File | null>(null);
@@ -773,6 +776,7 @@ function SellersView() {
     setACommission('10');
     setACanPost(true);
     setACanSell(true);
+    setAPosEnabled(true);
     setAStatus('pending');
     setALogo(null);
     setABanner(null);
@@ -819,6 +823,7 @@ function SellersView() {
         fd.append('commission_rate', String(Number(aCommission) || 10));
         fd.append('can_post', aCanPost ? 'true' : 'false');
         fd.append('can_sell', aCanSell ? 'true' : 'false');
+        fd.append('pos_enabled', aPosEnabled ? 'true' : 'false');
         fd.append('status', aStatus);
         fd.append('kyc_approve', aKycApprove ? 'true' : 'false');
         if (aKycDocType.trim()) fd.append('kyc_document_type', aKycDocType.trim());
@@ -841,6 +846,7 @@ function SellersView() {
           commission_rate: Number(aCommission) || 10,
           can_post: aCanPost,
           can_sell: aCanSell,
+          pos_enabled: aPosEnabled,
           status: aStatus,
           ...kycPayload,
         });
@@ -873,6 +879,7 @@ function SellersView() {
         commission_rate: Number(eCommission) || 0,
         can_post: eCanPost,
         can_sell: eCanSell,
+        pos_enabled: ePosEnabled,
         status: eStatus,
       };
       if (useMultipart) {
@@ -917,6 +924,17 @@ function SellersView() {
       setVendorErr(formatApiError(e));
     }
   };
+  const togglePos = async (id: string) => {
+    const base = sellersData.find((s) => s.id === id);
+    if (!base) return;
+    const next = !base.posEnabled;
+    try {
+      await vendorMut.mutateAsync({ id, payload: { pos_enabled: next } });
+      setVendorPatch((p) => ({ ...p, [id]: { ...p[id], posEnabled: next } }));
+    } catch (e) {
+      setVendorErr(formatApiError(e));
+    }
+  };
 
   useEffect(() => {
     if (resolvedEditVendorOpen && resolvedSelected) {
@@ -928,6 +946,7 @@ function SellersView() {
       setECommission(String(resolvedSelected.commission));
       setECanPost(resolvedSelected.canPost);
       setECanSell(resolvedSelected.canSell);
+      setEPosEnabled(resolvedSelected.posEnabled !== false);
       setEStatus(resolvedSelected.status);
       setEDesc(resolvedSelected.description ?? '');
       setELogo(null);
@@ -973,6 +992,7 @@ function SellersView() {
             <div className="flex items-center gap-2">
               <Badge variant={s.canPost ? 'default' : 'secondary'} className={cn("text-[10px]", crud.canVendorMutate && "cursor-pointer", s.canPost && "bg-emerald-500")} onClick={() => crud.canVendorMutate && togglePosting(s.id)}>Post</Badge>
               <Badge variant={s.canSell ? 'default' : 'secondary'} className={cn("text-[10px]", crud.canVendorMutate && "cursor-pointer", s.canSell && "bg-emerald-500")} onClick={() => crud.canVendorMutate && toggleSelling(s.id)}>Sell</Badge>
+              <Badge variant={s.posEnabled !== false ? 'default' : 'secondary'} className={cn("text-[10px]", crud.canVendorMutate && "cursor-pointer", s.posEnabled !== false && "bg-emerald-500")} onClick={() => crud.canVendorMutate && togglePos(s.id)}>POS</Badge>
             </div>
           )},
           { key: 'status', label: 'Status', render: (s) => (
@@ -1103,6 +1123,10 @@ function SellersView() {
             <div className="flex items-center justify-between p-3 border rounded-lg">
               <span className="font-medium text-sm">Allow selling</span>
               <Switch checked={aCanSell} onCheckedChange={setACanSell} />
+            </div>
+            <div className="flex items-center justify-between p-3 border rounded-lg sm:col-span-2">
+              <span className="font-medium text-sm">POS system access</span>
+              <Switch checked={aPosEnabled} onCheckedChange={setAPosEnabled} />
             </div>
           </div>
           <div className="border rounded-lg p-3 space-y-3">
@@ -1254,6 +1278,10 @@ function SellersView() {
               <div className="flex items-center justify-between p-3 border rounded-lg">
                 <span className="font-medium text-sm">Allow selling</span>
                 <Switch checked={eCanSell} onCheckedChange={setECanSell} />
+              </div>
+              <div className="flex items-center justify-between p-3 border rounded-lg sm:col-span-2">
+                <span className="font-medium text-sm">POS system access</span>
+                <Switch checked={ePosEnabled} onCheckedChange={setEPosEnabled} />
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

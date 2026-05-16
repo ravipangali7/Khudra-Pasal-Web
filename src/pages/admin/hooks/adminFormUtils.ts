@@ -45,6 +45,25 @@ export function formatCompactRs(amount: number): string {
   return `${sign}Rs. ${s}M`;
 }
 
+export const FLAG_SEVERITIES = ["low", "medium", "high"] as const;
+export type FlagSeverity = (typeof FLAG_SEVERITIES)[number];
+
+export function isFlagSeverity(value: string): value is FlagSeverity {
+  return (FLAG_SEVERITIES as readonly string[]).includes(value);
+}
+
+/** Client-side validation for flagged-activity resolution notes by severity. */
+export function validateFlagResolutionNote(severity: string, note: string): string | null {
+  const trimmed = note.trim();
+  if (severity === "high" && trimmed.length < 10) {
+    return "High-severity flags require a resolution note (at least 10 characters).";
+  }
+  if (severity === "medium" && trimmed.length < 5) {
+    return "Medium-severity flags require a resolution note (at least 5 characters).";
+  }
+  return null;
+}
+
 /** Human-readable message from fetch/API errors (Error or thrown JSON). */
 export function formatApiError(err: unknown): string {
   if (err instanceof Error) return err.message;

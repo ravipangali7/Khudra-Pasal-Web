@@ -41,6 +41,7 @@ import {
   isPortalOtpRequiredError,
   isPortalPayoutRequiredError,
   mapWebsiteProductToUi,
+  PortalApiError,
   portalApi,
   setCheckoutPlacedPortal,
   websiteApi,
@@ -295,16 +296,25 @@ const CustomerPortal = () => {
     retry: false,
   });
 
+  const defaultFamilyGroupName = useMemo(() => {
+    const displayName = (me?.name || selfProfile?.name || '').trim();
+    return displayName ? `${displayName}'s Family` : 'My Family';
+  }, [me?.name, selfProfile?.name]);
+
   const createFamilyMutation = useMutation({
     mutationFn: (payload: { name: string; type?: string }) => portalApi.createFamilyGroup(payload),
     onSuccess: () => {
       setCreateFamilyErr('');
-      setPostLogoutLoginPath(PORTAL_LOGIN_PATH.family);
-      clearAllAuthTokens();
-      queryClient.clear();
-      navigate('/family-portal/login');
+      void queryClient.invalidateQueries({ queryKey: ['portal'] });
+      setSessionTick((t) => t + 1);
+      navigate('/family-portal/dashboard');
     },
     onError: (e: Error) => {
+      if (e instanceof PortalApiError && isPortalKycBlockedError(e)) {
+        toast.message('Complete KYC verification before creating a family group.');
+        navigate('/portal/kyc');
+        return;
+      }
       setCreateFamilyErr(e.message || 'Could not create family.');
     },
   });
@@ -477,12 +487,35 @@ const CustomerPortal = () => {
   });
 
   const stayOnSwitchPortal = searchParams.get('stay') === '1';
+  const switchStartRaw = (searchParams.get('start') || '').trim().toLowerCase();
+  const switchStart = switchStartRaw === 'parent' || switchStartRaw === 'child' ? switchStartRaw : null;
+  const childJoinSectionRef = useRef<HTMLDivElement>(null);
   const { data: switchPortalContext } = useQuery<PortalSwitchPortalContext>({
     queryKey: ['portal', 'switch-portal-context', sessionTick],
     queryFn: () => portalApi.switchPortalContext(),
-    enabled: authed && activeSection === 'switch-portal',
+    enabled: authed,
     retry: false,
   });
+
+  const quickStartParent = useCallback(() => {
+    if (!switchPortalContext?.can_create_family_group) return;
+    if (me?.kyc_status !== 'verified') {
+      toast.message('Complete KYC verification before creating a family group.');
+      goTo('kyc');
+      return;
+    }
+    const name = (newFamilyName.trim() || defaultFamilyGroupName).slice(0, 100);
+    setCreateFamilyErr('');
+    createFamilyMutation.mutate({ name, type: newFamilyType });
+  }, [
+    switchPortalContext?.can_create_family_group,
+    me?.kyc_status,
+    newFamilyName,
+    defaultFamilyGroupName,
+    newFamilyType,
+    createFamilyMutation,
+    goTo,
+  ]);
 
   useEffect(() => {
     if (activeSection !== 'switch-portal' || stayOnSwitchPortal || !switchPortalContext) return;
@@ -494,6 +527,14 @@ const CustomerPortal = () => {
       navigate('/family-portal/dashboard', { replace: true });
     }
   }, [activeSection, navigate, stayOnSwitchPortal, switchPortalContext]);
+
+  useEffect(() => {
+    if (activeSection !== 'switch-portal' || switchStart !== 'child') return;
+    childJoinSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (urlInviteToken) {
+      setFamilyInviteOtpModalOpen(true);
+    }
+  }, [activeSection, switchStart, urlInviteToken]);
 
   useEffect(() => {
     if (!authed || !walletNavSections.has(activeSection)) return;
@@ -759,31 +800,39 @@ const CustomerPortal = () => {
             <div className="space-y-6">
               {userRole === 'normal' && !inFamilyGroup && (
                 <section className="bg-card rounded-xl border border-border p-4 space-y-3">
-                  <h3 className="font-semibold">Start a family group</h3>
+                  <h3 className="font-semibold">Family features</h3>
                   <p className="text-sm text-muted-foreground">
-                    Create a family to manage shared wallets and member invites. You will sign in to the family portal next.
+                    You are a normal member. Verified KYC is required before you can start as a parent. You can also
+                    join as a child with an invite.
                   </p>
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <input
-                      type="text"
-                      className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm"
-                      placeholder="Family name"
-                      value={newFamilyName}
-                      onChange={(e) => setNewFamilyName(e.target.value)}
-                    />
+                  {me && me.kyc_status !== 'verified' ? (
+                    <p className="text-sm text-amber-700 dark:text-amber-300">
+                      Complete KYC verification in your profile before creating a family group.
+                    </p>
+                  ) : null}
+                  <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
-                      disabled={createFamilyMutation.isPending || !newFamilyName.trim()}
-                      onClick={() => {
-                        setCreateFamilyErr('');
-                        createFamilyMutation.mutate({
-                          name: newFamilyName.trim(),
-                          type: newFamilyType,
-                        });
-                      }}
+                      disabled={createFamilyMutation.isPending}
+                      onClick={quickStartParent}
                       className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50"
                     >
-                      {createFamilyMutation.isPending ? 'Creating…' : 'Create family group'}
+                      {createFamilyMutation.isPending ? 'Setting up…' : 'Start as parent'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSearchParams((prev) => {
+                          const next = new URLSearchParams(prev);
+                          next.set('stay', '1');
+                          next.set('start', 'child');
+                          return next;
+                        });
+                        goTo('switch-portal');
+                      }}
+                      className="px-4 py-2 rounded-lg border border-border text-sm font-medium"
+                    >
+                      Join as child
                     </button>
                   </div>
                   {createFamilyErr ? (
@@ -1198,8 +1247,7 @@ const CustomerPortal = () => {
                 <div className="min-w-0">
                   <h2 className="text-lg font-bold">Switch Portal</h2>
                   <p className="text-sm text-muted-foreground">
-                    Your current role:{' '}
-                    <span className="font-medium capitalize text-foreground">{userRole}</span>
+                    You signed up as a normal member. One click below starts parent or child setup.
                   </p>
                 </div>
               </div>
@@ -1222,6 +1270,8 @@ const CustomerPortal = () => {
                   onClick={() => {
                     if (switchPortalContext?.has_family_portal_access) {
                       navigate('/family-portal/dashboard');
+                    } else if (switchPortalContext?.can_create_family_group) {
+                      quickStartParent();
                     }
                   }}
                 >
@@ -1248,14 +1298,7 @@ const CustomerPortal = () => {
                     if (switchPortalContext?.has_child_portal_access) {
                       navigate('/child-portal/dashboard');
                     } else {
-                      goTo('dashboard');
-                      setSearchParams((prev) => {
-                        const next = new URLSearchParams(prev);
-                        if (familyInviteTokenInput.trim()) {
-                          next.set('family_invite_token', familyInviteTokenInput.trim());
-                        }
-                        return next;
-                      });
+                      childJoinSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                     }
                   }}
                 >
@@ -1306,23 +1349,23 @@ const CustomerPortal = () => {
                   {createFamilyErr ? <p className="text-sm text-destructive">{createFamilyErr}</p> : null}
                   <button
                     type="button"
-                    disabled={createFamilyMutation.isPending || !newFamilyName.trim()}
-                    onClick={() => {
-                      setCreateFamilyErr('');
-                      createFamilyMutation.mutate({
-                        name: newFamilyName.trim(),
-                        type: newFamilyType,
-                      });
-                    }}
+                    disabled={createFamilyMutation.isPending}
+                    onClick={quickStartParent}
                     className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50"
                   >
-                    {createFamilyMutation.isPending ? 'Creating…' : 'Create family group'}
+                    {createFamilyMutation.isPending ? 'Setting up…' : 'Start as parent (one click)'}
                   </button>
                 </div>
               )}
 
               {switchPortalContext && !switchPortalContext.has_child_portal_access && (
-                <div className="w-full p-4 md:p-6 bg-card rounded-xl border border-border space-y-3">
+                <div
+                  ref={childJoinSectionRef}
+                  className={cn(
+                    'w-full p-4 md:p-6 bg-card rounded-xl border space-y-3',
+                    switchStart === 'child' ? 'border-emerald-500/50 ring-1 ring-emerald-500/20' : 'border-border',
+                  )}
+                >
                   <h3 className="font-semibold">Join Child Portal (Invite)</h3>
                   {familyInviteSuccessMsg ? (
                     <p className="text-sm text-emerald-700 dark:text-emerald-400">{familyInviteSuccessMsg}</p>
@@ -1380,12 +1423,6 @@ const CustomerPortal = () => {
                   {familyInviteErr ? <p className="text-sm text-destructive">{familyInviteErr}</p> : null}
                 </div>
               )}
-              <div className="w-full p-4 md:p-6 bg-muted/50 rounded-xl border border-border">
-                <p className="text-xs text-muted-foreground">
-                  Normal users are redirected automatically when a family/child portal already exists. Otherwise, create a
-                  group or join by invite.
-                </p>
-              </div>
             </div>
           )}
 

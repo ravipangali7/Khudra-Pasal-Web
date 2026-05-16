@@ -5,6 +5,8 @@ import { FileText, Edit, Trash2, MoreVertical, Eye } from 'lucide-react';
 import AdminTable from '@/components/admin/AdminTable';
 import { CRUDModal, DeleteConfirm } from '@/components/admin/CRUDModal';
 import { CmsRichTextEditor } from '@/components/admin/CmsRichTextEditor';
+import { SeoFields } from '@/components/admin/SeoFields';
+import { stripHtml } from '@/lib/seoUtils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -216,7 +218,13 @@ export default function CMSModule() {
           ) : null}
           <div><Label>Page Title</Label><Input placeholder="About Us" value={form.title} onChange={(e) => {
             const title = e.target.value;
-            setForm((prev) => ({ ...prev, title, slug: slugEdited ? prev.slug : slugifyText(title) }));
+            setForm((prev) => ({
+              ...prev,
+              title,
+              slug: slugEdited ? prev.slug : slugifyText(title),
+              seoTitle: prev.seoTitle || title.slice(0, 70),
+              seoDesc: prev.seoDesc || title.slice(0, 160),
+            }));
           }} /></div>
           <div><Label>Slug</Label><Input placeholder="about" value={form.slug} onChange={(e) => {
             setSlugEdited(true);
@@ -225,7 +233,17 @@ export default function CMSModule() {
           <div>
             <Label>Content</Label>
             <div className="mt-2">
-              <CmsRichTextEditor value={form.content} onChange={(html) => setForm((prev) => ({ ...prev, content: html }))} />
+              <CmsRichTextEditor
+                value={form.content}
+                onChange={(html) => {
+                  const plain = stripHtml(html);
+                  setForm((prev) => ({
+                    ...prev,
+                    content: html,
+                    seoDesc: prev.seoDesc || plain.slice(0, 160),
+                  }));
+                }}
+              />
             </div>
           </div>
           <div>
@@ -267,11 +285,12 @@ export default function CMSModule() {
               </div>
             ) : null}
           </div>
-          <div className="border-t pt-4 space-y-4">
-            <h4 className="font-medium text-sm">SEO Fields</h4>
-            <div><Label>SEO Title</Label><Input placeholder="Meta title" value={form.seoTitle} onChange={(e) => setForm((prev) => ({ ...prev, seoTitle: e.target.value }))} /></div>
-            <div><Label>Meta Description</Label><Textarea rows={2} placeholder="Meta description" value={form.seoDesc} onChange={(e) => setForm((prev) => ({ ...prev, seoDesc: e.target.value }))} /></div>
-          </div>
+          <SeoFields
+            title={form.seoTitle}
+            description={form.seoDesc}
+            onTitleChange={(seoTitle) => setForm((prev) => ({ ...prev, seoTitle }))}
+            onDescriptionChange={(seoDesc) => setForm((prev) => ({ ...prev, seoDesc }))}
+          />
           <div className="flex items-center justify-between"><Label>Published</Label><Switch checked={form.status === 'published'} onCheckedChange={(checked) => setForm((prev) => ({ ...prev, status: checked ? 'published' : 'draft' }))} /></div>
         </div>
       </CRUDModal>

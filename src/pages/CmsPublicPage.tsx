@@ -1,10 +1,17 @@
+import { useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import DOMPurify from 'isomorphic-dompurify';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
+import { PageSeo } from '@/components/seo/PageSeo';
 import { websiteApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
+import {
+  buildCanonical,
+  stripHtml,
+  webPageJsonLd,
+} from '@/lib/seoUtils';
 
 export default function CmsPublicPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -13,6 +20,22 @@ export default function CmsPublicPage() {
     queryFn: () => websiteApi.cmsPagePublic(slug || ''),
     enabled: Boolean(slug),
   });
+
+  const seoProps = useMemo(() => {
+    if (!data) return null;
+    const canonical = buildCanonical(`/page/${data.slug}`);
+    const desc =
+      data.seo_description?.trim() ||
+      stripHtml(data.content).slice(0, 160) ||
+      data.title;
+    return {
+      title: data.seo_title?.trim() || data.title,
+      description: desc,
+      image: data.featured_image_url || undefined,
+      canonical,
+      jsonLd: webPageJsonLd({ name: data.title, description: desc, url: canonical }),
+    };
+  }, [data]);
 
   if (isLoading) {
     return (
@@ -44,6 +67,7 @@ export default function CmsPublicPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      {seoProps ? <PageSeo {...seoProps} /> : null}
       <Header />
       <main className="flex-1 container mx-auto px-4 py-10 max-w-3xl">
         <article>
@@ -54,10 +78,7 @@ export default function CmsPublicPage() {
               className="w-full max-h-[min(24rem,50vh)] object-cover rounded-xl mb-6 border bg-muted/20"
             />
           ) : null}
-          <h1 className="text-3xl font-bold text-foreground mb-2">{data.title}</h1>
-          {data.seo_description ? (
-            <p className="text-sm text-muted-foreground mb-8">{data.seo_description}</p>
-          ) : null}
+          <h1 className="text-3xl font-bold text-foreground mb-8">{data.title}</h1>
           <div
             className="prose prose-neutral dark:prose-invert max-w-none"
             dangerouslySetInnerHTML={{ __html: safe }}

@@ -382,6 +382,17 @@
     isolation: isolate;
     touch-action: manipulation;
   }
+
+  /* Flutter WebView shell — native-style mobile chrome (no web footers / download promo). */
+  html.native-app-shell .mobile-tabbar-fixed,
+  html.native-app-shell .site-footer,
+  html.native-app-shell .download-app-banner {
+    display: none !important;
+  }
+
+  html.native-app-shell body {
+    padding-bottom: 0 !important;
+  }
 }
 
 @layer utilities {
