@@ -24,14 +24,18 @@ import {
 import { portalApi, type PortalSwitchTarget } from "@/lib/api";
 import {
   buildPortalAccountSwitchOptions,
+  invalidatePortalSessionQueries,
   isPortalSwitchOptionActive,
+  isPortalSwitchOptionAvailable,
   portalAccountKycHref,
   portalAccountKycVerified,
   portalAccountSwitchConfirmCopy,
   portalAccountSwitchMenuEligible,
+  portalSwitchUnavailableMessage,
   type PortalAccountSurface,
   type PortalAccountSwitchOption,
 } from "@/lib/portalAccountSwitch";
+import { dispatchPortalSwitched } from "@/lib/portalRoleLabels";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -56,17 +60,17 @@ export default function PortalAccountSwitch({ currentSurface, className }: Porta
   const { data: me, isLoading: meLoading } = useQuery({
     queryKey: ["portal", "me", "account-switch"],
     queryFn: () => portalApi.me(),
-    staleTime: 30_000,
+    staleTime: 0,
   });
 
   const { data: switchCtx, isLoading: ctxLoading } = useQuery({
     queryKey: ["portal", "switch-portal-context", "account-switch"],
     queryFn: () => portalApi.switchPortalContext(),
-    staleTime: 30_000,
+    staleTime: 0,
   });
 
   const kycVerified = portalAccountKycVerified(me);
-  const menuEligible = portalAccountSwitchMenuEligible(me, switchCtx);
+  const menuEligible = portalAccountSwitchMenuEligible(me);
   const options = useMemo(() => buildPortalAccountSwitchOptions(switchCtx), [switchCtx]);
   const loading = meLoading || ctxLoading;
 
@@ -76,8 +80,9 @@ export default function PortalAccountSwitch({ currentSurface, className }: Porta
       setConfirmOpen(false);
       setPending(null);
       setMenuOpen(false);
-      await queryClient.invalidateQueries({ queryKey: ["portal"] });
-      toast.success("Portal switched successfully.");
+      await invalidatePortalSessionQueries(queryClient);
+      dispatchPortalSwitched({ role: data.role, redirect: data.redirect });
+      toast.success(`Switched to ${data.role === "parent" ? "Parent" : data.role === "child" ? "Child" : "Normal (Customer)"} portal.`);
       navigate(data.redirect, { replace: true });
     },
     onError: (e: Error) => {
@@ -98,6 +103,10 @@ export default function PortalAccountSwitch({ currentSurface, className }: Porta
     if (!kycVerified) {
       toast.message("Complete KYC verification to switch portals.");
       navigate(portalAccountKycHref(currentSurface));
+      return;
+    }
+    if (!isPortalSwitchOptionAvailable(opt, switchCtx)) {
+      toast.error(portalSwitchUnavailableMessage(opt.target));
       return;
     }
     setPending(opt);
@@ -129,8 +138,8 @@ export default function PortalAccountSwitch({ currentSurface, className }: Porta
         variant="secondary"
         size="icon"
         className={cn("h-9 w-9 shrink-0", className)}
-        aria-label={kycVerified ? "Account switcher" : "Complete KYC to switch portals"}
-        title={kycVerified ? "Account switcher" : "Complete KYC to switch portals"}
+        aria-label="Complete KYC to switch portals"
+        title="Complete KYC to switch portals"
         onClick={handleTrigger}
       >
         <ArrowLeftRight className="h-4 w-4" />
@@ -155,17 +164,21 @@ export default function PortalAccountSwitch({ currentSurface, className }: Porta
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-72">
           <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-            Switch portal
+            Switch portal role
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           {options.map((opt) => {
             const Icon = surfaceIcon(opt.surface);
             const active = isPortalSwitchOptionActive(opt, switchCtx, currentSurface);
+            const available = isPortalSwitchOptionAvailable(opt, switchCtx);
             return (
               <DropdownMenuItem
                 key={opt.target}
                 disabled={active || applySwitch.isPending}
-                className="flex flex-col items-start gap-0.5 py-2.5 cursor-pointer"
+                className={cn(
+                  "flex flex-col items-start gap-0.5 py-2.5 cursor-pointer",
+                  !available && !active && "opacity-60",
+                )}
                 onClick={() => openConfirm(opt)}
               >
                 <span className="flex w-full items-center gap-2 font-medium">

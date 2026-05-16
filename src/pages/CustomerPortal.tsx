@@ -79,6 +79,7 @@ import PortalNotificationsModal from '@/components/portal/PortalNotificationsMod
 import PortalAccountSwitch from '@/components/portal/PortalAccountSwitch';
 import { mapPortalNotificationUiType } from '@/lib/portalNotifications';
 import { useSessionHomeRedirect } from '@/lib/sessionHomeRedirect';
+import { usePortalSwitchRefresh } from '@/hooks/usePortalSwitchRefresh';
 import { handleWalletTopupClientResponse } from '@/lib/walletTopupClient';
 
 type UserRole = 'normal' | 'parent' | 'child';
@@ -111,6 +112,7 @@ const CustomerPortal = () => {
   const queryClient = useQueryClient();
   const { addToCart, cartCount, setIsCartOpen } = useCart();
   const [sessionTick, setSessionTick] = useState(0);
+  usePortalSwitchRefresh(() => setSessionTick((t) => t + 1));
   const portalToken = Boolean(getAuthToken());
   const [showAddMoneyModal, setShowAddMoneyModal] = useState(false);
   const [addMoneyPrefill, setAddMoneyPrefill] = useState('');

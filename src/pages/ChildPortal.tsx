@@ -25,6 +25,7 @@ import {
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { PORTAL_LOGIN_PATH, navigateToPortalLogin, setPostLogoutLoginPath } from '@/lib/portalLoginPaths';
 import { useSessionHomeRedirect } from '@/lib/sessionHomeRedirect';
+import { usePortalSwitchRefresh } from '@/hooks/usePortalSwitchRefresh';
 import { usePortalOrderPkFromPath, usePortalSectionPath } from '@/lib/portalNavigation';
 import PortalMyOrdersSection from '@/components/portal/PortalMyOrdersSection';
 import WalletHubPanel from '@/components/wallet/WalletHubPanel';
@@ -173,6 +174,7 @@ function WalletShareWithKidCard({ kid, groupName }: { kid: string; groupName: st
 const ChildPortal = () => {
   const navigate = useNavigate();
   const [sessionTick, setSessionTick] = useState(0);
+  usePortalSwitchRefresh(() => setSessionTick((t) => t + 1));
   const portalToken = Boolean(getAuthToken());
   const [showBalance, setShowBalance] = useState(true);
   const [topUpMethod, setTopUpMethod] = useState<'esewa' | 'khalti'>('esewa');

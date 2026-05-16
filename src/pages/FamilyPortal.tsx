@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { PORTAL_LOGIN_PATH, navigateToPortalLogin, setPostLogoutLoginPath } from '@/lib/portalLoginPaths';
 import { useSessionHomeRedirect } from '@/lib/sessionHomeRedirect';
+import { usePortalSwitchRefresh } from '@/hooks/usePortalSwitchRefresh';
 import {
   findSidebarNodeById,
   resolvePortalNavViewKey,
@@ -176,6 +177,7 @@ export function FamilyPortal() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [sessionTick, setSessionTick] = useState(0);
+  usePortalSwitchRefresh(() => setSessionTick((t) => t + 1));
   const portalToken = Boolean(getAuthToken());
   const [showAddMember, setShowAddMember] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);

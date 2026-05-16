@@ -18,7 +18,9 @@ import { Textarea } from '@/components/ui/textarea';
 import { extractResults, portalApi } from '@/lib/api';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import PortalActiveRoleBadge from '@/components/portal/PortalActiveRoleBadge';
 import PortalSavedReelsCard from '@/components/portal/PortalSavedReelsCard';
+import { portalRoleDisplayLabel } from '@/lib/portalRoleLabels';
 
 function splitDescription(desc: string): { highlights: string[]; bio: string } {
   const t = desc.trim();
@@ -153,8 +155,19 @@ export default function PortalCustomerProfileModule({ onSignOutClick }: Props) {
     return <div className="p-6 text-muted-foreground">Loading profile…</div>;
   }
 
+  const portalRole = (data as { portal_role?: string } | undefined)?.portal_role;
+
   return (
     <div className="w-full max-w-none space-y-6">
+      <div className="space-y-2">
+        <PortalActiveRoleBadge />
+        {portalRole ? (
+          <p className="text-xs text-muted-foreground">
+            Account role:{' '}
+            <span className="font-medium text-foreground">{portalRoleDisplayLabel(portalRole)}</span>
+          </p>
+        ) : null}
+      </div>
       <input
         ref={bannerInputRef}
         type="file"

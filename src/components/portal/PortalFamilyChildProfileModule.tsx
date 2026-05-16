@@ -19,7 +19,9 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import PortalActiveRoleBadge from '@/components/portal/PortalActiveRoleBadge';
 import PortalSavedReelsCard from '@/components/portal/PortalSavedReelsCard';
+import { portalRoleDisplayLabel } from '@/lib/portalRoleLabels';
 
 type Props = {
   variant: 'family' | 'child';
@@ -98,6 +100,18 @@ export default function PortalFamilyChildProfileModule({ variant, onLogoutClick 
       <div className="min-w-0">
         <h1 className="text-2xl font-bold text-foreground">{title}</h1>
         <p className="text-sm text-muted-foreground mt-1">Keep your profile up to date.</p>
+        <PortalActiveRoleBadge className="mt-3" />
+        {d?.portal_role ? (
+          <p className="text-xs text-muted-foreground mt-2">
+            Account role: <span className="font-medium text-foreground">{portalRoleDisplayLabel(d.portal_role)}</span>
+            {d.family_group_name ? (
+              <>
+                {' '}
+                · Family group: <span className="text-foreground">{d.family_group_name}</span>
+              </>
+            ) : null}
+          </p>
+        ) : null}
       </div>
 
       <PortalSavedReelsCard />

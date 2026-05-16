@@ -10,6 +10,30 @@ export type PortalAccountSwitchOption = {
   href: string;
 };
 
+const ALL_PORTAL_SWITCH_OPTIONS: PortalAccountSwitchOption[] = [
+  {
+    surface: "main",
+    target: "normal",
+    label: "Normal (Customer)",
+    description: "Shop and use your personal wallet as a regular customer",
+    href: "/portal/dashboard",
+  },
+  {
+    surface: "family",
+    target: "parent",
+    label: "Parent",
+    description: "Manage family members, shared wallets, and limits",
+    href: "/family-portal/dashboard",
+  },
+  {
+    surface: "child",
+    target: "child",
+    label: "Child",
+    description: "Child wallet and parent-approved purchases",
+    href: "/child-portal/dashboard",
+  },
+];
+
 export function portalSwitchTargetToSurface(target: PortalSwitchTarget): PortalAccountSurface {
   if (target === "parent") return "family";
   if (target === "child") return "child";
@@ -28,45 +52,31 @@ export function portalAccountKycHref(surface: PortalAccountSurface): string {
   return "/portal/kyc";
 }
 
-export function portalAccountDashboardHref(surface: PortalAccountSurface): string {
-  if (surface === "family") return "/family-portal/dashboard";
-  if (surface === "child") return "/child-portal/dashboard";
-  return "/portal/dashboard";
+/** Always show Parent, Child, and Normal in the switcher menu. */
+export function buildPortalAccountSwitchOptions(
+  _ctx?: PortalSwitchPortalContext | null,
+): PortalAccountSwitchOption[] {
+  return ALL_PORTAL_SWITCH_OPTIONS;
 }
 
-export function buildPortalAccountSwitchOptions(
+export function isPortalSwitchOptionAvailable(
+  opt: PortalAccountSwitchOption,
   ctx: PortalSwitchPortalContext | null | undefined,
-): PortalAccountSwitchOption[] {
-  if (!ctx) return [];
-  const out: PortalAccountSwitchOption[] = [];
-  if (ctx.has_normal_portal_access !== false) {
-    out.push({
-      surface: "main",
-      target: "normal",
-      label: "Normal (Customer)",
-      description: "Shop and use your personal wallet as a regular customer",
-      href: portalAccountDashboardHref("main"),
-    });
+): boolean {
+  if (!ctx) return opt.target === "normal";
+  if (opt.target === "normal") return ctx.has_normal_portal_access !== false;
+  if (opt.target === "parent") return Boolean(ctx.has_family_portal_access);
+  return Boolean(ctx.has_child_portal_access);
+}
+
+export function portalSwitchUnavailableMessage(target: PortalSwitchTarget): string {
+  if (target === "parent") {
+    return "Parent portal requires an active family group. Create or join a family first.";
   }
-  if (ctx.has_family_portal_access) {
-    out.push({
-      surface: "family",
-      target: "parent",
-      label: "Parent",
-      description: "Manage family members, shared wallets, and limits",
-      href: portalAccountDashboardHref("family"),
-    });
+  if (target === "child") {
+    return "Child portal requires a family invite. Ask your parent to add you or accept an invite.";
   }
-  if (ctx.has_child_portal_access) {
-    out.push({
-      surface: "child",
-      target: "child",
-      label: "Child",
-      description: "Child wallet and parent-approved purchases",
-      href: portalAccountDashboardHref("child"),
-    });
-  }
-  return out;
+  return "Customer portal is not available for this account.";
 }
 
 export function portalAccountSwitchConfirmCopy(target: PortalSwitchTarget): {
@@ -93,13 +103,10 @@ export function portalAccountSwitchConfirmCopy(target: PortalSwitchTarget): {
   };
 }
 
-/** Show switch menu when KYC is verified and at least one portal mode is available. */
 export function portalAccountSwitchMenuEligible(
   me: Pick<PortalMe, "kyc_status" | "kyc_required"> | null | undefined,
-  ctx: PortalSwitchPortalContext | null | undefined,
 ): boolean {
-  if (!portalAccountKycVerified(me)) return false;
-  return buildPortalAccountSwitchOptions(ctx).length > 0;
+  return portalAccountKycVerified(me);
 }
 
 export function isPortalSwitchOptionActive(
@@ -110,4 +117,14 @@ export function isPortalSwitchOptionActive(
   const active = ctx?.active_target;
   if (active) return opt.target === active;
   return opt.surface === currentSurface;
+}
+
+export async function invalidatePortalSessionQueries(
+  queryClient: { invalidateQueries: (opts: { queryKey: string[] }) => Promise<unknown> },
+) {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: ["portal"] }),
+    queryClient.invalidateQueries({ queryKey: ["auth", "session-home"] }),
+    queryClient.invalidateQueries({ queryKey: ["website", "header-portal-session"] }),
+  ]);
 }
