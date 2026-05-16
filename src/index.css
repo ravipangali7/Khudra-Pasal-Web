@@ -383,15 +383,17 @@
     touch-action: manipulation;
   }
 
-  /* Flutter WebView shell — native-style mobile chrome (no web footers / download promo). */
-  html.native-app-shell .mobile-tabbar-fixed,
+  /*
+   * Flutter WebView shell: hide marketing footer + download banner, keep bottom tab bar.
+   * Tab bars use md:hidden; WebViews often report a wide viewport — force the bar visible in-app.
+   */
   html.native-app-shell .site-footer,
   html.native-app-shell .download-app-banner {
     display: none !important;
   }
 
-  html.native-app-shell body {
-    padding-bottom: 0 !important;
+  html.native-app-shell .mobile-tabbar-fixed {
+    display: flex !important;
   }
 }
 

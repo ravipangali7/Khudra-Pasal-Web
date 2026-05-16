@@ -1,4 +1,7 @@
-/** Set by the Flutter WebView shell (UA token + injected localStorage). */
+/**
+ * Set by the Flutter WebView shell (UA token + injected localStorage).
+ * In-app: hide site footer + download banner; keep bottom tab navigation visible.
+ */
 export const NATIVE_APP_STORAGE_KEY = "khudrapasal_native_app";
 export const NATIVE_APP_UA_TOKEN = "KhudraPasalApp";
 export const NATIVE_APP_HTML_CLASS = "native-app-shell";

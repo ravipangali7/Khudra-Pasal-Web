@@ -12,14 +12,11 @@ import {
   navigateToMobileWallet,
 } from '@/lib/mobileProfileNav';
 import '../reels-theme.css';
-import { useNativeAppShell } from '@/hooks/useNativeAppShell';
-
 const FOOTER_HEIGHT = 64;
 
 const ReelsMobileFooter: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const inNativeApp = useNativeAppShell();
 
   const tabs = useMemo(
     () => [
@@ -33,14 +30,11 @@ const ReelsMobileFooter: React.FC = () => {
   );
 
   useEffect(() => {
-    if (inNativeApp) return;
     document.body.style.paddingBottom = `${FOOTER_HEIGHT + 16}px`;
     return () => {
       document.body.style.paddingBottom = '';
     };
-  }, [inNativeApp]);
-
-  if (inNativeApp) return null;
+  }, []);
 
   const isActive = (path: string) => location.pathname === path;
 

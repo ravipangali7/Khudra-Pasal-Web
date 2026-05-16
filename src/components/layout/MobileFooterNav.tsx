@@ -11,8 +11,6 @@ import {
   navigateToMobileProfile,
   navigateToMobileWallet,
 } from '@/lib/mobileProfileNav';
-import { useNativeAppShell } from '@/hooks/useNativeAppShell';
-
 const FOOTER_HEIGHT = 64;
 
 /** Space reserved above the tab bar (matches prior body padding when the window was the scroller). */
@@ -29,15 +27,14 @@ interface MobileFooterNavProps {
 const MobileFooterNav = ({ skipDocumentPadding = false }: MobileFooterNavProps) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const inNativeApp = useNativeAppShell();
 
   useEffect(() => {
-    if (inNativeApp || skipDocumentPadding) return;
+    if (skipDocumentPadding) return;
     document.body.style.paddingBottom = `${MOBILE_TABBAR_SCROLL_PADDING}px`;
     return () => {
       document.body.style.paddingBottom = '';
     };
-  }, [inNativeApp, skipDocumentPadding]);
+  }, [skipDocumentPadding]);
 
   const tabs = useMemo(
     () => [
@@ -49,8 +46,6 @@ const MobileFooterNav = ({ skipDocumentPadding = false }: MobileFooterNavProps) 
     ],
     [],
   );
-
-  if (inNativeApp) return null;
 
   const isActive = (path: string) => location.pathname === path;
 
