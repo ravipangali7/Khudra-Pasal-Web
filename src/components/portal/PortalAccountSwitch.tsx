@@ -1,8 +1,18 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeftRight, Baby, Check, Loader2, User, UsersRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,14 +21,16 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { portalApi } from "@/lib/api";
+import { portalApi, type PortalSwitchTarget } from "@/lib/api";
 import {
   buildPortalAccountSwitchOptions,
-  portalAccountDashboardHref,
+  isPortalSwitchOptionActive,
   portalAccountKycHref,
   portalAccountKycVerified,
+  portalAccountSwitchConfirmCopy,
   portalAccountSwitchMenuEligible,
   type PortalAccountSurface,
+  type PortalAccountSwitchOption,
 } from "@/lib/portalAccountSwitch";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -36,6 +48,10 @@ function surfaceIcon(surface: PortalAccountSurface) {
 
 export default function PortalAccountSwitch({ currentSurface, className }: PortalAccountSwitchProps) {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pending, setPending] = useState<PortalAccountSwitchOption | null>(null);
 
   const { data: me, isLoading: meLoading } = useQuery({
     queryKey: ["portal", "me", "account-switch"],
@@ -50,31 +66,46 @@ export default function PortalAccountSwitch({ currentSurface, className }: Porta
   });
 
   const kycVerified = portalAccountKycVerified(me);
-  const menuEligible = portalAccountSwitchMenuEligible(me, switchCtx, currentSurface);
+  const menuEligible = portalAccountSwitchMenuEligible(me, switchCtx);
   const options = useMemo(() => buildPortalAccountSwitchOptions(switchCtx), [switchCtx]);
   const loading = meLoading || ctxLoading;
+
+  const applySwitch = useMutation({
+    mutationFn: (target: PortalSwitchTarget) => portalApi.applyPortalSwitch(target),
+    onSuccess: async (data) => {
+      setConfirmOpen(false);
+      setPending(null);
+      setMenuOpen(false);
+      await queryClient.invalidateQueries({ queryKey: ["portal"] });
+      toast.success("Portal switched successfully.");
+      navigate(data.redirect, { replace: true });
+    },
+    onError: (e: Error) => {
+      toast.error(e.message || "Could not switch portal.");
+    },
+  });
 
   const handleTrigger = () => {
     if (loading) return;
     if (!kycVerified) {
-      toast.message("Complete KYC verification to switch accounts.");
+      toast.message("Complete KYC verification to switch portals.");
       navigate(portalAccountKycHref(currentSurface));
-      return;
-    }
-    if (!options.some((o) => o.surface !== currentSurface)) {
-      toast.message("No other account types are available for your profile.");
     }
   };
 
-  const handleSelect = (surface: PortalAccountSurface, href: string) => {
-    if (surface === currentSurface) return;
+  const openConfirm = (opt: PortalAccountSwitchOption) => {
+    if (isPortalSwitchOptionActive(opt, switchCtx, currentSurface)) return;
     if (!kycVerified) {
-      toast.message("Complete KYC verification to switch accounts.");
+      toast.message("Complete KYC verification to switch portals.");
       navigate(portalAccountKycHref(currentSurface));
       return;
     }
-    navigate(href);
+    setPending(opt);
+    setMenuOpen(false);
+    setConfirmOpen(true);
   };
+
+  const confirmCopy = pending ? portalAccountSwitchConfirmCopy(pending.target) : null;
 
   if (loading) {
     return (
@@ -98,8 +129,8 @@ export default function PortalAccountSwitch({ currentSurface, className }: Porta
         variant="secondary"
         size="icon"
         className={cn("h-9 w-9 shrink-0", className)}
-        aria-label={kycVerified ? "Account switcher" : "Complete KYC to switch accounts"}
-        title={kycVerified ? "Account switcher" : "Complete KYC to switch accounts"}
+        aria-label={kycVerified ? "Account switcher" : "Complete KYC to switch portals"}
+        title={kycVerified ? "Account switcher" : "Complete KYC to switch portals"}
         onClick={handleTrigger}
       >
         <ArrowLeftRight className="h-4 w-4" />
@@ -108,51 +139,76 @@ export default function PortalAccountSwitch({ currentSurface, className }: Porta
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          type="button"
-          variant="secondary"
-          size="icon"
-          className={cn("h-9 w-9 shrink-0", className)}
-          aria-label="Switch account type"
-          title="Switch account"
-        >
-          <ArrowLeftRight className="h-4 w-4" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-72">
-        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-          Switch account
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {options.map((opt) => {
-          const Icon = surfaceIcon(opt.surface);
-          const active = opt.surface === currentSurface;
-          return (
-            <DropdownMenuItem
-              key={opt.surface}
-              disabled={active}
-              className="flex flex-col items-start gap-0.5 py-2.5 cursor-pointer"
-              onClick={() => handleSelect(opt.surface, opt.href)}
+    <>
+      <DropdownMenu open={menuOpen} onOpenChange={setMenuOpen}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon"
+            className={cn("h-9 w-9 shrink-0", className)}
+            aria-label="Switch portal role"
+            title="Switch portal"
+          >
+            <ArrowLeftRight className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-72">
+          <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+            Switch portal
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {options.map((opt) => {
+            const Icon = surfaceIcon(opt.surface);
+            const active = isPortalSwitchOptionActive(opt, switchCtx, currentSurface);
+            return (
+              <DropdownMenuItem
+                key={opt.target}
+                disabled={active || applySwitch.isPending}
+                className="flex flex-col items-start gap-0.5 py-2.5 cursor-pointer"
+                onClick={() => openConfirm(opt)}
+              >
+                <span className="flex w-full items-center gap-2 font-medium">
+                  <Icon className="h-4 w-4 shrink-0 text-primary" />
+                  <span className="flex-1">{opt.label}</span>
+                  {active ? <Check className="h-4 w-4 text-emerald-600" /> : null}
+                </span>
+                <span className="pl-6 text-xs text-muted-foreground font-normal">{opt.description}</span>
+              </DropdownMenuItem>
+            );
+          })}
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <AlertDialog
+        open={confirmOpen}
+        onOpenChange={(open) => {
+          if (!applySwitch.isPending) {
+            setConfirmOpen(open);
+            if (!open) setPending(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{confirmCopy?.title ?? "Switch portal?"}</AlertDialogTitle>
+            <AlertDialogDescription>{confirmCopy?.description}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={applySwitch.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={applySwitch.isPending || !pending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (!pending) return;
+                applySwitch.mutate(pending.target);
+              }}
             >
-              <span className="flex w-full items-center gap-2 font-medium">
-                <Icon className="h-4 w-4 shrink-0 text-primary" />
-                <span className="flex-1">{opt.label}</span>
-                {active ? <Check className="h-4 w-4 text-emerald-600" /> : null}
-              </span>
-              <span className="pl-6 text-xs text-muted-foreground font-normal">{opt.description}</span>
-            </DropdownMenuItem>
-          );
-        })}
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          className="text-xs text-muted-foreground"
-          onClick={() => navigate(portalAccountDashboardHref(currentSurface))}
-        >
-          Stay on current portal
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+              {applySwitch.isPending ? "Switching…" : "Confirm switch"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

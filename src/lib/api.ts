@@ -3004,6 +3004,8 @@ export type PortalChildRulesResponse = {
   approved_purchase_product_ids?: number[];
 };
 
+export type PortalSwitchTarget = "parent" | "child" | "normal";
+
 export type PortalSwitchPortalContext = {
   has_family_portal_access: boolean;
   has_child_portal_access: boolean;
@@ -3012,6 +3014,7 @@ export type PortalSwitchPortalContext = {
   kyc_status: string;
   kyc_required: boolean;
   kyc_verified: boolean;
+  active_target: PortalSwitchTarget;
   family_group_types: Array<{ value: string; label: string }>;
   create_family_defaults: { status: string };
 };
@@ -3044,6 +3047,12 @@ export const portalApi = {
     portalFetch<{ items: ApiNavNode[] }>(`/portal/navigation/${buildQuery({ surface })}`, undefined, true),
   switchPortalContext: () =>
     portalFetch<PortalSwitchPortalContext>("/portal/switch-portal/context/", undefined, true),
+  applyPortalSwitch: (target: PortalSwitchTarget) =>
+    portalFetch<{ ok: true; role: string; active_target: PortalSwitchTarget; redirect: string }>(
+      "/portal/switch-portal/apply/",
+      { method: "POST", body: JSON.stringify({ target }) },
+      true,
+    ),
   me: () => portalFetch<PortalMe>("/portal/me/", undefined, true),
   summary: () => portalFetch<PortalSummary>("/portal/summary/", undefined, true),
   orders: (params?: QueryParams) => portalPaged<PortalOrderRow>("orders", params),

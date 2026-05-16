@@ -1,13 +1,20 @@
-import type { PortalMe, PortalSwitchPortalContext } from "@/lib/api";
+import type { PortalMe, PortalSwitchPortalContext, PortalSwitchTarget } from "@/lib/api";
 
 export type PortalAccountSurface = "main" | "family" | "child";
 
 export type PortalAccountSwitchOption = {
   surface: PortalAccountSurface;
+  target: PortalSwitchTarget;
   label: string;
   description: string;
   href: string;
 };
+
+export function portalSwitchTargetToSurface(target: PortalSwitchTarget): PortalAccountSurface {
+  if (target === "parent") return "family";
+  if (target === "child") return "child";
+  return "main";
+}
 
 export function portalAccountKycVerified(me: Pick<PortalMe, "kyc_status" | "kyc_required"> | null | undefined): boolean {
   if (!me) return false;
@@ -35,23 +42,26 @@ export function buildPortalAccountSwitchOptions(
   if (ctx.has_normal_portal_access !== false) {
     out.push({
       surface: "main",
-      label: "Normal account",
-      description: "Customer portal — shop and personal wallet",
+      target: "normal",
+      label: "Normal (Customer)",
+      description: "Shop and use your personal wallet as a regular customer",
       href: portalAccountDashboardHref("main"),
     });
   }
   if (ctx.has_family_portal_access) {
     out.push({
       surface: "family",
-      label: "Family account",
-      description: "Manage family members, wallets, and limits",
+      target: "parent",
+      label: "Parent",
+      description: "Manage family members, shared wallets, and limits",
       href: portalAccountDashboardHref("family"),
     });
   }
   if (ctx.has_child_portal_access) {
     out.push({
       surface: "child",
-      label: "Child account",
+      target: "child",
+      label: "Child",
       description: "Child wallet and parent-approved purchases",
       href: portalAccountDashboardHref("child"),
     });
@@ -59,12 +69,45 @@ export function buildPortalAccountSwitchOptions(
   return out;
 }
 
-/** Show switch menu when KYC is verified and another portal type is available. */
+export function portalAccountSwitchConfirmCopy(target: PortalSwitchTarget): {
+  title: string;
+  description: string;
+} {
+  if (target === "normal") {
+    return {
+      title: "Switch to Normal (Customer)?",
+      description:
+        "You will use the customer portal as a regular shopper. Your family group membership is not changed — you stay in the same family.",
+    };
+  }
+  if (target === "parent") {
+    return {
+      title: "Switch to Parent?",
+      description:
+        "You will use the family (parent) portal to manage members, wallets, and spending controls.",
+    };
+  }
+  return {
+    title: "Switch to Child?",
+    description: "You will use the child portal with your assigned wallet and purchase rules.",
+  };
+}
+
+/** Show switch menu when KYC is verified and at least one portal mode is available. */
 export function portalAccountSwitchMenuEligible(
   me: Pick<PortalMe, "kyc_status" | "kyc_required"> | null | undefined,
   ctx: PortalSwitchPortalContext | null | undefined,
-  currentSurface: PortalAccountSurface,
 ): boolean {
   if (!portalAccountKycVerified(me)) return false;
-  return buildPortalAccountSwitchOptions(ctx).some((o) => o.surface !== currentSurface);
+  return buildPortalAccountSwitchOptions(ctx).length > 0;
+}
+
+export function isPortalSwitchOptionActive(
+  opt: PortalAccountSwitchOption,
+  ctx: PortalSwitchPortalContext | null | undefined,
+  currentSurface: PortalAccountSurface,
+): boolean {
+  const active = ctx?.active_target;
+  if (active) return opt.target === active;
+  return opt.surface === currentSurface;
 }
