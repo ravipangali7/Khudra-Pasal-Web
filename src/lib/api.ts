@@ -1563,11 +1563,14 @@ export type AdminMeNotificationRow = {
 };
 
 export const adminApi = {
-  login: (phone: string, password: string) =>
-    apiFetch<{ token: string; user: { id: number; name: string } }>("/admin/auth/login/", {
+  login: (emailOrPhone: string, password: string) => {
+    const id = emailOrPhone.trim();
+    const body = id.includes("@") ? { email: id, password } : { phone: id, password };
+    return apiFetch<{ token: string; user: { id: number; name: string } }>("/admin/auth/login/", {
       method: "POST",
-      body: JSON.stringify({ phone, password }),
-    }),
+      body: JSON.stringify(body),
+    });
+  },
   profile: () => apiFetch<AdminSelfProfile>("/admin/profile/", undefined, true),
   meNotifications: () =>
     apiFetch<AdminMeNotificationRow[]>("/admin/me/notifications/", undefined, true),

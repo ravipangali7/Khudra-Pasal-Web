@@ -12,11 +12,15 @@ import {
   navigateToMobileWallet,
 } from '@/lib/mobileProfileNav';
 import '../reels-theme.css';
+import { cn } from '@/lib/utils';
+import { useNativeAppShell } from '@/hooks/useNativeAppShell';
+
 const FOOTER_HEIGHT = 64;
 
 const ReelsMobileFooter: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const inNativeApp = useNativeAppShell();
 
   const tabs = useMemo(
     () => [
@@ -40,7 +44,7 @@ const ReelsMobileFooter: React.FC = () => {
 
   const content = (
     <nav
-      className="mobile-tabbar-fixed md:hidden"
+      className={cn('mobile-tabbar-fixed', !inNativeApp && 'md:hidden')}
       style={{
         background: 'rgba(10, 10, 10, 0.95)',
         backdropFilter: 'blur(20px)',

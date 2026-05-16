@@ -11,6 +11,9 @@ import {
   navigateToMobileProfile,
   navigateToMobileWallet,
 } from '@/lib/mobileProfileNav';
+import { cn } from '@/lib/utils';
+import { useNativeAppShell } from '@/hooks/useNativeAppShell';
+
 const FOOTER_HEIGHT = 64;
 
 /** Space reserved above the tab bar (matches prior body padding when the window was the scroller). */
@@ -27,6 +30,7 @@ interface MobileFooterNavProps {
 const MobileFooterNav = ({ skipDocumentPadding = false }: MobileFooterNavProps) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const inNativeApp = useNativeAppShell();
 
   useEffect(() => {
     if (skipDocumentPadding) return;
@@ -51,7 +55,7 @@ const MobileFooterNav = ({ skipDocumentPadding = false }: MobileFooterNavProps) 
 
   const content = (
     <nav
-      className="mobile-tabbar-fixed md:hidden"
+      className={cn('mobile-tabbar-fixed', !inNativeApp && 'md:hidden')}
       style={{
         background: 'linear-gradient(135deg, hsl(270 80% 20%) 0%, hsl(270 60% 12%) 50%, hsl(220 40% 10%) 100%)',
         backdropFilter: 'blur(20px)',
