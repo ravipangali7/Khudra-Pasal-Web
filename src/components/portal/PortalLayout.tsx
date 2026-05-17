@@ -182,7 +182,6 @@ const PortalLayout = ({
           </main>
         </div>
 
-        <AIChatbot />
         <MobileFooterNav skipDocumentPadding />
       </div>
     </PortalHeaderChromeContext.Provider>

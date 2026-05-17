@@ -6,7 +6,6 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import MobileFooterNav from '@/components/layout/MobileFooterNav';
 import ScrollToTop from '@/components/ui/ScrollToTop';
-import AIChatbot from '@/components/chat/AIChatbot';
 import CategoryNav from '@/components/layout/CategoryNav';
 import HeroBanner from '@/components/banners/HeroBanner';
 import ProductGrid from '@/components/product/ProductGrid';
@@ -139,7 +138,6 @@ const Category = () => {
 
       <Footer />
       <ScrollToTop />
-      <AIChatbot />
       <MobileFooterNav />
     </div>
   );

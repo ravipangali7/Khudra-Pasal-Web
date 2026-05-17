@@ -6,7 +6,6 @@ import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import MobileFooterNav from "@/components/layout/MobileFooterNav";
 import ScrollToTop from "@/components/ui/ScrollToTop";
-import AIChatbot from "@/components/chat/AIChatbot";
 import ProductCard from "@/components/product/ProductCard";
 import { getApiErrorHttpStatus, mapWebsiteProductToUi, websiteApi } from "@/lib/api";
 import { storefrontRoutes } from "@/lib/routes";
@@ -152,7 +151,6 @@ const BrandDetail = () => {
 
       <Footer />
       <ScrollToTop />
-      <AIChatbot />
       <MobileFooterNav />
     </div>
   );

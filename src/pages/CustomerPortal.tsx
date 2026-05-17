@@ -71,7 +71,6 @@ import PayoutAccountsManager from '@/components/wallet/PayoutAccountsManager';
 import WalletWithdraw from '@/components/wallet/WalletWithdraw';
 import WalletAddMoney from '@/components/wallet/WalletAddMoney';
 import OtpVerificationModal from '@/components/wallet/OtpVerificationModal';
-import AIChatbot from '@/components/chat/AIChatbot';
 import MobileFooterNav, { MOBILE_TABBAR_SCROLL_PADDING } from '@/components/layout/MobileFooterNav';
 import AdminTable from '@/components/admin/AdminTable';
 import PortalMyOrdersSection from '@/components/portal/PortalMyOrdersSection';
@@ -1854,9 +1853,6 @@ const CustomerPortal = () => {
           }}
         />
       ) : null}
-
-      {/* AI Chatbot */}
-      <AIChatbot />
 
       {/* Mobile Footer */}
       <MobileFooterNav skipDocumentPadding />
