@@ -244,7 +244,8 @@ export type SupportTicketChatPanelProps = {
   onLoadOlder?: () => void;
   loadOlderPending?: boolean;
   showLoadOlder?: boolean;
-  keyboardInset?: number;
+  /** Full-height messenger layout for mobile ticket view (composer docked to visual viewport bottom). */
+  messengerMobile?: boolean;
 };
 
 const SupportTicketChatPanel = forwardRef<SupportTicketChatPanelHandle, SupportTicketChatPanelProps>(
@@ -261,7 +262,7 @@ const SupportTicketChatPanel = forwardRef<SupportTicketChatPanelHandle, SupportT
       onLoadOlder,
       loadOlderPending,
       showLoadOlder,
-      keyboardInset = 0,
+      messengerMobile = false,
     },
     ref,
   ) {
@@ -298,10 +299,10 @@ const SupportTicketChatPanel = forwardRef<SupportTicketChatPanelHandle, SupportT
   }, [normalized.length, isLoading, sendPending]);
 
   useEffect(() => {
-    if (keyboardInset > 0) {
+    if (messengerMobile && nearBottomRef.current) {
       endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
-  }, [keyboardInset]);
+  }, [messengerMobile, normalized.length]);
 
   const isMine = (m: SupportTicketMessageRow) =>
     viewerRole === 'staff' ? m.sender_role_kind === 'staff' : m.sender_role_kind === 'user';
@@ -339,10 +340,15 @@ const SupportTicketChatPanel = forwardRef<SupportTicketChatPanelHandle, SupportT
   return (
     <div
       className={cn(
-        'flex flex-col border border-border rounded-xl bg-card min-h-[320px]',
-        mobileUx
-          ? 'max-md:min-h-0 max-md:flex-1 max-md:max-h-none max-md:h-full max-md:rounded-lg'
-          : 'max-h-[min(70vh,640px)] h-[min(70vh,640px)]',
+        'flex min-h-[320px] flex-col bg-card',
+        messengerMobile
+          ? 'h-full min-h-0 flex-1 overflow-hidden rounded-lg border-0 shadow-none'
+          : cn(
+              'rounded-xl border border-border',
+              mobileUx
+                ? 'max-md:min-h-0 max-md:h-full max-md:max-h-none max-md:flex-1 max-md:rounded-lg'
+                : 'h-[min(70vh,640px)] max-h-[min(70vh,640px)]',
+            ),
       )}
       onDragOver={(e) => {
         e.preventDefault();
@@ -358,7 +364,7 @@ const SupportTicketChatPanel = forwardRef<SupportTicketChatPanelHandle, SupportT
       <div
         ref={scrollRef}
         onScroll={handleScroll}
-        className="flex-1 min-h-0 overflow-y-auto p-3"
+        className={cn('min-h-0 flex-1 overflow-y-auto overscroll-contain p-3', messengerMobile && 'pb-2')}
       >
         {showLoadOlder && onLoadOlder ? (
           <div className="flex justify-center pb-3 pt-1 min-h-[2.5rem] items-center">
@@ -460,6 +466,7 @@ const SupportTicketChatPanel = forwardRef<SupportTicketChatPanelHandle, SupportT
       </div>
       <SupportTicketChatComposer
         mobileUx={mobileUx}
+        composerDocked={messengerMobile}
         draft={draft}
         onDraftChange={setDraft}
         pendingFiles={pendingFiles}
@@ -474,7 +481,6 @@ const SupportTicketChatPanel = forwardRef<SupportTicketChatPanelHandle, SupportT
         dragOver={dragOver}
         textareaRef={textareaRef}
         PendingTile={PendingAttachmentTile}
-        keyboardInset={keyboardInset}
       />
     </div>
   );

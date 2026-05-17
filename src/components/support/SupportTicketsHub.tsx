@@ -25,6 +25,7 @@ import { toast } from 'sonner';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import SupportTicketChatPanel, { type SupportTicketChatPanelHandle } from './SupportTicketChatPanel';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useLockBodyScroll } from '@/hooks/useLockBodyScroll';
 import { useVisualViewportLayout } from '@/hooks/useVisualViewportLayout';
 import {
   appendSupportTicketMessageToCache,
@@ -82,6 +83,7 @@ const SupportTicketsHub = forwardRef<SupportTicketsHubHandle, SupportTicketsHubP
 
   const mobileTicketChatOpen = Boolean(selectedId) && isMobile;
   const vvLayout = useVisualViewportLayout(mobileTicketChatOpen);
+  useLockBodyScroll(mobileTicketChatOpen);
 
   const mobileTicketChatStyle: CSSProperties | undefined = mobileTicketChatOpen
     ? {
@@ -264,8 +266,13 @@ const SupportTicketsHub = forwardRef<SupportTicketsHubHandle, SupportTicketsHubP
   };
 
   return (
-    <div id="support-tickets-hub" className="w-full max-w-none space-y-6 md:space-y-8">
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+    <div id="support-tickets-hub" className={cn('w-full max-w-none', !mobileTicketChatOpen && 'space-y-6 md:space-y-8')}>
+      <div
+        className={cn(
+          'flex flex-col gap-4 sm:flex-row sm:items-center',
+          mobileTicketChatOpen && 'max-lg:hidden',
+        )}
+      >
         <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
           <MessageSquarePlus className="w-6 h-6 text-primary" />
         </div>
@@ -399,29 +406,57 @@ const SupportTicketsHub = forwardRef<SupportTicketsHubHandle, SupportTicketsHubP
 
         <section
           className={cn(
-            'space-y-3 min-h-0 flex flex-col',
+            'flex min-h-0 flex-col',
             selectedId &&
-              'max-lg:fixed max-lg:left-0 max-lg:right-0 max-lg:z-[10050] max-lg:flex max-lg:flex-col max-lg:bg-background max-lg:p-3 max-lg:pt-[max(0.75rem,env(safe-area-inset-top))]',
-            selectedId && !isMobile && 'max-lg:inset-0 max-lg:pb-[max(0.75rem,env(safe-area-inset-bottom))]',
-            selectedId && isMobile && 'max-lg:pb-2',
+              !isMobile &&
+              'max-lg:fixed max-lg:inset-0 max-lg:z-[10050] max-lg:flex max-lg:flex-col max-lg:space-y-3 max-lg:bg-background max-lg:p-3 max-lg:pb-[max(0.75rem,env(safe-area-inset-bottom))] max-lg:pt-[max(0.75rem,env(safe-area-inset-top))]',
+            selectedId &&
+              isMobile &&
+              'max-lg:fixed max-lg:left-0 max-lg:right-0 max-lg:z-[10050] max-lg:flex max-lg:flex-col max-lg:overflow-hidden max-lg:bg-background max-lg:p-0',
           )}
           style={mobileTicketChatStyle}
         >
           {selectedId ? (
             <>
-              <div className="rounded-xl border border-border bg-card p-4 space-y-1 shrink-0">
-                <div className="flex items-start justify-between gap-2">
+              <div
+                className={cn(
+                  'relative shrink-0',
+                  isMobile
+                    ? 'px-3 pb-2 pt-[max(0.35rem,env(safe-area-inset-top))]'
+                    : 'space-y-1 rounded-xl border border-border bg-card p-4',
+                )}
+              >
+                {isMobile ? (
                   <Button
                     type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="max-lg:flex lg:hidden shrink-0 -ml-2 gap-1 h-9 px-2"
+                    variant="secondary"
+                    size="icon"
+                    className="absolute -top-1 left-2 z-20 h-10 w-10 rounded-full border border-border bg-card shadow-md touch-manipulation"
                     onClick={() => setSelectedId(null)}
+                    aria-label="Back to tickets"
                   >
-                    <ArrowLeft className="w-4 h-4" />
-                    Back
+                    <ArrowLeft className="h-5 w-5" />
                   </Button>
-                  <div className="min-w-0 flex-1">
+                ) : null}
+                <div
+                  className={cn(
+                    'flex items-start justify-between gap-2',
+                    isMobile && 'mt-8 rounded-xl border border-border bg-card p-3 shadow-sm',
+                  )}
+                >
+                  {!isMobile ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="max-lg:flex lg:hidden shrink-0 -ml-2 gap-1 h-9 px-2 touch-manipulation"
+                      onClick={() => setSelectedId(null)}
+                    >
+                      <ArrowLeft className="w-4 h-4" />
+                      Back
+                    </Button>
+                  ) : null}
+                  <div className={cn('min-w-0 flex-1', isMobile && 'pl-0.5')}>
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-semibold text-foreground">{detail?.subject ?? '…'}</h3>
                       {detail && (
@@ -495,7 +530,12 @@ const SupportTicketsHub = forwardRef<SupportTicketsHubHandle, SupportTicketsHubP
                   </Popover>
                 </div>
               </div>
-              <div className="flex min-h-0 flex-1 flex-col max-lg:min-h-[50vh]">
+              <div
+                className={cn(
+                  'flex min-h-0 flex-1 flex-col',
+                  isMobile ? 'min-h-0 px-2 pb-1' : 'max-lg:min-h-[50vh]',
+                )}
+              >
                 <SupportTicketChatPanel
                   ref={chatRef}
                   messages={mergedMessages}
@@ -510,7 +550,7 @@ const SupportTicketsHub = forwardRef<SupportTicketsHubHandle, SupportTicketsHubP
                   showLoadOlder={mergedMessages.length > 0 && !loadOlderExhausted}
                   loadOlderPending={loadOlderPending}
                   onLoadOlder={loadOlder}
-                  keyboardInset={mobileTicketChatOpen ? vvLayout.keyboardInset : 0}
+                  messengerMobile={mobileTicketChatOpen}
                 />
               </div>
             </>

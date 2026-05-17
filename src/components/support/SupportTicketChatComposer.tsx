@@ -1,13 +1,10 @@
-import { useRef, useState, type CSSProperties } from 'react';
-import { Camera, ImagePlus, Images, Loader2, Paperclip, Send, Video } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { ImagePlus, Loader2, Paperclip, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
-
-const MOBILE_MEDIA_ACCEPT = 'image/*,video/*';
-const DESKTOP_FILE_ACCEPT =
-  'image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,.pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+import SupportChatAttachTray from './SupportChatAttachTray';
+import { SUPPORT_CHAT_DESKTOP_ACCEPT } from './supportChatConstants';
 
 export type PendingAttachmentTileProps = {
   file: File;
@@ -16,6 +13,8 @@ export type PendingAttachmentTileProps = {
 
 type SupportTicketChatComposerProps = {
   mobileUx: boolean;
+  /** When true, composer is pinned to the bottom of a visual-viewport-sized shell (no transform lift). */
+  composerDocked?: boolean;
   draft: string;
   onDraftChange: (value: string) => void;
   pendingFiles: File[];
@@ -30,12 +29,11 @@ type SupportTicketChatComposerProps = {
   dragOver?: boolean;
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
   PendingTile: React.ComponentType<PendingAttachmentTileProps>;
-  /** Lifts the composer above the on-screen keyboard (mobile). */
-  keyboardInset?: number;
 };
 
 export function SupportTicketChatComposer({
   mobileUx,
+  composerDocked = false,
   draft,
   onDraftChange,
   pendingFiles,
@@ -50,45 +48,34 @@ export function SupportTicketChatComposer({
   dragOver,
   textareaRef,
   PendingTile,
-  keyboardInset = 0,
 }: SupportTicketChatComposerProps) {
   const [attachOpen, setAttachOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const galleryInputRef = useRef<HTMLInputElement | null>(null);
-  const cameraInputRef = useRef<HTMLInputElement | null>(null);
-  const videoCaptureInputRef = useRef<HTMLInputElement | null>(null);
-
-  const pickAndClose = (list: FileList | null) => {
-    onPickFiles(list);
-    setAttachOpen(false);
-    if (galleryInputRef.current) galleryInputRef.current.value = '';
-    if (cameraInputRef.current) cameraInputRef.current.value = '';
-    if (videoCaptureInputRef.current) videoCaptureInputRef.current.value = '';
-  };
 
   const canSend = !disabledComposer && !sendPending && (draft.trim().length > 0 || pendingFiles.length > 0);
 
   const scrollComposerIntoView = () => {
     requestAnimationFrame(() => {
-      textareaRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      textareaRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' });
     });
   };
 
-  const composerShellStyle: CSSProperties =
-    keyboardInset > 0
-      ? {
-          transform: `translateY(-${keyboardInset}px)`,
-          transition: 'transform 0.15s ease-out',
-        }
-      : { transition: 'transform 0.15s ease-out' };
+  const handlePickFiles = (list: FileList | null) => {
+    onPickFiles(list);
+    setAttachOpen(false);
+  };
 
   return (
     <div
       className={cn(
-        'border-t border-border bg-background/95 shrink-0',
-        mobileUx ? 'p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]' : 'p-3 space-y-2',
+        'shrink-0 border-t border-border bg-background/95 backdrop-blur-sm supports-[backdrop-filter]:bg-background/80',
+        mobileUx ? 'px-2 pt-2' : 'space-y-2 p-3',
+        composerDocked
+          ? 'pb-[max(0.5rem,env(safe-area-inset-bottom,0px))]'
+          : mobileUx
+            ? 'pb-[max(0.5rem,env(safe-area-inset-bottom))]'
+            : undefined,
       )}
-      style={composerShellStyle}
     >
       {sendPending ? (
         <p className="text-xs text-muted-foreground flex items-center gap-2 px-1 pb-1">
@@ -107,84 +94,46 @@ export function SupportTicketChatComposer({
         type="file"
         multiple
         className="hidden"
-        accept={mobileUx ? MOBILE_MEDIA_ACCEPT : DESKTOP_FILE_ACCEPT}
-        onChange={(e) => onPickFiles(e.target.files)}
-      />
-      <input
-        ref={galleryInputRef}
-        type="file"
-        multiple
-        className="hidden"
-        accept={MOBILE_MEDIA_ACCEPT}
-        onChange={(e) => pickAndClose(e.target.files)}
-      />
-      <input
-        ref={cameraInputRef}
-        type="file"
-        className="hidden"
-        accept="image/*"
-        capture="environment"
-        onChange={(e) => pickAndClose(e.target.files)}
-      />
-      <input
-        ref={videoCaptureInputRef}
-        type="file"
-        className="hidden"
-        accept="video/*"
-        capture="environment"
-        onChange={(e) => pickAndClose(e.target.files)}
+        accept={SUPPORT_CHAT_DESKTOP_ACCEPT}
+        onChange={(e) => {
+          onPickFiles(e.target.files);
+          e.target.value = '';
+        }}
       />
 
       {pendingFiles.length > 0 ? (
-        <div className="flex gap-2.5 px-1 pb-2 max-h-[7.5rem] overflow-x-auto overflow-y-hidden">
+        <div className="mb-2 flex max-h-[7.5rem] gap-2.5 overflow-x-auto overflow-y-hidden px-0.5">
           {pendingFiles.map((f, i) => (
             <PendingTile key={`${f.name}-${i}-${f.size}-${f.lastModified}`} file={f} onRemove={() => onRemovePending(i)} />
           ))}
         </div>
       ) : null}
 
+      {mobileUx && attachOpen ? (
+        <SupportChatAttachTray
+          className="mb-2"
+          disabled={Boolean(disabledComposer) || sendPending}
+          onFiles={handlePickFiles}
+        />
+      ) : null}
+
       {mobileUx ? (
-        <div className="flex items-end gap-2">
-          <Popover open={attachOpen} onOpenChange={setAttachOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="shrink-0 h-11 w-11 rounded-full"
-                disabled={Boolean(disabledComposer) || sendPending}
-                aria-label="Attach photo or video"
-              >
-                <Paperclip className="w-5 h-5" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-52 p-1" align="start" side="top">
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 rounded-md px-3 py-2.5 text-sm hover:bg-muted"
-                onClick={() => galleryInputRef.current?.click()}
-              >
-                <Images className="w-4 h-4 shrink-0" />
-                Photos &amp; videos
-              </button>
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 rounded-md px-3 py-2.5 text-sm hover:bg-muted"
-                onClick={() => cameraInputRef.current?.click()}
-              >
-                <Camera className="w-4 h-4 shrink-0" />
-                Camera
-              </button>
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 rounded-md px-3 py-2.5 text-sm hover:bg-muted"
-                onClick={() => videoCaptureInputRef.current?.click()}
-              >
-                <Video className="w-4 h-4 shrink-0" />
-                Record video
-              </button>
-            </PopoverContent>
-          </Popover>
+        <div className="flex items-end gap-1.5">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className={cn(
+              'h-11 w-11 shrink-0 touch-manipulation rounded-full',
+              attachOpen && 'bg-muted text-foreground',
+            )}
+            disabled={Boolean(disabledComposer) || sendPending}
+            aria-label={attachOpen ? 'Hide attachments' : 'Attach file'}
+            aria-expanded={attachOpen}
+            onClick={() => setAttachOpen((v) => !v)}
+          >
+            <Paperclip className="h-5 w-5" />
+          </Button>
           <Textarea
             ref={textareaRef}
             value={draft}
@@ -194,37 +143,36 @@ export function SupportTicketChatComposer({
             placeholder={placeholder}
             rows={1}
             disabled={Boolean(disabledComposer) || sendPending}
-            className="min-h-[2.75rem] max-h-28 flex-1 resize-none rounded-3xl px-4 py-2.5 border border-input bg-muted/40 shadow-none focus-visible:ring-1"
+            className="max-h-28 min-h-[2.75rem] flex-1 resize-none rounded-3xl border border-input bg-muted/40 px-4 py-2.5 shadow-none focus-visible:ring-1"
           />
           <Button
             type="button"
             size="icon"
-            className="shrink-0 h-11 w-11 rounded-full"
+            className="h-11 w-11 shrink-0 touch-manipulation rounded-full"
             disabled={!canSend}
             onClick={onSubmit}
             aria-label="Send message"
           >
-            {sendPending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+            {sendPending ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
           </Button>
         </div>
       ) : (
         <>
-          <div className="flex gap-2 items-stretch">
+          <div className="flex items-stretch gap-2">
             <Button
               type="button"
               variant="outline"
               size="icon"
-              className="shrink-0 self-end h-10 w-10"
+              className="h-10 w-10 shrink-0 self-end touch-manipulation"
               disabled={Boolean(disabledComposer) || sendPending}
               onClick={() => fileInputRef.current?.click()}
               aria-label="Attach files"
             >
-              <ImagePlus className="w-4 h-4" />
+              <ImagePlus className="h-4 w-4" />
             </Button>
             <div
               className={cn(
-                'flex-1 flex flex-col min-h-[5.5rem] rounded-lg border border-input bg-background',
-                'shadow-sm transition-shadow',
+                'flex min-h-[5.5rem] flex-1 flex-col rounded-lg border border-input bg-background shadow-sm transition-shadow',
                 dragOver && 'ring-2 ring-primary/45 ring-offset-2 ring-offset-background',
               )}
             >
@@ -238,20 +186,19 @@ export function SupportTicketChatComposer({
                 rows={3}
                 disabled={Boolean(disabledComposer) || sendPending}
                 className={cn(
-                  'border-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0',
-                  'resize-y min-h-[4.5rem] flex-1 px-3 py-2.5 rounded-lg',
+                  'min-h-[4.5rem] flex-1 resize-y rounded-lg border-0 px-3 py-2.5 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0',
                 )}
               />
             </div>
           </div>
           <p className="text-[10px] text-muted-foreground">Enter to send · Shift+Enter for new line</p>
           <div className="flex justify-end">
-            <Button type="button" size="sm" disabled={!canSend} onClick={onSubmit}>
+            <Button type="button" size="sm" className="touch-manipulation" disabled={!canSend} onClick={onSubmit}>
               {sendPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <>
-                  <Send className="w-4 h-4 mr-1.5" />
+                  <Send className="mr-1.5 h-4 w-4" />
                   Send
                 </>
               )}
