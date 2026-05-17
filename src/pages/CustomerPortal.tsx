@@ -53,9 +53,11 @@ import {
 import { useCart } from '@/contexts/CartContext';
 import { mapApiNavToPortalItems } from '@/lib/navIcons';
 import {
+  ensureNotificationsInCustomerPortalNav,
   ensureWishlistInCustomerPortalNav,
   getCustomerPortalSidebarFallback,
 } from '@/lib/customerPortalSidebarFallback';
+import PortalNotificationsSection from '@/components/portal/PortalNotificationsSection';
 import PortalSidebar from '@/components/portal/PortalSidebar';
 import UnifiedAuthLoginPage from '@/components/auth/UnifiedAuthLoginPage';
 import WalletTransfer from '@/components/wallet/WalletTransfer';
@@ -467,7 +469,9 @@ const CustomerPortal = () => {
   };
 
   const sidebarItems = useMemo(() => {
-    const fromApi = ensureWishlistInCustomerPortalNav(mapApiNavToPortalItems(navData?.items));
+    const fromApi = ensureWishlistInCustomerPortalNav(
+      ensureNotificationsInCustomerPortalNav(mapApiNavToPortalItems(navData?.items)),
+    );
     if (fromApi.length > 0) return fromApi;
     return getCustomerPortalSidebarFallback(userRole);
   }, [navData, userRole]);
@@ -625,7 +629,7 @@ const CustomerPortal = () => {
     );
   }
 
-  if (!isSegmentKnown && activeSection !== 'kyc') {
+  if (!isSegmentKnown && activeSection !== 'kyc' && activeSection !== 'switch-portal') {
     return <Navigate to="/portal/dashboard" replace />;
   }
 
@@ -1094,7 +1098,7 @@ const CustomerPortal = () => {
                     <button
                       type="button"
                       className="text-xs text-primary font-medium"
-                      onClick={() => setNotificationsModalOpen(true)}
+                      onClick={() => goTo('notifications')}
                     >
                       View all
                     </button>
@@ -1244,6 +1248,8 @@ const CustomerPortal = () => {
               <PortalDashboardReelsStrip />
             </div>
           )}
+
+          {activeSection === 'notifications' && <PortalNotificationsSection />}
 
           {activeSection === 'switch-portal' && (
             <div className="w-full max-w-none space-y-6 md:space-y-8">

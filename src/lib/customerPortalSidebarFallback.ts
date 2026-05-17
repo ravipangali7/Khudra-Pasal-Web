@@ -6,8 +6,8 @@ import {
   Landmark,
   LayoutDashboard,
   Package,
+  Bell,
   Receipt,
-  RefreshCcw,
   Shield,
   ShoppingBag,
   User,
@@ -48,7 +48,7 @@ export function getCustomerPortalSidebarFallback(role: CustomerPortalUserRole): 
     WISHLIST_ITEM,
     { id: 'orders', label: 'Orders', icon: ShoppingBag },
     { id: 'transactions', label: 'Transactions', icon: Receipt },
-    { id: 'switch-portal', label: 'Switch Portal', icon: RefreshCcw },
+    { id: 'notifications', label: 'Notifications', icon: Bell },
     { id: 'profile', label: 'Profile', icon: User },
     { id: 'support', label: 'Support', icon: HelpCircle },
   ];
@@ -66,6 +66,19 @@ function navContainsWishlist(items: SidebarItem[]): boolean {
 /**
  * Inserts Wishlist after Products when the API returns an older menu without it.
  */
+/** Replace legacy Switch Portal nav with Notifications (DB may still return switch-portal). */
+export function ensureNotificationsInCustomerPortalNav(items: SidebarItem[]): SidebarItem[] {
+  if (!items.length) return items;
+  const hasNotifications = items.some((i) => i.id === 'notifications');
+  return items
+    .filter((i) => i.id !== 'switch-portal' || !hasNotifications)
+    .map((i) =>
+      i.id === 'switch-portal'
+        ? { ...i, id: 'notifications', label: 'Notifications', icon: Bell }
+        : i,
+    );
+}
+
 export function ensureWishlistInCustomerPortalNav(items: SidebarItem[]): SidebarItem[] {
   if (!items.length || navContainsWishlist(items)) return items;
   const productsIdx = items.findIndex((i) => i.id === 'products');
