@@ -30,6 +30,7 @@ import { DEFAULT_REDIRECT_AFTER_LOGIN } from '@/config/authDefaults';
 import { sanitizeNextPath } from '@/lib/authRedirect';
 import { PORTAL_LOGIN_PATH, navigateToPortalLogin, setPostLogoutLoginPath } from '@/lib/portalLoginPaths';
 import { cn } from '@/lib/utils';
+import { PORTAL_MOBILE_ICON_CLASS } from '@/components/portal/portalMobileChrome';
 import {
   usePortalNotificationIdFromPath,
   usePortalOrderPkFromPath,
@@ -678,31 +679,14 @@ const CustomerPortal = () => {
     </>
   );
 
-  const mobilePortalIconClass =
-    'h-9 w-9 shrink-0 border-0 !bg-transparent !text-foreground shadow-none hover:!bg-muted/60 hover:!text-foreground [&_svg]:!text-foreground';
-
   const portalMobileActionRow = (
     <div className="flex min-w-0 flex-1 flex-nowrap items-center justify-end gap-1 [&>*]:shrink-0">
-      <PortalHeaderCart className={mobilePortalIconClass} />
-      <PortalAccountSwitch currentSurface="main" className={mobilePortalIconClass} />
-      <ProfileMenu
-        onProfileClick={() => goTo('profile')}
-        avatarImageUrl={
-          (selfProfile?.logo_url || selfProfile?.avatar_url)?.trim()
-            ? String(selfProfile.logo_url || selfProfile.avatar_url)
-            : null
-        }
-        avatarFallback={displayInitials(me?.name)}
-        align="end"
-        triggerClassName={cn(
-          mobilePortalIconClass,
-          '[&_[class*=AvatarFallback]]:bg-muted [&_[class*=AvatarFallback]]:text-foreground',
-        )}
-      />
+      <PortalHeaderCart className={PORTAL_MOBILE_ICON_CLASS} />
+      <PortalAccountSwitch currentSurface="main" className={PORTAL_MOBILE_ICON_CLASS} />
       <PortalNotificationBell
         unreadCount={notifications}
         onClick={openNotifications}
-        className={mobilePortalIconClass}
+        className={PORTAL_MOBILE_ICON_CLASS}
       />
     </div>
   );
@@ -777,8 +761,8 @@ const CustomerPortal = () => {
       {/* Main Content */}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {/* Top Header */}
-        <header className="sticky top-0 z-30 border-b border-border bg-transparent px-4 py-3">
-          {/* Mobile: menu left; cart → switch → profile → notification (no browse) */}
+        <header className="z-30 shrink-0 border-b border-border bg-card px-4 py-3">
+          {/* Mobile: menu left; cart → switch → notification (browse / profile / view in sidebar or bottom nav) */}
           <div className="flex min-w-0 items-center justify-between gap-2 sm:hidden">
             <button
               type="button"
