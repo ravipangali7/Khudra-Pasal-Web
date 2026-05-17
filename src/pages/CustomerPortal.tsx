@@ -77,6 +77,7 @@ import PortalKycSection from '@/components/portal/PortalKycSection';
 import PortalSupportSection from '@/components/portal/PortalSupportSection';
 import PortalProductsCatalogSection from '@/components/portal/PortalProductsCatalogSection';
 import PortalWishlistSection from '@/components/portal/PortalWishlistSection';
+import PortalNotificationBell from '@/components/portal/PortalNotificationBell';
 import PortalNotificationsModal from '@/components/portal/PortalNotificationsModal';
 import PortalAccountSwitch from '@/components/portal/PortalAccountSwitch';
 import { mapPortalNotificationUiType } from '@/lib/portalNotifications';
@@ -733,6 +734,11 @@ const CustomerPortal = () => {
                 <p className="text-[10px] text-muted-foreground">Total Spent</p>
                 <p className="text-sm font-bold">{formatPrice(totalSpent)}</p>
               </div>
+              <PortalNotificationBell
+                unreadCount={notifications}
+                onClick={() => setNotificationsModalOpen(true)}
+                className="h-9 w-9"
+              />
               <PortalAccountSwitch currentSurface="main" />
               <Link
                 to="/homepage"
@@ -779,19 +785,6 @@ const CustomerPortal = () => {
                   align="end"
                 />
               )}
-              <button
-                type="button"
-                className="relative p-2 hover:bg-muted rounded-lg"
-                aria-label="Open notifications"
-                onClick={() => setNotificationsModalOpen(true)}
-              >
-                <Bell className="w-5 h-5" />
-                {notifications > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[1.25rem] h-5 px-1 bg-destructive text-[10px] text-white rounded-full flex items-center justify-center font-bold">
-                    {notifications > 9 ? '9+' : notifications}
-                  </span>
-                )}
-              </button>
             </div>
           </div>
         </header>

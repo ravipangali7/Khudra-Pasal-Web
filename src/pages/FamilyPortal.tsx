@@ -14,7 +14,7 @@ import {
 import { createFamilyPortalViewRegistry } from '@/portal/family/familyPortalViewRegistry';
 import { toast } from 'sonner';
 import {
-  Users, Wallet, Shield, Bell, Plus, Search, 
+  Users, Wallet, Shield, Plus, Search, 
   MoreVertical, Lock, Unlock, Eye, Edit, Trash2, 
   UserPlus, CheckCircle, XCircle, Clock, AlertTriangle,
   TrendingUp, CreditCard, History, Filter, Download,
@@ -109,7 +109,6 @@ import ProfileMenu from '@/components/profile/ProfileMenu';
 import PortalFamilyChildProfileModule from '@/components/portal/PortalFamilyChildProfileModule';
 import PortalProductsCatalogSection from '@/components/portal/PortalProductsCatalogSection';
 import PortalKycSection from '@/components/portal/PortalKycSection';
-import PortalNotificationsModal from '@/components/portal/PortalNotificationsModal';
 import FloatingCart from '@/components/cart/FloatingCart';
 import { useCart } from '@/contexts/CartContext';
 import PayoutAccountsManager from '@/components/wallet/PayoutAccountsManager';
@@ -181,8 +180,6 @@ export function FamilyPortal() {
   const portalToken = Boolean(getAuthToken());
   const [showAddMember, setShowAddMember] = useState(false);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
-  const [notificationsModalOpen, setNotificationsModalOpen] = useState(false);
-
   const authed = Boolean(portalToken);
   const sessionHome = useSessionHomeRedirect(authed);
 
@@ -290,16 +287,6 @@ export function FamilyPortal() {
     retry: false,
   });
 
-  const { data: portalSummary } = useQuery({
-    queryKey: ['portal', 'summary', 'family'],
-    queryFn: () => portalApi.summary(),
-    enabled: authed,
-    retry: false,
-    refetchInterval: 45_000,
-    refetchOnWindowFocus: true,
-  });
-
-  const notificationUnread = portalSummary?.notifications_count ?? 0;
   const { setIsCartOpen, cartCount } = useCart();
 
   const { data: txResp } = useQuery({
@@ -425,21 +412,6 @@ export function FamilyPortal() {
       >
         <Store className="h-5 w-5" />
       </Link>
-      <Button
-        type="button"
-        variant="secondary"
-        size="icon"
-        className="relative h-9 w-9"
-        aria-label="Open notifications"
-        onClick={() => setNotificationsModalOpen(true)}
-      >
-        <Bell className="w-5 h-5" />
-        {notificationUnread > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[1.25rem] h-5 px-1 bg-destructive text-destructive-foreground text-[10px] rounded-full flex items-center justify-center font-bold">
-            {notificationUnread > 9 ? '9+' : notificationUnread}
-          </span>
-        )}
-      </Button>
     </div>
   );
 
@@ -3734,14 +3706,14 @@ export function FamilyPortal() {
 
   return (
     <>
-    <PortalLayout sidebar={sidebar} headerActions={headerActions} portalSurface="family">
+    <PortalLayout
+      sidebar={sidebar}
+      headerActions={headerActions}
+      portalSurface="family"
+      notifications={{ ordersDeepLink: null }}
+    >
       {renderContent()}
     </PortalLayout>
-    <PortalNotificationsModal
-      open={notificationsModalOpen}
-      onOpenChange={setNotificationsModalOpen}
-      ordersDeepLink={null}
-    />
     <FloatingCart />
     <LogoutConfirmDialog
       open={logoutConfirmOpen}

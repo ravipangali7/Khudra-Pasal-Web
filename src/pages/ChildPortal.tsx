@@ -5,7 +5,6 @@ import {
   Send,
   Download,
   History,
-  Bell,
   ArrowUpRight,
   ArrowDownLeft,
   Eye,
@@ -81,7 +80,6 @@ import ProfileMenu from '@/components/profile/ProfileMenu';
 import PortalKycSection from '@/components/portal/PortalKycSection';
 import PortalFamilyChildProfileModule from '@/components/portal/PortalFamilyChildProfileModule';
 import PortalProductsCatalogSection from '@/components/portal/PortalProductsCatalogSection';
-import PortalNotificationsModal from '@/components/portal/PortalNotificationsModal';
 import FloatingCart from '@/components/cart/FloatingCart';
 import { useCart } from '@/contexts/CartContext';
 import PayoutAccountsManager from '@/components/wallet/PayoutAccountsManager';
@@ -179,8 +177,6 @@ const ChildPortal = () => {
   const [showBalance, setShowBalance] = useState(true);
   const [topUpMethod, setTopUpMethod] = useState<'esewa' | 'khalti'>('esewa');
   const [logoutConfirmOpen, setLogoutConfirmOpen] = useState(false);
-  const [notificationsModalOpen, setNotificationsModalOpen] = useState(false);
-
   const authed = Boolean(portalToken);
   const sessionHome = useSessionHomeRedirect(authed);
 
@@ -225,15 +221,6 @@ const ChildPortal = () => {
     ...pollOpts,
   });
 
-  const { data: portalSummary } = useQuery({
-    queryKey: ['portal', 'summary', 'child'],
-    queryFn: () => portalApi.summary(),
-    enabled: authed,
-    retry: false,
-    ...pollOpts,
-  });
-
-  const notificationUnread = portalSummary?.notifications_count ?? 0;
   const { setIsCartOpen, cartCount } = useCart();
 
   const childTxQuery = useQuery({
@@ -473,21 +460,6 @@ const ChildPortal = () => {
       >
         <Store className="h-5 w-5" />
       </Link>
-      <Button
-        type="button"
-        variant="secondary"
-        size="icon"
-        className="relative h-9 w-9"
-        aria-label="Open notifications"
-        onClick={() => setNotificationsModalOpen(true)}
-      >
-        <Bell className="w-5 h-5" />
-        {notificationUnread > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[1.25rem] h-5 px-1 bg-destructive text-destructive-foreground text-[10px] rounded-full flex items-center justify-center font-bold">
-            {notificationUnread > 9 ? '9+' : notificationUnread}
-          </span>
-        )}
-      </Button>
       <button
         type="button"
         onClick={() => setShowBalance(!showBalance)}
@@ -1914,15 +1886,14 @@ const ChildPortal = () => {
 
   return (
     <>
-    <PortalLayout sidebar={sidebar} headerActions={headerActions} portalSurface="child">
+    <PortalLayout
+      sidebar={sidebar}
+      headerActions={headerActions}
+      portalSurface="child"
+      notifications={{ surface: 'child', ordersDeepLink: null }}
+    >
       {renderContent()}
     </PortalLayout>
-    <PortalNotificationsModal
-      open={notificationsModalOpen}
-      onOpenChange={setNotificationsModalOpen}
-      ordersDeepLink={null}
-      surface="child"
-    />
     <FloatingCart />
     <LogoutConfirmDialog
       open={logoutConfirmOpen}

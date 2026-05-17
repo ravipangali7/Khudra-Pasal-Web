@@ -150,11 +150,11 @@ const Header = () => {
               {searchTrigger}
             </div>
 
-            <div className="flex max-w-[min(100%,50vw)] flex-wrap items-center justify-end gap-1 sm:gap-2 shrink-0 sm:max-w-none">
+            <div className="min-w-0 flex-1 flex-wrap items-center justify-end gap-1 sm:gap-2 lg:flex-none">
               {isLoggedIn ? (
                 portalChrome ? (
                   <>
-                    <div className="flex max-w-full min-w-0 flex-wrap items-center justify-end gap-1 sm:gap-2">
+                    <div className="flex min-w-0 flex-wrap items-center justify-end gap-1 sm:gap-2">
                       {portalChrome.toolbar}
                     </div>
                     {cartButton}

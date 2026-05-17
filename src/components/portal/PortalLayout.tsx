@@ -7,6 +7,9 @@ import {
   type PortalHeaderChromeValue,
 } from '@/contexts/PortalHeaderChromeContext';
 import PortalAccountSwitch from '@/components/portal/PortalAccountSwitch';
+import PortalHeaderNotifications, {
+  type PortalHeaderNotificationsProps,
+} from '@/components/portal/PortalHeaderNotifications';
 import type { PortalAccountSurface } from '@/lib/portalAccountSwitch';
 
 interface PortalLayoutProps {
@@ -15,15 +18,34 @@ interface PortalLayoutProps {
   headerActions?: ReactNode;
   /** When set, shows the account-type switch control in the sticky header on every page. */
   portalSurface?: PortalAccountSurface;
+  /** Top notification bell + inbox modal; set `false` to hide. */
+  notifications?: PortalHeaderNotificationsProps | false;
 }
 
-const PortalLayout = ({ children, sidebar, headerActions, portalSurface }: PortalLayoutProps) => {
+const PortalLayout = ({
+  children,
+  sidebar,
+  headerActions,
+  portalSurface,
+  notifications = {},
+}: PortalLayoutProps) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const showNotifications = notifications !== false;
+  const notificationSurface =
+    showNotifications && typeof notifications === 'object' ? notifications.surface : undefined;
+  const notificationOrdersDeepLink =
+    showNotifications && typeof notifications === 'object' ? notifications.ordersDeepLink : undefined;
 
   const portalChrome = useMemo(
     (): PortalHeaderChromeValue => ({
       toolbar: (
         <>
+          {showNotifications ? (
+            <PortalHeaderNotifications
+              surface={notificationSurface}
+              ordersDeepLink={notificationOrdersDeepLink}
+            />
+          ) : null}
           {portalSurface ? <PortalAccountSwitch currentSurface={portalSurface} /> : null}
           {headerActions ?? null}
         </>
@@ -32,7 +54,15 @@ const PortalLayout = ({ children, sidebar, headerActions, portalSurface }: Porta
       mobileMenuOpen,
       setMobileMenuOpen,
     }),
-    [headerActions, portalSurface, sidebar, mobileMenuOpen],
+    [
+      headerActions,
+      notificationOrdersDeepLink,
+      notificationSurface,
+      portalSurface,
+      showNotifications,
+      sidebar,
+      mobileMenuOpen,
+    ],
   );
 
   return (

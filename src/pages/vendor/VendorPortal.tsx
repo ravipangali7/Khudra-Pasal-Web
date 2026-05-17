@@ -168,22 +168,18 @@ export default function VendorPortal() {
     retry: false,
   });
 
-  const { data: vSummary } = useQuery({
-    queryKey: ['vendor', 'summary', sessionTick],
-    queryFn: () => vendorApi.summary(),
-    enabled: vendorQueriesEnabled,
-    retry: false,
-    refetchInterval: vendorQueriesEnabled ? 30_000 : false,
-  });
-
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const { data: vendorNotifResp } = useQuery({
     queryKey: ['vendor', 'notifications'],
     queryFn: () => vendorApi.notifications(),
-    enabled: vendorQueriesEnabled && notificationsOpen,
-    refetchInterval: notificationsOpen ? 8_000 : false,
+    enabled: vendorQueriesEnabled,
+    refetchInterval: notificationsOpen ? 8_000 : vendorQueriesEnabled ? 30_000 : false,
   });
   const vendorNotifications = vendorNotifResp?.results ?? [];
+  const vendorUnreadCount = useMemo(
+    () => vendorNotifications.filter((n) => n.is_read === false).length,
+    [vendorNotifications],
+  );
   const markReadMutation = useMutation({
     mutationFn: (body: { all?: boolean; ids?: string[] }) => vendorApi.notificationsMarkRead(body),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ['vendor', 'notifications'] }),
@@ -506,7 +502,7 @@ export default function VendorPortal() {
       sidebar={sidebar}
       title="Vendor Portal"
       subtitle={String((vMe as { store_name?: string } | undefined)?.store_name || 'Seller workspace')}
-      notifications={Math.max(0, vSummary?.pending_orders ?? 0)}
+      notifications={vendorUnreadCount}
       onNotificationsClick={() => setNotificationsOpen(true)}
       hideHeaderLogout
       onProfileClick={() => navigate('/vendor/store')}
