@@ -1,17 +1,33 @@
 import { Smartphone, X } from "lucide-react";
 import { useEffect, useState, type MouseEvent } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
+  appPromotionBannerStyle,
+  isAppPromotionBannerActive,
+  resolveAppPromotionStoreUrl,
   WEB_APP_DOWNLOAD_BANNER_DISMISS_KEY,
-  webAppDownloadPromo,
-} from "@/config/webPromotions";
+} from "@/lib/appPromotionBanner";
+import { websiteApi } from "@/lib/api";
 import { useWebPromotionsEnabled } from "@/hooks/useWebBrowser";
+import { cn } from "@/lib/utils";
 
 /**
- * Sticky top banner for web browsers — hidden in the Flutter WebView (users already have the app).
+ * Sticky top banner for web browsers — content from Super Admin → Settings → App Promotion Banner.
+ * Hidden in the Flutter WebView and when no headline is configured.
  */
 const DownloadAppBanner = () => {
   const promosEnabled = useWebPromotionsEnabled();
   const [dismissed, setDismissed] = useState(true);
+
+  const { data: storeInfo } = useQuery({
+    queryKey: ["website", "store-info", "app-promotion-banner"],
+    queryFn: () => websiteApi.storeInfo(),
+    staleTime: 60_000,
+    enabled: promosEnabled,
+  });
+
+  const banner = storeInfo?.app_promotion_banner;
+  const active = isAppPromotionBannerActive(banner);
 
   useEffect(() => {
     try {
@@ -21,7 +37,7 @@ const DownloadAppBanner = () => {
     }
   }, []);
 
-  if (!promosEnabled || dismissed) return null;
+  if (!promosEnabled || !active || dismissed || !banner) return null;
 
   const dismiss = () => {
     try {
@@ -32,15 +48,23 @@ const DownloadAppBanner = () => {
     setDismissed(true);
   };
 
+  const storeUrl = resolveAppPromotionStoreUrl(banner);
   const onGetAppClick = (e: MouseEvent<HTMLAnchorElement>) => {
-    if (webAppDownloadPromo.storeUrl === "#") e.preventDefault();
+    if (storeUrl === "#") e.preventDefault();
   };
 
-  const { headline, subline, ctaLabel, storeUrl } = webAppDownloadPromo;
+  const headline = banner.headline.trim();
+  const subline = banner.subline?.trim();
+  const ctaLabel = banner.cta_label?.trim() || "Get app";
+  const gradientStyle = appPromotionBannerStyle(banner);
 
   return (
     <div
-      className="download-app-banner web-promo sticky top-0 z-[10000] border-b border-primary/20 bg-gradient-to-r from-primary via-primary/95 to-violet-700 text-primary-foreground shadow-md"
+      className={cn(
+        "download-app-banner web-promo sticky top-0 z-[10000] border-b border-primary/20 text-primary-foreground shadow-md",
+        !gradientStyle && "bg-gradient-to-r from-primary via-primary/95 to-violet-700",
+      )}
+      style={gradientStyle}
       role="region"
       aria-label={headline}
     >
@@ -48,7 +72,9 @@ const DownloadAppBanner = () => {
         <Smartphone className="h-5 w-5 shrink-0 opacity-90 md:h-6 md:w-6" aria-hidden />
         <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold leading-tight md:text-sm">{headline}</p>
-          <p className="text-[11px] leading-tight opacity-90 md:text-xs">{subline}</p>
+          {subline ? (
+            <p className="text-[11px] leading-tight opacity-90 md:text-xs">{subline}</p>
+          ) : null}
         </div>
         <a
           href={storeUrl}

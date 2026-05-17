@@ -13,6 +13,7 @@ import {
 import { adminApi } from '@/lib/api';
 import { useAdminMutation } from '../hooks/useAdminMutation';
 import { formatApiError, resolveMediaUrl } from '../hooks/adminFormUtils';
+import AppPromotionBannerPanel from './AppPromotionBannerPanel';
 
 type AdminExtras = Record<string, Record<string, unknown>>;
 
@@ -292,7 +293,10 @@ export default function SettingsModule() {
     queryFn: () => adminApi.paymentGateways(),
   });
 
-  const updateSite = useAdminMutation(adminApi.updateSiteSettings, [['admin', 'site-settings']]);
+  const updateSite = useAdminMutation(adminApi.updateSiteSettings, [
+    ['admin', 'site-settings'],
+    ['website', 'store-info'],
+  ]);
   const updateGateway = useAdminMutation(
     ({ gateway, payload }: { gateway: string; payload: Record<string, unknown> }) =>
       adminApi.updatePaymentGateway(gateway, payload),
@@ -392,6 +396,7 @@ export default function SettingsModule() {
   const analytics = extras.analytics ?? EMPTY_EXTRAS_SECTION;
   const chatbotCfg = extras.chatbot ?? EMPTY_EXTRAS_SECTION;
   const socialCfg = extras.social ?? EMPTY_EXTRAS_SECTION;
+  const appPromoCfg = extras.app_promotion_banner ?? EMPTY_EXTRAS_SECTION;
 
   const [googleAnalyticsScript, setGoogleAnalyticsScript] = useState('');
   useEffect(() => {
@@ -458,6 +463,7 @@ export default function SettingsModule() {
           <TabsTrigger value="payment">Payment</TabsTrigger>
           <TabsTrigger value="reels">Reels</TabsTrigger>
           <TabsTrigger value="social">Social Media</TabsTrigger>
+          <TabsTrigger value="app-promo">App Promotion Banner</TabsTrigger>
         </TabsList>
 
         <TabsContent value="general">
@@ -706,6 +712,16 @@ export default function SettingsModule() {
               <Button type="button" onClick={() => void saveExtrasSection('social', { ...socialCfg, ...socialState })}>Save social links</Button>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="app-promo">
+          <AppPromotionBannerPanel
+            cfg={appPromoCfg}
+            isSaving={updateSite.isPending}
+            onSave={async (next) => {
+              await saveExtrasSection('app_promotion_banner', next);
+            }}
+          />
         </TabsContent>
       </Tabs>
     </div>

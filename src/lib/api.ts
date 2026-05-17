@@ -184,6 +184,16 @@ export type WebsiteReelsBoostInfo = {
   feedAlgorithm?: string;
 };
 
+/** Super Admin → Settings → App Promotion Banner (public when headline is set). */
+export type WebsiteAppPromotionBanner = {
+  headline: string;
+  subline?: string;
+  cta_label?: string;
+  store_url?: string;
+  gradient_from?: string;
+  gradient_to?: string;
+};
+
 export type WebsiteStoreInfo = {
   site_name: string;
   site_description: string;
@@ -203,6 +213,8 @@ export type WebsiteStoreInfo = {
   social_links?: WebsiteSocialLinks;
   /** Third-party chatbot embed HTML from Super Admin site settings. */
   chabot_script?: string;
+  /** null when unset — storefront download banner stays hidden. */
+  app_promotion_banner?: WebsiteAppPromotionBanner | null;
   reels_boost?: WebsiteReelsBoostInfo;
 };
 
