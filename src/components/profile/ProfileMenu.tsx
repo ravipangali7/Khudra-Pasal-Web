@@ -1,5 +1,6 @@
 import { LogOut, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -17,6 +18,7 @@ type ProfileMenuProps = {
   /** Shown when no image (e.g. "SA" for admin/vendor shell) */
   avatarFallback?: string;
   align?: 'start' | 'center' | 'end';
+  triggerClassName?: string;
 };
 
 export default function ProfileMenu({
@@ -25,11 +27,17 @@ export default function ProfileMenu({
   avatarImageUrl,
   avatarFallback = 'SA',
   align = 'end',
+  triggerClassName,
 }: ProfileMenuProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0 rounded-full">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className={cn('h-9 w-9 shrink-0 rounded-full', triggerClassName)}
+        >
           <Avatar className="h-8 w-8">
             {avatarImageUrl ? <AvatarImage src={avatarImageUrl} alt="" /> : null}
             <AvatarFallback>{avatarFallback}</AvatarFallback>

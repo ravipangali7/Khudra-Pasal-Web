@@ -662,9 +662,32 @@ const CustomerPortal = () => {
     </>
   );
 
+  const mobilePortalIconClass =
+    'h-9 w-9 shrink-0 border-0 !bg-transparent !text-white shadow-none hover:!bg-white/10 hover:!text-white [&_svg]:!text-white';
+
   const portalMobileActionRow = (
-    <div className="flex min-w-0 flex-1 flex-nowrap items-center justify-end gap-1 sm:gap-1.5 [&>*]:shrink-0">
-      {portalHeaderToolbar}
+    <div className="flex min-w-0 flex-1 flex-nowrap items-center justify-end gap-1 [&>*]:shrink-0">
+      <PortalHeaderCart className={mobilePortalIconClass} />
+      <PortalAccountSwitch currentSurface="main" className={mobilePortalIconClass} />
+      <ProfileMenu
+        onProfileClick={() => goTo('profile')}
+        avatarImageUrl={
+          (selfProfile?.logo_url || selfProfile?.avatar_url)?.trim()
+            ? String(selfProfile.logo_url || selfProfile.avatar_url)
+            : null
+        }
+        avatarFallback={displayInitials(me?.name)}
+        align="end"
+        triggerClassName={cn(
+          mobilePortalIconClass,
+          '[&_[class*=AvatarFallback]]:bg-white/20 [&_[class*=AvatarFallback]]:text-white',
+        )}
+      />
+      <PortalNotificationBell
+        unreadCount={notifications}
+        onClick={() => setNotificationsModalOpen(true)}
+        className={mobilePortalIconClass}
+      />
     </div>
   );
 
@@ -738,13 +761,13 @@ const CustomerPortal = () => {
       {/* Main Content */}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {/* Top Header */}
-        <header className="sticky top-0 z-30 bg-card border-b border-border px-4 py-3">
-          {/* Mobile: menu left; action icons in a horizontal row on the right */}
+        <header className="sticky top-0 z-30 border-b border-border bg-primary px-4 py-3 sm:bg-card">
+          {/* Mobile: menu left; cart → switch → profile → notification (no browse) */}
           <div className="flex min-w-0 items-center justify-between gap-2 sm:hidden">
             <button
               type="button"
               onClick={() => setSidebarOpen(true)}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/70 bg-muted/50 hover:bg-muted"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-white/25 bg-transparent text-white hover:bg-white/10"
               aria-label="Open menu"
             >
               <Menu className="h-5 w-5" />
