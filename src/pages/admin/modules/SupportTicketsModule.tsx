@@ -16,6 +16,10 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import SupportTicketChatPanel, { type SupportTicketChatPanelHandle } from '@/components/support/SupportTicketChatPanel';
+import {
+  appendSupportTicketMessageToCache,
+  SUPPORT_CHAT_POLL_MS,
+} from '@/components/support/supportChatCache';
 import { cn } from '@/lib/utils';
 import {
   SOURCE_PANEL_FILTER_OPTIONS,
@@ -94,7 +98,8 @@ export default function SupportTicketsModule() {
     queryKey: ['admin', 'support-tickets', 'detail', selectedId],
     queryFn: () => adminApi.ticketDetail(selectedId!),
     enabled: Boolean(selectedId),
-    refetchInterval: selectedId ? 12_000 : false,
+    refetchInterval: selectedId ? SUPPORT_CHAT_POLL_MS : false,
+    refetchIntervalInBackground: true,
   });
 
   const detail = detailQuery.data as SupportTicketAdminDetail | undefined;
@@ -161,9 +166,18 @@ export default function SupportTicketsModule() {
   const sendMut = useMutation({
     mutationFn: ({ body, files }: { body: string; files: File[] }) =>
       adminApi.postTicketMessage(selectedId!, { body, files }),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ['admin', 'support-tickets', 'detail', selectedId] });
+    onSuccess: (res) => {
+      if (selectedId) {
+        appendSupportTicketMessageToCache(
+          qc,
+          ['admin', 'support-tickets', 'detail', selectedId],
+          res.message,
+        );
+      }
       void qc.invalidateQueries({ queryKey: ['admin', 'support-tickets'] });
+      void qc.invalidateQueries({
+        queryKey: ['admin', 'support-tickets', 'detail', selectedId],
+      });
     },
     onError: (e: Error) => toast.error(e.message),
   });

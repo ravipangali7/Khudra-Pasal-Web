@@ -24,6 +24,10 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import SupportTicketChatPanel, { type SupportTicketChatPanelHandle } from './SupportTicketChatPanel';
+import {
+  appendSupportTicketMessageToCache,
+  SUPPORT_CHAT_POLL_MS,
+} from './supportChatCache';
 import { SUPPORT_CATEGORY_OPTIONS, SUPPORT_PRIORITY_OPTIONS } from './supportConstants';
 
 type HubVariant = 'portal' | 'vendor';
@@ -137,7 +141,8 @@ const SupportTicketsHub = forwardRef<SupportTicketsHubHandle, SupportTicketsHubP
         ? portalApi.supportTicketDetail(selectedId!)
         : vendorApi.supportTicketDetail(selectedId!),
     enabled: Boolean(selectedId),
-    refetchInterval: selectedId ? 12_000 : false,
+    refetchInterval: selectedId ? SUPPORT_CHAT_POLL_MS : false,
+    refetchIntervalInBackground: true,
   });
 
   const createMut = useMutation({
@@ -169,9 +174,16 @@ const SupportTicketsHub = forwardRef<SupportTicketsHubHandle, SupportTicketsHubP
       variant === 'portal'
         ? portalApi.postPortalSupportTicketMessage(selectedId!, { body, files })
         : vendorApi.postSupportTicketMessage(selectedId!, { body, files }),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: [...listQueryKey, 'detail', selectedId] });
+    onSuccess: (res) => {
+      if (selectedId) {
+        appendSupportTicketMessageToCache(
+          qc,
+          [...listQueryKey, 'detail', selectedId],
+          res.message,
+        );
+      }
       void qc.invalidateQueries({ queryKey: listQueryKey });
+      void qc.invalidateQueries({ queryKey: [...listQueryKey, 'detail', selectedId] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
@@ -244,8 +256,8 @@ const SupportTicketsHub = forwardRef<SupportTicketsHubHandle, SupportTicketsHubP
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2 lg:min-h-0">
-        <section className="space-y-4">
+      <div className="grid gap-6 lg:grid-cols-2 lg:min-h-0 max-lg:contents">
+        <section className={cn('space-y-4', selectedId && 'max-lg:hidden')}>
           <div className="flex items-center justify-between gap-2">
             <h3 className="font-semibold text-foreground">Your tickets</h3>
             {selectedId ? (
@@ -366,11 +378,27 @@ const SupportTicketsHub = forwardRef<SupportTicketsHubHandle, SupportTicketsHubP
           ) : null}
         </section>
 
-        <section className="space-y-3 min-h-0 flex flex-col">
+        <section
+          className={cn(
+            'space-y-3 min-h-0 flex flex-col',
+            selectedId &&
+              'max-lg:fixed max-lg:inset-0 max-lg:z-50 max-lg:flex max-lg:flex-col max-lg:bg-background max-lg:p-3 max-lg:pt-[max(0.75rem,env(safe-area-inset-top))] max-lg:pb-[env(safe-area-inset-bottom)]',
+          )}
+        >
           {selectedId ? (
             <>
               <div className="rounded-xl border border-border bg-card p-4 space-y-1 shrink-0">
                 <div className="flex items-start justify-between gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="max-lg:flex lg:hidden shrink-0 -ml-2 gap-1 h-9 px-2"
+                    onClick={() => setSelectedId(null)}
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    Back
+                  </Button>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-semibold text-foreground">{detail?.subject ?? '…'}</h3>
@@ -445,7 +473,7 @@ const SupportTicketsHub = forwardRef<SupportTicketsHubHandle, SupportTicketsHubP
                   </Popover>
                 </div>
               </div>
-              <div className="flex-1 min-h-0">
+              <div className="flex-1 min-h-0 flex flex-col">
                 <SupportTicketChatPanel
                   ref={chatRef}
                   messages={mergedMessages}

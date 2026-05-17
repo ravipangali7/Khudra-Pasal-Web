@@ -1461,8 +1461,8 @@ export type SupportTicketMessageRow = {
   created_at: string;
   /** Present on API responses; older cached payloads may omit. */
   attachments?: SupportTicketAttachmentRow[];
-  /** 1 = single tick (counterpart offline); 2 = double tick (online). Only on outgoing bubbles. */
-  delivery_ticks?: 1 | 2;
+  /** 1 = sent; 2 = delivered (counterpart online); 3 = read. Only on outgoing bubbles. */
+  delivery_ticks?: 1 | 2 | 3;
 };
 
 /** Primary super admin shown in portal/vendor support sidebars. */

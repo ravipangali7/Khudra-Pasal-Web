@@ -6,13 +6,16 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Check, CheckCheck, ChevronUp, FileText, ImagePlus, Loader2, Paperclip, Send, Video, X } from 'lucide-react';
+import { ChevronUp, FileText, Loader2, Paperclip, Video, X } from 'lucide-react';
 import type { SupportTicketAttachmentRow, SupportTicketMessageRow } from '@/lib/api';
 import { fetchAuthenticatedBlob } from '@/lib/api';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
+
+import { SupportTicketChatComposer } from './SupportTicketChatComposer';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useNativeAppShell } from '@/hooks/useNativeAppShell';
 import { cn } from '@/lib/utils';
+import { MessageDeliveryTicks } from './MessageDeliveryTicks';
 
 type ViewerRole = 'user' | 'staff';
 
@@ -31,9 +34,13 @@ function senderInitials(name: string) {
   return '?';
 }
 
-function formatWhen(iso: string) {
+function formatWhen(iso: string, compact?: boolean) {
   try {
-    return new Date(iso).toLocaleString(undefined, {
+    const d = new Date(iso);
+    if (compact) {
+      return d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    }
+    return d.toLocaleString(undefined, {
       dateStyle: 'medium',
       timeStyle: 'short',
     });
@@ -200,6 +207,7 @@ function ChatAttachment({
       <video
         src={blobUrl}
         controls
+        playsInline
         className="mt-2 max-w-[min(100%,320px)] max-h-56 rounded-lg border border-border/60 bg-black/80"
       >
         <track kind="captions" />
@@ -260,8 +268,10 @@ const SupportTicketChatPanel = forwardRef<SupportTicketChatPanelHandle, SupportT
   const endRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const nearBottomRef = useRef(true);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const isMobile = useIsMobile();
+  const inNativeApp = useNativeAppShell();
+  const mobileUx = isMobile || inNativeApp;
 
   useImperativeHandle(ref, () => ({
     focusComposer: () => {
@@ -306,7 +316,6 @@ const SupportTicketChatPanel = forwardRef<SupportTicketChatPanelHandle, SupportT
   const onPickFiles = (list: FileList | null) => {
     if (!list?.length) return;
     setPendingFiles((prev) => [...prev, ...Array.from(list)]);
-    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -322,7 +331,10 @@ const SupportTicketChatPanel = forwardRef<SupportTicketChatPanelHandle, SupportT
   return (
     <div
       className={cn(
-        'flex flex-col border border-border rounded-xl bg-card min-h-[320px] max-h-[min(70vh,640px)] h-[min(70vh,640px)]',
+        'flex flex-col border border-border rounded-xl bg-card min-h-[320px]',
+        mobileUx
+          ? 'max-md:min-h-0 max-md:flex-1 max-md:max-h-none max-md:h-full max-md:rounded-lg'
+          : 'max-h-[min(70vh,640px)] h-[min(70vh,640px)]',
       )}
       onDragOver={(e) => {
         e.preventDefault();
@@ -382,14 +394,16 @@ const SupportTicketChatPanel = forwardRef<SupportTicketChatPanelHandle, SupportT
                       : 'bg-muted text-foreground rounded-bl-md',
                   )}
                 >
-                  <p
-                    className={cn(
-                      'text-[11px] mb-0.5 font-medium',
-                      mine ? 'opacity-90' : 'opacity-90 font-semibold',
-                    )}
-                  >
-                    {displaySender(m, mine)}
-                  </p>
+                  {!(mine && mobileUx) ? (
+                    <p
+                      className={cn(
+                        'text-[11px] mb-0.5 font-medium',
+                        mine ? 'opacity-90' : 'opacity-90 font-semibold',
+                      )}
+                    >
+                      {displaySender(m, mine)}
+                    </p>
+                  ) : null}
                   {m.body ? (
                     <p className="whitespace-pre-wrap break-words">{m.body}</p>
                   ) : null}
@@ -402,19 +416,9 @@ const SupportTicketChatPanel = forwardRef<SupportTicketChatPanelHandle, SupportT
                       mine ? 'text-primary-foreground/80 justify-end' : 'text-muted-foreground',
                     )}
                   >
-                    <span>{formatWhen(m.created_at)}</span>
+                    <span>{formatWhen(m.created_at, mobileUx)}</span>
                     {mine && m.delivery_ticks != null ? (
-                      <span
-                        className="inline-flex items-center shrink-0"
-                        title={m.delivery_ticks === 2 ? 'Delivered (online)' : 'Sent'}
-                        aria-hidden
-                      >
-                        {m.delivery_ticks === 2 ? (
-                          <CheckCheck className="h-3.5 w-3.5 opacity-95" strokeWidth={2.5} />
-                        ) : (
-                          <Check className="h-3.5 w-3.5 opacity-85" strokeWidth={2.5} />
-                        )}
-                      </span>
+                      <MessageDeliveryTicks ticks={m.delivery_ticks} />
                     ) : null}
                   </div>
                 </div>
@@ -446,97 +450,23 @@ const SupportTicketChatPanel = forwardRef<SupportTicketChatPanelHandle, SupportT
           </ul>
         )}
       </div>
-      <div className="border-t border-border p-3 bg-background/80 shrink-0 space-y-2">
-        {sendPending ? (
-          <p className="text-xs text-muted-foreground flex items-center gap-2">
-            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-            Sending…
-          </p>
-        ) : null}
-        {sendError ? (
-          <p className="text-xs text-destructive">Message failed to send. Fix the issue and try again.</p>
-        ) : null}
-        <div className="flex gap-2 items-stretch">
-          <input
-            ref={fileInputRef}
-            type="file"
-            multiple
-            className="hidden"
-            accept="image/jpeg,image/png,image/webp,image/gif,video/mp4,video/webm,.pdf,.doc,.docx,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            onChange={(e) => onPickFiles(e.target.files)}
-          />
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="shrink-0 self-end h-10 w-10"
-            disabled={Boolean(disabledComposer) || sendPending}
-            onClick={() => fileInputRef.current?.click()}
-            aria-label="Attach files"
-          >
-            <ImagePlus className="w-4 h-4" />
-          </Button>
-          <div
-            className={cn(
-              'flex-1 flex flex-col min-h-[5.5rem] rounded-lg border border-input bg-background',
-              'shadow-sm transition-shadow',
-              dragOver && 'ring-2 ring-primary/45 ring-offset-2 ring-offset-background',
-            )}
-          >
-            {pendingFiles.length > 0 ? (
-              <div className="flex gap-2.5 px-2.5 pt-2.5 pb-2 border-b border-border/70 bg-muted/25 max-h-[9.5rem] overflow-y-auto overflow-x-hidden">
-                <div className="flex flex-wrap gap-3 content-start">
-                  {pendingFiles.map((f, i) => (
-                    <PendingAttachmentTile
-                      key={`${f.name}-${i}-${f.size}-${f.lastModified}`}
-                      file={f}
-                      onRemove={() =>
-                        setPendingFiles((prev) => prev.filter((_, j) => j !== i))
-                      }
-                    />
-                  ))}
-                </div>
-              </div>
-            ) : null}
-            <Textarea
-              ref={textareaRef}
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={onKeyDown}
-              placeholder={placeholder}
-              rows={3}
-              disabled={Boolean(disabledComposer) || sendPending}
-              className={cn(
-                'border-0 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0',
-                'resize-y min-h-[4.5rem] flex-1 px-3 py-2.5',
-                pendingFiles.length === 0 ? 'rounded-lg' : 'rounded-none rounded-b-lg',
-              )}
-            />
-          </div>
-        </div>
-        <p className="text-[10px] text-muted-foreground">Enter to send · Shift+Enter for new line</p>
-        <div className="flex justify-end">
-          <Button
-            type="button"
-            size="sm"
-            disabled={
-              Boolean(disabledComposer) ||
-              sendPending ||
-              (!draft.trim() && pendingFiles.length === 0)
-            }
-            onClick={submit}
-          >
-            {sendPending ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <>
-                <Send className="w-4 h-4 mr-1.5" />
-                Send
-              </>
-            )}
-          </Button>
-        </div>
-      </div>
+      <SupportTicketChatComposer
+        mobileUx={mobileUx}
+        draft={draft}
+        onDraftChange={setDraft}
+        pendingFiles={pendingFiles}
+        onPickFiles={onPickFiles}
+        onRemovePending={(i) => setPendingFiles((prev) => prev.filter((_, j) => j !== i))}
+        onSubmit={submit}
+        onKeyDown={onKeyDown}
+        sendPending={sendPending}
+        sendError={sendError}
+        disabledComposer={disabledComposer}
+        placeholder={placeholder}
+        dragOver={dragOver}
+        textareaRef={textareaRef}
+        PendingTile={PendingAttachmentTile}
+      />
     </div>
   );
   },
