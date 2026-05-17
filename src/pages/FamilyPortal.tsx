@@ -2713,8 +2713,8 @@ export function FamilyPortal() {
                 <Label>Proof image (optional)</Label>
                 <Input
                   type="file"
-                  accept="image/*"
-                  className="cursor-pointer text-sm"
+                  accept="image/jpeg,image/png,image/webp,image/gif,image/*"
+                  selectedFile={famWithdrawProofFile}
                   onChange={(e) => setFamWithdrawProofFile(e.target.files?.[0] ?? null)}
                 />
                 <p className="text-xs text-muted-foreground">

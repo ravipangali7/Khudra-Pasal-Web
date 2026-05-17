@@ -1,6 +1,7 @@
 import { useEffect, useId, useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { resolveMediaUrl } from "@/pages/admin/hooks/adminFormUtils";
 
 type Props = {
@@ -32,11 +33,12 @@ export function AdminImageField({ label, file, onFileChange, existingUrl, classN
   return (
     <div className={className}>
       <Label htmlFor={inputId}>{label}</Label>
-      <input
+      <Input
         id={inputId}
         type="file"
-        accept="image/*"
-        className="mt-1 block w-full text-sm text-muted-foreground file:mr-2 file:rounded file:border file:bg-background file:px-2 file:py-1"
+        accept="image/jpeg,image/png,image/webp,image/gif,image/*"
+        className="mt-1"
+        selectedFile={file}
         onChange={(e) => {
           const f = e.target.files?.[0] ?? null;
           onFileChange(f);

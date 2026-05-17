@@ -226,8 +226,8 @@ export default function PortalKycSection({ onBack }: PortalKycSectionProps) {
                   <Input
                     id={fid}
                     type="file"
-                    accept="image/*"
-                    className="cursor-pointer"
+                    accept="image/jpeg,image/png,image/webp,image/gif,image/*"
+                    selectedFile={field.name === 'document_image' ? frontFile : backFile}
                     onChange={(e) => {
                       const f = e.target.files?.[0] ?? null;
                       if (field.name === 'document_image') setFrontFile(f);
@@ -245,8 +245,8 @@ export default function PortalKycSection({ onBack }: PortalKycSectionProps) {
                   <Input
                     id={fid}
                     type="file"
-                    accept="application/pdf,.pdf"
-                    className="cursor-pointer"
+                    accept="application/pdf,.pdf,application/octet-stream"
+                    selectedFile={pdfFile}
                     onChange={(e) => setPdfFile(e.target.files?.[0] ?? null)}
                   />
                 </div>

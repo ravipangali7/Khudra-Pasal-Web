@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Search, X, ChevronDown } from 'lucide-react';
 import VideoPreviewCard from './VideoPreviewCard';
 import ReelsButton from '../shared/ReelsButton';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import '../reels-theme.css';
 
@@ -202,10 +203,11 @@ const ReelUploadForm: React.FC<ReelUploadFormProps> = ({ vendorId, onPublished, 
             <label className="reels-font-body text-xs block mb-1" style={{ color: 'var(--reels-text-muted)' }}>
               Or upload video file
             </label>
-            <input
+            <Input
               type="file"
-              accept="video/*"
-              className="text-xs reels-ui-text w-full file:mr-2 file:rounded file:border-0 file:bg-muted file:px-2 file:py-1"
+              accept="video/mp4,video/webm,video/quicktime,video/*"
+              className="text-xs"
+              selectedFile={videoFile}
               onChange={(e) => setVideoFile(e.target.files?.[0] ?? null)}
             />
           </div>

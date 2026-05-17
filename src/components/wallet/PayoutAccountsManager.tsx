@@ -156,8 +156,9 @@ export default function PayoutAccountsManager({
           <Label>QR image (optional)</Label>
           <Input
             type="file"
-            accept="image/*"
+            accept="image/jpeg,image/png,image/webp,image/gif,image/*"
             disabled={disabled || pending}
+            selectedFile={qrFile}
             onChange={(e) => setQrFile(e.target.files?.[0] ?? null)}
           />
         </div>

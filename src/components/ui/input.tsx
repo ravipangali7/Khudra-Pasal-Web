@@ -1,9 +1,23 @@
 import * as React from "react";
 
 import { cn } from "@/lib/utils";
+import { FileInput, type FileInputProps } from "@/components/ui/file-input";
 
-const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
+type InputProps = React.ComponentProps<"input"> | (FileInputProps & { type: "file" });
+
+const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ className, type, ...props }, ref) => {
+    if (type === "file") {
+      const { selectedFile, ...fileProps } = props as FileInputProps & { type?: "file" };
+      return (
+        <FileInput
+          ref={ref}
+          className={className}
+          selectedFile={selectedFile}
+          {...fileProps}
+        />
+      );
+    }
     return (
       <input
         type={type}
