@@ -21,6 +21,15 @@ export const CHATBOARD_LAUNCHER_SELECTORS = [
   "#crisp-chatbox-button",
 ] as const;
 
+/** Support Board (sbchat) launcher nodes that use their own viewport-fixed bottom. */
+export const SBCHAT_LAUNCHER_SELECTORS = [
+  "#sbchat > .sb-chat",
+  "#sbchat .sb-chat-btn",
+  "#sbchat .sb-icon-btn",
+] as const;
+
+const CHAT_FAB_Z_INDEX = "10001";
+
 function readTabBarHeightPx(): number {
   if (typeof document === "undefined") return MOBILE_TABBAR_HEIGHT;
   const raw = getComputedStyle(document.documentElement)
@@ -78,9 +87,63 @@ function applyFixedFab(el: HTMLElement, bottomPx: number): void {
   el.style.setProperty("right", "12px", "important");
   el.style.setProperty("left", "auto", "important");
   el.style.setProperty("top", "auto", "important");
-  el.style.setProperty("z-index", "10001", "important");
+  el.style.setProperty("z-index", CHAT_FAB_Z_INDEX, "important");
   el.style.setProperty("margin", "0", "important");
   el.style.setProperty("pointer-events", "auto", "important");
+}
+
+function clearSbChatLauncherFab(el: HTMLElement): void {
+  for (const prop of ["position", "bottom", "right", "left", "top", "z-index", "margin"] as const) {
+    el.style.removeProperty(prop);
+  }
+}
+
+/** True for viewport-fixed Support Board nodes that anchor the minimized launcher. */
+export function isSbChatLauncherCandidate(el: HTMLElement): boolean {
+  if (typeof window === "undefined") return false;
+  const rect = el.getBoundingClientRect();
+  if (rect.width < 1 || rect.height < 1) return false;
+  if (rect.width > 340 && rect.height > 420) return false;
+  return window.innerHeight - rect.bottom < 280;
+}
+
+function collectSbChatLauncherNodes(sbchat: HTMLElement): HTMLElement[] {
+  const seen = new Set<HTMLElement>();
+  const list: HTMLElement[] = [];
+  const add = (el: HTMLElement | null) => {
+    if (!el || seen.has(el) || el === sbchat) return;
+    seen.add(el);
+    list.push(el);
+  };
+
+  for (const selector of SBCHAT_LAUNCHER_SELECTORS) {
+    sbchat.querySelectorAll<HTMLElement>(selector).forEach(add);
+  }
+
+  sbchat.querySelectorAll<HTMLElement>("*").forEach((el) => {
+    if (getComputedStyle(el).position !== "fixed") return;
+    if (!isSbChatLauncherCandidate(el)) return;
+    add(el);
+  });
+
+  return list;
+}
+
+function applySbChatLauncherPins(sbchat: HTMLElement, bottomPx: number): HTMLElement[] {
+  const nodes = collectSbChatLauncherNodes(sbchat);
+  for (const el of nodes) {
+    applyFixedFab(el, bottomPx);
+  }
+  return nodes;
+}
+
+function clearSbChatLauncherPins(sbchat: HTMLElement): void {
+  for (const selector of SBCHAT_LAUNCHER_SELECTORS) {
+    sbchat.querySelectorAll<HTMLElement>(selector).forEach(clearSbChatLauncherFab);
+  }
+  sbchat.querySelectorAll<HTMLElement>("*").forEach((el) => {
+    if (getComputedStyle(el).position === "fixed") clearSbChatLauncherFab(el);
+  });
 }
 
 function clearFixedFab(el: HTMLElement): void {
@@ -126,6 +189,25 @@ function collectLauncherElements(): HTMLElement[] {
   return list;
 }
 
+function expandCollisionTargets(elements: HTMLElement[]): HTMLElement[] {
+  const seen = new Set<HTMLElement>();
+  const list: HTMLElement[] = [];
+  const add = (el: HTMLElement) => {
+    if (seen.has(el)) return;
+    seen.add(el);
+    list.push(el);
+  };
+
+  for (const el of elements) {
+    add(el);
+    if (el.id === "sbchat") {
+      for (const inner of collectSbChatLauncherNodes(el)) add(inner);
+    }
+  }
+
+  return list;
+}
+
 /** Push launchers up until nothing intersects the mobile tab bar. */
 function resolveTabBarCollisions(elements: HTMLElement[], bottomPx: number): number {
   const tabbar = getMobileTabBarElement();
@@ -134,7 +216,7 @@ function resolveTabBarCollisions(elements: HTMLElement[], bottomPx: number): num
   const tabTop = tabbar.getBoundingClientRect().top;
   let resolved = bottomPx;
 
-  for (const el of elements) {
+  for (const el of expandCollisionTargets(elements)) {
     const rect = el.getBoundingClientRect();
     const overflow = rect.bottom - (tabTop - CHATBOARD_FAB_GAP_PX);
     if (overflow > 0) {
@@ -160,6 +242,7 @@ export function repositionChatBoardFab(): void {
       }
       clearFixedFab(el);
       if (el.id === "sbchat") {
+        clearSbChatLauncherPins(el);
         for (const prop of ["position", "bottom", "right", "left", "top", "margin"] as const) {
           el.style.removeProperty(prop);
         }
@@ -186,28 +269,38 @@ export function repositionChatBoardFab(): void {
   bottomPx = resolveTabBarCollisions(collisionTargets, bottomPx);
   syncFabBottomCssVar(bottomPx);
 
-  if (host) {
-    applyFixedFab(host, bottomPx);
-  } else if (sbchat instanceof HTMLElement) {
-    applyFixedFab(sbchat, bottomPx);
-  }
+  const applyAll = (px: number) => {
+    if (host) {
+      applyFixedFab(host, px);
+    } else if (sbchat instanceof HTMLElement) {
+      applyFixedFab(sbchat, px);
+    }
 
-  for (const el of launchers) {
-    if (el === host || el === sbchat) continue;
-    applyFixedFab(el, bottomPx);
-  }
+    for (const el of launchers) {
+      if (el === host || el === sbchat) continue;
+      applyFixedFab(el, px);
+    }
+
+    if (sbchat instanceof HTMLElement) {
+      applySbChatLauncherPins(sbchat, px);
+    }
+  };
+
+  applyAll(bottomPx);
 
   const after = collectLauncherElements().filter(
     (el) => !(sbchat instanceof HTMLElement && el === sbchat && el.parentElement === host),
   );
-  const adjusted = resolveTabBarCollisions(after, bottomPx);
+  const collisionInputs = [...after];
+  if (sbchat instanceof HTMLElement) {
+    for (const inner of collectSbChatLauncherNodes(sbchat)) {
+      if (!collisionInputs.includes(inner)) collisionInputs.push(inner);
+    }
+  }
+  const adjusted = resolveTabBarCollisions(collisionInputs, bottomPx);
   if (adjusted > bottomPx) {
     syncFabBottomCssVar(adjusted);
-    if (host) applyFixedFab(host, adjusted);
-    for (const el of after) {
-      if (el === host || el === sbchat) continue;
-      applyFixedFab(el, adjusted);
-    }
+    applyAll(adjusted);
   }
 }
 

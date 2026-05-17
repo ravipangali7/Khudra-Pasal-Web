@@ -434,6 +434,13 @@
     top: auto !important;
   }
 
+  html.native-app-shell #sbchat .sb-chat-btn,
+  html.native-app-shell #sbchat > .sb-chat,
+  html.native-app-shell #sbchat .sb-icon-btn {
+    bottom: var(--kp-chatboard-fab-bottom) !important;
+    z-index: 10001 !important;
+  }
+
   @media (max-width: 767px) {
     :root {
       --kp-mobile-tabbar-height: 64px;
@@ -472,6 +479,13 @@
       right: 0 !important;
       left: auto !important;
       top: auto !important;
+    }
+
+    #sbchat .sb-chat-btn,
+    #sbchat > .sb-chat,
+    #sbchat .sb-icon-btn {
+      bottom: var(--kp-chatboard-fab-bottom) !important;
+      z-index: 10001 !important;
     }
   }
 }
@@ -537,4 +551,51 @@
     0%, 100% { transform: scale(1); }
     50% { transform: scale(1.05); }
   }
+}
+
+/**
+ * Support Board (Namaste launcher) — unlayered so it wins over injected widget CSS.
+ * JS in chatBoardFabLayout.ts sets --kp-chatboard-fab-bottom from live tab bar geometry.
+ */
+@media (max-width: 767px) {
+  :root {
+    --kp-mobile-tabbar-height: 64px;
+    --kp-chatboard-fab-bottom: calc(var(--kp-mobile-tabbar-height) + 12px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .kp-chatboard-fab-host,
+  #sbchat .sb-chat-btn,
+  #sbchat > .sb-chat,
+  #sbchat .sb-icon-btn {
+    z-index: 10001 !important;
+  }
+
+  #sbchat .sb-chat-btn,
+  #sbchat > .sb-chat,
+  #sbchat .sb-icon-btn {
+    position: fixed !important;
+    bottom: var(--kp-chatboard-fab-bottom) !important;
+    right: 12px !important;
+    left: auto !important;
+    top: auto !important;
+    margin: 0 !important;
+  }
+}
+
+html.native-app-shell {
+  --kp-mobile-tabbar-height: 64px;
+  --kp-chatboard-fab-bottom: calc(var(--kp-mobile-tabbar-height) + 12px + env(safe-area-inset-bottom, 0px));
+}
+
+html.native-app-shell .kp-chatboard-fab-host,
+html.native-app-shell #sbchat .sb-chat-btn,
+html.native-app-shell #sbchat > .sb-chat,
+html.native-app-shell #sbchat .sb-icon-btn {
+  position: fixed !important;
+  bottom: var(--kp-chatboard-fab-bottom) !important;
+  right: 12px !important;
+  left: auto !important;
+  top: auto !important;
+  z-index: 10001 !important;
+  margin: 0 !important;
 }
