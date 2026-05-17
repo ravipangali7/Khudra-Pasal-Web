@@ -122,9 +122,13 @@ const PortalSidebar = ({
             return (
             <div key={item.id}>
               <button
+                type="button"
                 onClick={() => {
-                  if (item.children) {
-                    toggleGroup(item.id);
+                  if (item.children?.length) {
+                    onItemClick(item.id);
+                    if (!expandedGroups.includes(item.id)) {
+                      toggleGroup(item.id);
+                    }
                   } else {
                     onItemClick(item.id);
                   }
@@ -172,6 +176,7 @@ const PortalSidebar = ({
                   {item.children.map((child) => (
                     <button
                       key={child.id}
+                      type="button"
                       onClick={() => onItemClick(child.id)}
                       className={cn(
                         "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all",

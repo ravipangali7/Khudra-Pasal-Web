@@ -1,5 +1,5 @@
-import { ReactNode, useMemo, useState } from 'react';
-import { Menu } from 'lucide-react';
+import { ReactNode, useCallback, useMemo, useState } from 'react';
+import { Menu, X } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import MobileFooterNav, { MOBILE_TABBAR_SCROLL_PADDING } from '@/components/layout/MobileFooterNav';
 import AIChatbot from '@/components/chat/AIChatbot';
@@ -13,10 +13,10 @@ import PortalHeaderNotifications, {
   type PortalHeaderNotificationsProps,
 } from '@/components/portal/PortalHeaderNotifications';
 import { PORTAL_MOBILE_ICON_CLASS } from '@/components/portal/portalMobileChrome';
+import { bindPortalSidebarNavClose } from '@/components/portal/portalMobileSidebar';
 import type { PortalAccountSurface } from '@/lib/portalAccountSwitch';
 import { portalNotificationsHrefForBasePath } from '@/lib/portalNavigation';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 
 interface PortalLayoutProps {
@@ -48,6 +48,13 @@ const PortalLayout = ({
       : portalSurface === 'family'
         ? portalNotificationsHrefForBasePath('/family-portal')
         : undefined;
+
+  const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), []);
+
+  const mobileSidebar = useMemo(
+    () => bindPortalSidebarNavClose(sidebar, closeMobileMenu),
+    [sidebar, closeMobileMenu],
+  );
 
   const portalChrome = useMemo((): PortalHeaderChromeValue => {
     const notificationBell = showNotifications ? (
@@ -112,25 +119,51 @@ const PortalLayout = ({
       <div className="flex h-dvh min-h-0 w-full flex-col overflow-hidden bg-background">
         <header className="z-30 w-full shrink-0 border-b border-border bg-card lg:hidden">
           <div className="flex min-w-0 items-center justify-between gap-2 px-4 py-3">
-            <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-              <SheetTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9 shrink-0"
-                  aria-label="Open menu"
-                >
-                  <Menu className="h-5 w-5" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="w-72 p-0">
-                {sidebar}
-              </SheetContent>
-            </Sheet>
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 shrink-0"
+              aria-label="Open menu"
+              aria-expanded={mobileMenuOpen}
+              onClick={() => setMobileMenuOpen(true)}
+            >
+              <Menu className="h-5 w-5" />
+            </Button>
             {mobileToolbar}
           </div>
         </header>
+
+        {mobileMenuOpen ? (
+          <>
+            <button
+              type="button"
+              className="fixed inset-0 z-[10040] bg-black/60 lg:hidden"
+              aria-label="Close menu"
+              onClick={closeMobileMenu}
+            />
+            <div
+              className="fixed inset-y-0 left-0 z-[10050] flex w-[min(18rem,88vw)] flex-col border-r border-border bg-card shadow-xl lg:hidden"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Portal navigation"
+            >
+              <div className="flex shrink-0 items-center justify-end border-b border-border px-2 py-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9"
+                  aria-label="Close menu"
+                  onClick={closeMobileMenu}
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
+              <div className="min-h-0 flex-1 overflow-hidden">{mobileSidebar}</div>
+            </div>
+          </>
+        ) : null}
 
         <div className="hidden w-full shrink-0 lg:block">
           <Header />

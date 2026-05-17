@@ -382,7 +382,7 @@ const SupportTicketsHub = forwardRef<SupportTicketsHubHandle, SupportTicketsHubP
           className={cn(
             'space-y-3 min-h-0 flex flex-col',
             selectedId &&
-              'max-lg:fixed max-lg:inset-0 max-lg:z-50 max-lg:flex max-lg:flex-col max-lg:bg-background max-lg:p-3 max-lg:pt-[max(0.75rem,env(safe-area-inset-top))] max-lg:pb-[env(safe-area-inset-bottom)]',
+              'max-lg:fixed max-lg:inset-0 max-lg:z-[10050] max-lg:flex max-lg:flex-col max-lg:bg-background max-lg:p-3 max-lg:pt-[max(0.75rem,env(safe-area-inset-top))] max-lg:pb-[max(0.75rem,env(safe-area-inset-bottom))]',
           )}
         >
           {selectedId ? (
@@ -473,12 +473,15 @@ const SupportTicketsHub = forwardRef<SupportTicketsHubHandle, SupportTicketsHubP
                   </Popover>
                 </div>
               </div>
-              <div className="flex-1 min-h-0 flex flex-col">
+              <div className="flex min-h-0 flex-1 flex-col max-lg:min-h-[50vh]">
                 <SupportTicketChatPanel
                   ref={chatRef}
                   messages={mergedMessages}
                   isLoading={detailQuery.isLoading}
-                  onSend={(body, files) => sendMut.mutate({ body, files })}
+                  onSend={(body, files) => {
+                    if (!selectedId) return;
+                    sendMut.mutate({ body, files });
+                  }}
                   sendPending={sendMut.isPending}
                   sendError={sendMut.isError}
                   viewerRole="user"
