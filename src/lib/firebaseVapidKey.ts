@@ -1,5 +1,5 @@
 import { API_BASE } from "@/lib/api";
-import { DEFAULT_FIREBASE_VAPID_KEY, getFirebaseVapidKey } from "@/lib/firebaseWebConfig";
+import { getFirebaseVapidKey } from "@/lib/firebaseWebConfig";
 
 let cachedVapidKey: string | null | undefined;
 let inFlight: Promise<string | null> | null = null;
@@ -27,11 +27,11 @@ export async function resolveFirebaseVapidKey(): Promise<string | null> {
       }
       const data = (await res.json()) as { vapid_key?: string };
       const key = (data.vapid_key ?? "").trim();
-      cachedVapidKey = key || DEFAULT_FIREBASE_VAPID_KEY;
+      cachedVapidKey = key || null;
       return cachedVapidKey;
     } catch {
-      cachedVapidKey = DEFAULT_FIREBASE_VAPID_KEY;
-      return cachedVapidKey;
+      cachedVapidKey = null;
+      return null;
     } finally {
       inFlight = null;
     }

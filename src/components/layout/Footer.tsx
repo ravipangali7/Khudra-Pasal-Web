@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { websiteApi } from '@/lib/api';
 import logo from '@/assets/logo.png';
-import { useNativeAppShell } from '@/hooks/useNativeAppShell';
+import { WebOnly } from '@/components/layout/WebOnly';
 
 function normalizeExternalUrl(raw: string): string {
   const s = raw.trim();
@@ -33,7 +33,6 @@ const SOCIAL_ICONS: Record<
 };
 
 const Footer = () => {
-  const inNativeApp = useNativeAppShell();
   const currentYear = new Date().getFullYear();
   const { data: storeInfo } = useQuery({
     queryKey: ['website', 'store-info'],
@@ -64,9 +63,8 @@ const Footer = () => {
     { icon: HeadphonesIcon, wrap: 'bg-primary/15 text-primary', title: '24/7 Support', desc: 'Dedicated Help' },
   ];
 
-  if (inNativeApp) return null;
-
   return (
+    <WebOnly promo>
     <footer className="site-footer border-t border-border/80 bg-background text-foreground">
       <div className="bg-white">
         <div className="container mx-auto px-4 py-8">
@@ -249,6 +247,7 @@ const Footer = () => {
         </div>
       </div>
     </footer>
+    </WebOnly>
   );
 };
 

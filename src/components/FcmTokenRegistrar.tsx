@@ -4,20 +4,11 @@ import { authApi, getAuthToken } from "@/lib/api";
 import { FCM_LAST_SENT_TOKEN_STORAGE_KEY, getFcmRegistrationToken } from "@/lib/firebaseMessaging";
 
 const VISIBILITY_RESYNC_MS = 400;
-const FCM_SYNC_RETRY_MS = [0, 2_500, 8_000];
 
 /** Sync when authenticated except on auth entry pages (no session yet). */
 function shouldSyncFcmForPath(pathname: string): boolean {
   if (pathname === "/login" || pathname === "/signup" || pathname === "/admin/login") return false;
   return true;
-}
-
-function hasRegisteredFcmToken(): boolean {
-  try {
-    return Boolean(localStorage.getItem(FCM_LAST_SENT_TOKEN_STORAGE_KEY));
-  } catch {
-    return false;
-  }
 }
 
 async function syncFcmIfNeeded(busyRef: MutableRefObject<boolean>): Promise<void> {
@@ -46,15 +37,6 @@ async function syncFcmIfNeeded(busyRef: MutableRefObject<boolean>): Promise<void
   }
 }
 
-async function syncFcmWithRetries(busyRef: MutableRefObject<boolean>): Promise<void> {
-  for (let i = 0; i < FCM_SYNC_RETRY_MS.length; i++) {
-    if (i > 0) await new Promise((r) => setTimeout(r, FCM_SYNC_RETRY_MS[i]));
-    if (!getAuthToken() || !shouldSyncFcmForPath(window.location.pathname)) return;
-    await syncFcmIfNeeded(busyRef);
-    if (hasRegisteredFcmToken()) return;
-  }
-}
-
 /**
  * When the user is signed in, registers the FCM web token with the API (deduped).
  * Re-syncs on route change, auth change, and when the tab becomes visible (token rotation / permission edge cases).
@@ -66,13 +48,13 @@ export default function FcmTokenRegistrar() {
 
   useEffect(() => {
     if (!getAuthToken() || !shouldSyncFcmForPath(location.pathname)) return;
-    void syncFcmWithRetries(busyRef);
+    void syncFcmIfNeeded(busyRef);
   }, [location.pathname]);
 
   useEffect(() => {
     const onAuth = () => {
       if (!getAuthToken() || !shouldSyncFcmForPath(window.location.pathname)) return;
-      void syncFcmWithRetries(busyRef);
+      void syncFcmIfNeeded(busyRef);
     };
     window.addEventListener("khudra-auth-changed", onAuth);
     return () => window.removeEventListener("khudra-auth-changed", onAuth);
@@ -85,7 +67,7 @@ export default function FcmTokenRegistrar() {
       if (visibilityTimerRef.current) clearTimeout(visibilityTimerRef.current);
       visibilityTimerRef.current = setTimeout(() => {
         visibilityTimerRef.current = null;
-        void syncFcmWithRetries(busyRef);
+        void syncFcmIfNeeded(busyRef);
       }, VISIBILITY_RESYNC_MS);
     };
     document.addEventListener("visibilitychange", onVisibility);

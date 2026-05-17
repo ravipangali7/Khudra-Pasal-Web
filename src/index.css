@@ -383,8 +383,10 @@
     touch-action: manipulation;
   }
 
-  /* Flutter WebView shell: hide marketing footer + download banner only. */
+  /* Flutter WebView shell: hide web marketing chrome (footer, promos, download banner). */
   html.native-app-shell .site-footer,
+  html.native-app-shell .web-promo,
+  html.native-app-shell .web-promo-layer,
   html.native-app-shell .download-app-banner {
     display: none !important;
   }

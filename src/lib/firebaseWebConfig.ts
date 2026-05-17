@@ -12,10 +12,6 @@ const DEFAULT_FIREBASE_WEB_CONFIG = {
   measurementId: "G-SCF006FTLB",
 } as const;
 
-/** Web Push VAPID public key (Firebase Console → Cloud Messaging → Web Push certificates). */
-export const DEFAULT_FIREBASE_VAPID_KEY =
-  "BDOU99-h67HcA6JeFXHbSNMu7e2yNNu3RzoMj8TM4W88jITfq7ZmPvIM1Iv-4_l2LxQcYwhqby2xGpWwzjfAnG4";
-
 function envStr(key: string): string {
   const v = import.meta.env[key as keyof ImportMetaEnv];
   return typeof v === "string" ? v.trim() : "";
@@ -39,5 +35,5 @@ export function getFirebaseWebConfig(): Record<string, string> {
 }
 
 export function getFirebaseVapidKey(): string {
-  return envStr("VITE_FIREBASE_VAPID_KEY") || DEFAULT_FIREBASE_VAPID_KEY;
+  return envStr("VITE_FIREBASE_VAPID_KEY");
 }

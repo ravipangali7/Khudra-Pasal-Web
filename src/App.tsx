@@ -11,7 +11,7 @@ import { AuthUiProvider } from "@/contexts/AuthUiContext";
 import FcmForegroundListener from "@/components/FcmForegroundListener";
 import FcmTokenRegistrar from "@/components/FcmTokenRegistrar";
 import ScrollToTopOnNavigate from "@/components/ScrollToTopOnNavigate";
-import DownloadAppBanner from "@/components/layout/DownloadAppBanner";
+import WebPromoLayer from "@/components/layout/WebPromoLayer";
 import StoreSiteScripts from "@/components/StoreSiteScripts";
 import RouteFallback from "@/components/RouteFallback";
 import Index from "./pages/Index";
@@ -99,7 +99,7 @@ const App = () => (
           <Sonner />
           <AuthUiProvider>
             <ScrollToTopOnNavigate />
-            <DownloadAppBanner />
+            <WebPromoLayer />
             <StoreSiteScripts />
             <FcmTokenRegistrar />
             <FcmForegroundListener />
