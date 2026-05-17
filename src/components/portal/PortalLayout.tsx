@@ -12,6 +12,7 @@ import PortalHeaderNotifications, {
   type PortalHeaderNotificationsProps,
 } from '@/components/portal/PortalHeaderNotifications';
 import type { PortalAccountSurface } from '@/lib/portalAccountSwitch';
+import { portalNotificationsHrefForBasePath } from '@/lib/portalNavigation';
 
 interface PortalLayoutProps {
   children: ReactNode;
@@ -36,6 +37,12 @@ const PortalLayout = ({
     showNotifications && typeof notifications === 'object' ? notifications.surface : undefined;
   const notificationOrdersDeepLink =
     showNotifications && typeof notifications === 'object' ? notifications.ordersDeepLink : undefined;
+  const notificationsPageHref =
+    portalSurface === 'child'
+      ? portalNotificationsHrefForBasePath('/child-portal')
+      : portalSurface === 'family'
+        ? portalNotificationsHrefForBasePath('/family-portal')
+        : undefined;
 
   const portalChrome = useMemo(
     (): PortalHeaderChromeValue => ({
@@ -45,6 +52,7 @@ const PortalLayout = ({
             <PortalHeaderNotifications
               surface={notificationSurface}
               ordersDeepLink={notificationOrdersDeepLink}
+              notificationsPageHref={notificationsPageHref}
             />
           ) : null}
           {portalSurface ? <PortalAccountSwitch currentSurface={portalSurface} /> : null}
@@ -62,6 +70,7 @@ const PortalLayout = ({
       headerActions,
       notificationOrdersDeepLink,
       notificationSurface,
+      notificationsPageHref,
       portalSurface,
       showNotifications,
       sidebar,

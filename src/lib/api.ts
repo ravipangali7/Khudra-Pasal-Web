@@ -1533,6 +1533,34 @@ export type AdminSelfProfile = {
   } | null;
 };
 
+export type AdminCustomerHierarchyUser = {
+  id: number;
+  name: string;
+  phone: string;
+  email: string;
+  role: string;
+  kyc_status: string;
+  is_active: boolean;
+  membership_role?: string;
+  wallet_balance?: number;
+  order_count?: number;
+  total_spent?: number;
+  avatar?: string;
+  children?: AdminCustomerHierarchyUser[];
+};
+
+export type AdminCustomerGroupHierarchy = {
+  id: string;
+  name: string;
+  type: string;
+  status: string;
+  parents: AdminCustomerHierarchyUser[];
+};
+
+export type AdminCustomerGroupsHierarchyResponse = {
+  groups: AdminCustomerGroupHierarchy[];
+};
+
 /** Row from GET /api/admin/commission-settlements/ */
 export type AdminCommissionSettlementRow = {
   id: string;
@@ -1709,6 +1737,12 @@ export const adminApi = {
   users: (params?: QueryParams) =>
     apiFetch<PagedResponse<{ id: number; name: string; phone: string; email: string; role: string; kyc_status: string }>>(
       `/admin/users/${buildQuery(params)}`,
+      undefined,
+      true,
+    ),
+  customerGroupsHierarchy: () =>
+    apiFetch<AdminCustomerGroupsHierarchyResponse>(
+      "/admin/customers/grouped/",
       undefined,
       true,
     ),

@@ -8,9 +8,11 @@ import { usePortalSwitchRefresh } from '@/hooks/usePortalSwitchRefresh';
 import {
   findSidebarNodeById,
   resolvePortalNavViewKey,
+  usePortalNotificationIdFromPath,
   usePortalOrderPkFromPath,
   usePortalSectionPath,
 } from '@/lib/portalNavigation';
+import PortalNotificationsSection from '@/components/portal/PortalNotificationsSection';
 import { createFamilyPortalViewRegistry } from '@/portal/family/familyPortalViewRegistry';
 import { toast } from 'sonner';
 import {
@@ -250,6 +252,7 @@ export function FamilyPortal() {
 
   const { segment: activeSection, goTo, isSegmentKnown } = usePortalSectionPath('/family-portal', sidebarItems);
   const orderPk = usePortalOrderPkFromPath('/family-portal', 'my-orders');
+  const notificationId = usePortalNotificationIdFromPath('/family-portal');
 
   const performPortalLogout = () => {
     setPostLogoutLoginPath(PORTAL_LOGIN_PATH.family);
@@ -379,6 +382,18 @@ export function FamilyPortal() {
   );
 
   const renderContent = () => {
+    if (activeSection === 'notifications') {
+      return (
+        <div className="p-4 lg:p-6">
+          <PortalNotificationsSection
+            notificationId={notificationId}
+            notificationsListHref="/family-portal/notifications"
+            ordersDeepLink={null}
+          />
+        </div>
+      );
+    }
+
     const activeNode = findSidebarNodeById(sidebarItems, activeSection);
     const viewKey = resolvePortalNavViewKey(activeNode, activeSection);
 
@@ -3663,7 +3678,7 @@ export function FamilyPortal() {
     return <Navigate to="/family-portal/wallets-overview" replace />;
   }
 
-  if (!isSegmentKnown) {
+  if (!isSegmentKnown && activeSection !== 'notifications') {
     return <Navigate to="/family-portal/dashboard" replace />;
   }
 

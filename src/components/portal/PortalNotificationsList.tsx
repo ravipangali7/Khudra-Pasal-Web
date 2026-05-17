@@ -43,6 +43,10 @@ export type PortalNotificationsListProps = {
   /** Called after navigating via action_url (e.g. close modal). */
   onAfterNavigate?: () => void;
   className?: string;
+  /** When true, row tap opens `/notifications/{id}` instead of following action_url immediately. */
+  openDetailInPage?: boolean;
+  /** Base list URL (no trailing slash); required when openDetailInPage is true. */
+  notificationsListHref?: string;
 };
 
 export default function PortalNotificationsList({
@@ -51,6 +55,8 @@ export default function PortalNotificationsList({
   surface = 'default',
   onAfterNavigate,
   className,
+  openDetailInPage = false,
+  notificationsListHref,
 }: PortalNotificationsListProps) {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
@@ -91,6 +97,11 @@ export default function PortalNotificationsList({
   const handleRowActivate = (n: PortalNotificationRow) => {
     if (!n.is_read) {
       markReadMutation.mutate({ ids: [n.id] });
+    }
+    if (openDetailInPage && notificationsListHref) {
+      navigate(`${notificationsListHref.replace(/\/$/, '')}/${n.id}`);
+      onAfterNavigate?.();
+      return;
     }
     const url = (n.action_url || '').trim();
     if (url) {

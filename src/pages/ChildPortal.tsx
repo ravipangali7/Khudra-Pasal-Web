@@ -25,8 +25,13 @@ import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react
 import { PORTAL_LOGIN_PATH, navigateToPortalLogin, setPostLogoutLoginPath } from '@/lib/portalLoginPaths';
 import { useSessionHomeRedirect } from '@/lib/sessionHomeRedirect';
 import { usePortalSwitchRefresh } from '@/hooks/usePortalSwitchRefresh';
-import { usePortalOrderPkFromPath, usePortalSectionPath } from '@/lib/portalNavigation';
+import {
+  usePortalNotificationIdFromPath,
+  usePortalOrderPkFromPath,
+  usePortalSectionPath,
+} from '@/lib/portalNavigation';
 import PortalMyOrdersSection from '@/components/portal/PortalMyOrdersSection';
+import PortalNotificationsSection from '@/components/portal/PortalNotificationsSection';
 import WalletHubPanel from '@/components/wallet/WalletHubPanel';
 import PortalLayout from '@/components/portal/PortalLayout';
 import PortalSidebar from '@/components/portal/PortalSidebar';
@@ -209,6 +214,7 @@ const ChildPortal = () => {
 
   const { segment: activeSection, goTo, isSegmentKnown } = usePortalSectionPath('/child-portal', sidebarItems);
   const orderPk = usePortalOrderPkFromPath('/child-portal', 'my-orders');
+  const notificationId = usePortalNotificationIdFromPath('/child-portal');
 
   const pollOpts = { refetchInterval: 45_000 as const, refetchOnWindowFocus: true as const };
 
@@ -488,6 +494,17 @@ const ChildPortal = () => {
         return <HelpContent />;
       case 'profile':
         return <PortalFamilyChildProfileModule variant="child" onLogoutClick={performPortalLogout} />;
+      case 'notifications':
+        return (
+          <div className="p-4 lg:p-6">
+            <PortalNotificationsSection
+              notificationId={notificationId}
+              notificationsListHref="/child-portal/notifications"
+              surface="child"
+              ordersDeepLink={null}
+            />
+          </div>
+        );
       default:
         return <DashboardContent />;
     }
@@ -1821,7 +1838,7 @@ const ChildPortal = () => {
     );
   }
 
-  if (!isSegmentKnown && activeSection !== 'kyc') {
+  if (!isSegmentKnown && activeSection !== 'kyc' && activeSection !== 'notifications') {
     return <Navigate to="/child-portal/dashboard" replace />;
   }
 
@@ -1871,3 +1888,4 @@ const ChildPortal = () => {
 };
 
 export default ChildPortal;
+

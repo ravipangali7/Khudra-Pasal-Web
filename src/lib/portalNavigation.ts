@@ -15,6 +15,22 @@ export function usePortalOrderPkFromPath(basePath: string, ordersSegment: string
   if (!first || !/^\d+$/.test(first)) return null;
   return Number(first);
 }
+
+/** Deep link: `/portal/notifications/{id}`, `/child-portal/notifications/{id}`, etc. */
+export function usePortalNotificationIdFromPath(basePath: string): string | null {
+  const { pathname } = useLocation();
+  const base = basePath.replace(/\/$/, "");
+  const prefix = `${base}/notifications/`;
+  if (!pathname.startsWith(prefix)) return null;
+  const rest = pathname.slice(prefix.length);
+  const id = rest.split("/").filter(Boolean)[0];
+  return id || null;
+}
+
+/** Notifications list URL for a portal surface (mobile bell + deep links). */
+export function portalNotificationsHrefForBasePath(basePath: string): string {
+  return `${basePath.replace(/\/$/, "")}/notifications`;
+}
 import type { SidebarItem } from "@/components/portal/PortalSidebar";
 
 /** Default dashboard URL for a portal user from `/portal/me/` `role` (parent / child / normal). */

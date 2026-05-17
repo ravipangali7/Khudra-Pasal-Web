@@ -55,6 +55,7 @@ import { useAdminMutation } from '../hooks/useAdminMutation';
 import { formatApiError, isLikelyPdfMediaUrl, resolveMediaUrlForDisplay } from '../hooks/adminFormUtils';
 import { InlinePdfPreview } from '@/components/admin/InlinePdfPreview';
 import { useAdminCrudPolicy } from '../hooks/useAdminCrudPolicy';
+import CustomerGroupsHierarchy from '@/components/admin/CustomerGroupsHierarchy';
 
 /** Configurable accept list for customer KYC / document upload (images + PDF). */
 const CUSTOMER_DOC_ACCEPT =
@@ -383,6 +384,16 @@ function CustomersView() {
   return (
     <div className="p-4 lg:p-6 space-y-4">
       {formErr ? <p className="text-sm text-destructive">{formErr}</p> : null}
+      <CustomerGroupsHierarchy
+        onViewCustomer={(id) => {
+          const row = filtered.find((c) => c.id === id);
+          if (adminRoute) adminRoute.navigateToView(id);
+          else if (row) {
+            setSelected(row);
+            setViewOpen(true);
+          }
+        }}
+      />
       <div className="flex flex-wrap gap-2">
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="h-8 w-32 text-xs"><SelectValue placeholder="Status" /></SelectTrigger>

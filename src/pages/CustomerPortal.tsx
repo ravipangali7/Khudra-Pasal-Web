@@ -30,7 +30,12 @@ import { DEFAULT_REDIRECT_AFTER_LOGIN } from '@/config/authDefaults';
 import { sanitizeNextPath } from '@/lib/authRedirect';
 import { PORTAL_LOGIN_PATH, navigateToPortalLogin, setPostLogoutLoginPath } from '@/lib/portalLoginPaths';
 import { cn } from '@/lib/utils';
-import { usePortalOrderPkFromPath, usePortalSectionPath } from '@/lib/portalNavigation';
+import {
+  usePortalNotificationIdFromPath,
+  usePortalOrderPkFromPath,
+  usePortalSectionPath,
+} from '@/lib/portalNavigation';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { toast } from 'sonner';
 import {
   clearAllAuthTokens,
@@ -480,6 +485,17 @@ const CustomerPortal = () => {
 
   const { segment: activeSection, goTo, isSegmentKnown } = usePortalSectionPath('/portal', sidebarItems);
   const orderPk = usePortalOrderPkFromPath('/portal', 'orders');
+  const notificationId = usePortalNotificationIdFromPath('/portal');
+  const isMobile = useIsMobile();
+
+  const openNotifications = useCallback(() => {
+    if (isMobile) {
+      goTo('notifications');
+      setSidebarOpen(false);
+      return;
+    }
+    setNotificationsModalOpen(true);
+  }, [goTo, isMobile]);
 
   const walletNavSections = new Set(['wallet', 'wallet-payout-accounts', 'wallet-withdraw']);
 
@@ -639,7 +655,7 @@ const CustomerPortal = () => {
     <>
       <PortalNotificationBell
         unreadCount={notifications}
-        onClick={() => setNotificationsModalOpen(true)}
+        onClick={openNotifications}
         className="h-9 w-9"
       />
       <PortalAccountSwitch currentSurface="main" />
@@ -685,7 +701,7 @@ const CustomerPortal = () => {
       />
       <PortalNotificationBell
         unreadCount={notifications}
-        onClick={() => setNotificationsModalOpen(true)}
+        onClick={openNotifications}
         className={mobilePortalIconClass}
       />
     </div>
@@ -1294,7 +1310,12 @@ const CustomerPortal = () => {
             </div>
           )}
 
-          {activeSection === 'notifications' && <PortalNotificationsSection />}
+          {activeSection === 'notifications' && (
+            <PortalNotificationsSection
+              notificationId={notificationId}
+              notificationsListHref="/portal/notifications"
+            />
+          )}
 
           {activeSection === 'switch-portal' && (
             <div className="w-full max-w-none space-y-6 md:space-y-8">
