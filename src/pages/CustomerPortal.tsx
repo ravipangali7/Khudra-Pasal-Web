@@ -662,8 +662,8 @@ const CustomerPortal = () => {
     </>
   );
 
-  const portalMobileActionColumn = (
-    <div className="flex w-9 flex-col items-center gap-1.5 [&>*]:shrink-0">
+  const portalMobileActionRow = (
+    <div className="flex min-w-0 flex-1 flex-nowrap items-center justify-end gap-1 sm:gap-1.5 [&>*]:shrink-0">
       {portalHeaderToolbar}
     </div>
   );
@@ -739,8 +739,8 @@ const CustomerPortal = () => {
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {/* Top Header */}
         <header className="sticky top-0 z-30 bg-card border-b border-border px-4 py-3">
-          {/* Mobile: menu left; notifications, switch, shop, profile, cart in a column on the right */}
-          <div className="flex items-start justify-between gap-3 sm:hidden">
+          {/* Mobile: menu left; action icons in a horizontal row on the right */}
+          <div className="flex min-w-0 items-center justify-between gap-2 sm:hidden">
             <button
               type="button"
               onClick={() => setSidebarOpen(true)}
@@ -749,7 +749,7 @@ const CustomerPortal = () => {
             >
               <Menu className="h-5 w-5" />
             </button>
-            {portalMobileActionColumn}
+            {portalMobileActionRow}
           </div>
 
           {/* Tablet / desktop */}
