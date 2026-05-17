@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, type CSSProperties } from 'react';
 import { Camera, ImagePlus, Images, Loader2, Paperclip, Send, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -30,6 +30,8 @@ type SupportTicketChatComposerProps = {
   dragOver?: boolean;
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
   PendingTile: React.ComponentType<PendingAttachmentTileProps>;
+  /** Lifts the composer above the on-screen keyboard (mobile). */
+  keyboardInset?: number;
 };
 
 export function SupportTicketChatComposer({
@@ -48,6 +50,7 @@ export function SupportTicketChatComposer({
   dragOver,
   textareaRef,
   PendingTile,
+  keyboardInset = 0,
 }: SupportTicketChatComposerProps) {
   const [attachOpen, setAttachOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -65,12 +68,27 @@ export function SupportTicketChatComposer({
 
   const canSend = !disabledComposer && !sendPending && (draft.trim().length > 0 || pendingFiles.length > 0);
 
+  const scrollComposerIntoView = () => {
+    requestAnimationFrame(() => {
+      textareaRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    });
+  };
+
+  const composerShellStyle: CSSProperties =
+    keyboardInset > 0
+      ? {
+          transform: `translateY(-${keyboardInset}px)`,
+          transition: 'transform 0.15s ease-out',
+        }
+      : { transition: 'transform 0.15s ease-out' };
+
   return (
     <div
       className={cn(
         'border-t border-border bg-background/95 shrink-0',
         mobileUx ? 'p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]' : 'p-3 space-y-2',
       )}
+      style={composerShellStyle}
     >
       {sendPending ? (
         <p className="text-xs text-muted-foreground flex items-center gap-2 px-1 pb-1">
@@ -172,6 +190,7 @@ export function SupportTicketChatComposer({
             value={draft}
             onChange={(e) => onDraftChange(e.target.value)}
             onKeyDown={onKeyDown}
+            onFocus={scrollComposerIntoView}
             placeholder={placeholder}
             rows={1}
             disabled={Boolean(disabledComposer) || sendPending}
@@ -214,6 +233,7 @@ export function SupportTicketChatComposer({
                 value={draft}
                 onChange={(e) => onDraftChange(e.target.value)}
                 onKeyDown={onKeyDown}
+                onFocus={scrollComposerIntoView}
                 placeholder={placeholder}
                 rows={3}
                 disabled={Boolean(disabledComposer) || sendPending}

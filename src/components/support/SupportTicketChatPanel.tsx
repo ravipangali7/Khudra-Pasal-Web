@@ -244,6 +244,7 @@ export type SupportTicketChatPanelProps = {
   onLoadOlder?: () => void;
   loadOlderPending?: boolean;
   showLoadOlder?: boolean;
+  keyboardInset?: number;
 };
 
 const SupportTicketChatPanel = forwardRef<SupportTicketChatPanelHandle, SupportTicketChatPanelProps>(
@@ -260,6 +261,7 @@ const SupportTicketChatPanel = forwardRef<SupportTicketChatPanelHandle, SupportT
       onLoadOlder,
       loadOlderPending,
       showLoadOlder,
+      keyboardInset = 0,
     },
     ref,
   ) {
@@ -294,6 +296,12 @@ const SupportTicketChatPanel = forwardRef<SupportTicketChatPanelHandle, SupportT
       endRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [normalized.length, isLoading, sendPending]);
+
+  useEffect(() => {
+    if (keyboardInset > 0) {
+      endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  }, [keyboardInset]);
 
   const isMine = (m: SupportTicketMessageRow) =>
     viewerRole === 'staff' ? m.sender_role_kind === 'staff' : m.sender_role_kind === 'user';
@@ -466,6 +474,7 @@ const SupportTicketChatPanel = forwardRef<SupportTicketChatPanelHandle, SupportT
         dragOver={dragOver}
         textareaRef={textareaRef}
         PendingTile={PendingAttachmentTile}
+        keyboardInset={keyboardInset}
       />
     </div>
   );

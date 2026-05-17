@@ -13,7 +13,6 @@ import PortalHeaderNotifications, {
   type PortalHeaderNotificationsProps,
 } from '@/components/portal/PortalHeaderNotifications';
 import { PORTAL_MOBILE_ICON_CLASS } from '@/components/portal/portalMobileChrome';
-import { bindPortalSidebarNavClose } from '@/components/portal/portalMobileSidebar';
 import type { PortalAccountSurface } from '@/lib/portalAccountSwitch';
 import { portalNotificationsHrefForBasePath } from '@/lib/portalNavigation';
 import { Button } from '@/components/ui/button';
@@ -51,11 +50,6 @@ const PortalLayout = ({
 
   const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), []);
 
-  const mobileSidebar = useMemo(
-    () => bindPortalSidebarNavClose(sidebar, closeMobileMenu),
-    [sidebar, closeMobileMenu],
-  );
-
   const portalChrome = useMemo((): PortalHeaderChromeValue => {
     const notificationBell = showNotifications ? (
       <PortalHeaderNotifications
@@ -85,9 +79,11 @@ const PortalLayout = ({
       sidebar,
       mobileMenuOpen,
       setMobileMenuOpen,
+      closeMobileMenu,
     };
   }, [
     headerActions,
+    closeMobileMenu,
     notificationOrdersDeepLink,
     notificationSurface,
     notificationsPageHref,
@@ -160,7 +156,9 @@ const PortalLayout = ({
                   <X className="h-5 w-5" />
                 </Button>
               </div>
-              <div className="min-h-0 flex-1 overflow-hidden">{mobileSidebar}</div>
+              <div className="min-h-0 flex-1 overflow-hidden [&_aside]:h-full [&_aside]:w-full [&_aside]:max-w-none">
+                {sidebar}
+              </div>
             </div>
           </>
         ) : null}

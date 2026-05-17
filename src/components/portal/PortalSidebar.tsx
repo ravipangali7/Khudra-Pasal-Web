@@ -3,6 +3,7 @@ import { ChevronRight, ChevronLeft, LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { usePortalHeaderChrome } from '@/contexts/PortalHeaderChromeContext';
 
 export interface SidebarItem {
   id: string;
@@ -44,8 +45,14 @@ const PortalSidebar = ({
   className,
   supportContact,
 }: PortalSidebarProps) => {
+  const portalChrome = usePortalHeaderChrome();
   const [collapsed, setCollapsed] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState<string[]>([]);
+
+  const navigateTo = (id: string) => {
+    onItemClick(id);
+    portalChrome?.closeMobileMenu();
+  };
 
   /** Ids of every item on the path to `activeItem` that has children (keeps submenus open for nested routes). */
   const requiredExpandedIds = useMemo(() => {
@@ -125,12 +132,12 @@ const PortalSidebar = ({
                 type="button"
                 onClick={() => {
                   if (item.children?.length) {
-                    onItemClick(item.id);
+                    navigateTo(item.id);
                     if (!expandedGroups.includes(item.id)) {
                       toggleGroup(item.id);
                     }
                   } else {
-                    onItemClick(item.id);
+                    navigateTo(item.id);
                   }
                 }}
                 className={cn(
@@ -177,7 +184,7 @@ const PortalSidebar = ({
                     <button
                       key={child.id}
                       type="button"
-                      onClick={() => onItemClick(child.id)}
+                      onClick={() => navigateTo(child.id)}
                       className={cn(
                         "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-all",
                         activeItem === child.id

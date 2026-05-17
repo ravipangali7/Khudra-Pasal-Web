@@ -5,6 +5,8 @@ export type PortalHeaderChromeValue = {
   sidebar: ReactNode;
   mobileMenuOpen: boolean;
   setMobileMenuOpen: Dispatch<SetStateAction<boolean>>;
+  /** Closes the mobile navigation drawer after a sidebar selection. */
+  closeMobileMenu: () => void;
 };
 
 const PortalHeaderChromeContext = createContext<PortalHeaderChromeValue | null>(null);

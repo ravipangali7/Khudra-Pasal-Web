@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, ChevronDown, Loader2, MessageSquarePlus } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
@@ -24,6 +24,8 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import SupportTicketChatPanel, { type SupportTicketChatPanelHandle } from './SupportTicketChatPanel';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useVisualViewportLayout } from '@/hooks/useVisualViewportLayout';
 import {
   appendSupportTicketMessageToCache,
   SUPPORT_CHAT_POLL_MS,
@@ -63,6 +65,7 @@ const SupportTicketsHub = forwardRef<SupportTicketsHubHandle, SupportTicketsHubP
   ref,
 ) {
   const qc = useQueryClient();
+  const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
   const chatRef = useRef<SupportTicketChatPanelHandle>(null);
   const pendingOpenMessagesRef = useRef(false);
@@ -76,6 +79,17 @@ const SupportTicketsHub = forwardRef<SupportTicketsHubHandle, SupportTicketsHubP
   const [olderMessages, setOlderMessages] = useState<SupportTicketMessageRow[]>([]);
   const [loadOlderExhausted, setLoadOlderExhausted] = useState(false);
   const [loadOlderPending, setLoadOlderPending] = useState(false);
+
+  const mobileTicketChatOpen = Boolean(selectedId) && isMobile;
+  const vvLayout = useVisualViewportLayout(mobileTicketChatOpen);
+
+  const mobileTicketChatStyle: CSSProperties | undefined = mobileTicketChatOpen
+    ? {
+        top: vvLayout.top,
+        height: vvLayout.height,
+        bottom: 'auto',
+      }
+    : undefined;
 
   useEffect(() => {
     setOlderMessages([]);
@@ -109,17 +123,22 @@ const SupportTicketsHub = forwardRef<SupportTicketsHubHandle, SupportTicketsHubP
     if (!pendingOpenMessagesRef.current || listLoading) return;
     pendingOpenMessagesRef.current = false;
     if (selectedId) {
-      const t = window.setTimeout(() => chatRef.current?.focusComposer(), 200);
-      return () => window.clearTimeout(t);
+      if (!isMobile) {
+        const t = window.setTimeout(() => chatRef.current?.focusComposer(), 200);
+        return () => window.clearTimeout(t);
+      }
+      return;
     }
     if (tickets.length > 0) {
       const first = tickets[0] as Record<string, unknown>;
       setSelectedId(String(first.id));
       return;
     }
-    const t = window.setTimeout(() => subjectInputRef.current?.focus(), 200);
-    return () => window.clearTimeout(t);
-  }, [listLoading, tickets, selectedId]);
+    if (!isMobile) {
+      const t = window.setTimeout(() => subjectInputRef.current?.focus(), 200);
+      return () => window.clearTimeout(t);
+    }
+  }, [isMobile, listLoading, tickets, selectedId]);
 
   useEffect(() => {
     const raw = (searchParams.get('ticket') || '').trim();
@@ -210,10 +229,10 @@ const SupportTicketsHub = forwardRef<SupportTicketsHubHandle, SupportTicketsHubP
   const MIN_LOAD_OLDER_MS = 5000;
 
   useEffect(() => {
-    if (!selectedId || detailQuery.isLoading) return;
+    if (!selectedId || detailQuery.isLoading || isMobile) return;
     const t = window.setTimeout(() => chatRef.current?.focusComposer(), 100);
     return () => window.clearTimeout(t);
-  }, [selectedId, detailQuery.isLoading, detailQuery.dataUpdatedAt]);
+  }, [selectedId, detailQuery.isLoading, detailQuery.dataUpdatedAt, isMobile]);
 
   const loadOlder = async () => {
     if (!selectedId || mergedMessages.length === 0) return;
@@ -382,8 +401,11 @@ const SupportTicketsHub = forwardRef<SupportTicketsHubHandle, SupportTicketsHubP
           className={cn(
             'space-y-3 min-h-0 flex flex-col',
             selectedId &&
-              'max-lg:fixed max-lg:inset-0 max-lg:z-[10050] max-lg:flex max-lg:flex-col max-lg:bg-background max-lg:p-3 max-lg:pt-[max(0.75rem,env(safe-area-inset-top))] max-lg:pb-[max(0.75rem,env(safe-area-inset-bottom))]',
+              'max-lg:fixed max-lg:left-0 max-lg:right-0 max-lg:z-[10050] max-lg:flex max-lg:flex-col max-lg:bg-background max-lg:p-3 max-lg:pt-[max(0.75rem,env(safe-area-inset-top))]',
+            selectedId && !isMobile && 'max-lg:inset-0 max-lg:pb-[max(0.75rem,env(safe-area-inset-bottom))]',
+            selectedId && isMobile && 'max-lg:pb-2',
           )}
+          style={mobileTicketChatStyle}
         >
           {selectedId ? (
             <>
@@ -488,6 +510,7 @@ const SupportTicketsHub = forwardRef<SupportTicketsHubHandle, SupportTicketsHubP
                   showLoadOlder={mergedMessages.length > 0 && !loadOlderExhausted}
                   loadOlderPending={loadOlderPending}
                   onLoadOlder={loadOlder}
+                  keyboardInset={mobileTicketChatOpen ? vvLayout.keyboardInset : 0}
                 />
               </div>
             </>
