@@ -733,44 +733,17 @@ const CustomerPortal = () => {
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {/* Top Header */}
         <header className="sticky top-0 z-30 bg-card border-b border-border px-4 py-3">
-          {/* Mobile: balance card left, menu + icon column right */}
-          <div className="flex items-start gap-3 sm:hidden">
-            <div className="min-w-0 flex-1">
-              <div className="rounded-xl border border-border/70 bg-gradient-to-br from-category-fresh/10 via-card to-card px-3.5 py-3 shadow-sm">
-                <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                  Available balance
-                </p>
-                <p className="mt-0.5 text-xl font-bold tabular-nums leading-tight text-category-fresh">
-                  {formatPrice(walletBalance)}
-                </p>
-                <div className="mt-2.5 flex items-center gap-4 border-t border-border/60 pt-2.5">
-                  <div>
-                    <p className="text-[10px] text-muted-foreground">Orders</p>
-                    <p className="text-sm font-semibold tabular-nums">{totalOrders}</p>
-                  </div>
-                  {pendingDeliveries > 0 ? (
-                    <div>
-                      <p className="text-[10px] text-muted-foreground">Pending</p>
-                      <p className="text-sm font-semibold tabular-nums text-yellow-600">
-                        {pendingDeliveries}
-                      </p>
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex shrink-0 flex-col items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => setSidebarOpen(true)}
-                className="flex h-9 w-9 items-center justify-center rounded-lg border border-border/70 bg-muted/50 hover:bg-muted"
-                aria-label="Open menu"
-              >
-                <Menu className="h-5 w-5" />
-              </button>
-              <div className="flex flex-col items-center gap-1">{portalHeaderToolbar}</div>
-            </div>
+          {/* Mobile: menu left, action icons in a column on the right */}
+          <div className="flex items-start justify-between gap-3 sm:hidden">
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(true)}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/70 bg-muted/50 hover:bg-muted"
+              aria-label="Open menu"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+            <div className="flex flex-col items-center gap-1">{portalHeaderToolbar}</div>
           </div>
 
           {/* Tablet / desktop */}
@@ -812,6 +785,32 @@ const CustomerPortal = () => {
             </div>
           </div>
         </header>
+
+        {/* Mobile wallet card — below header, above scrollable content */}
+        <div className="shrink-0 border-b border-border bg-card px-4 py-3 sm:hidden">
+          <div className="rounded-xl border border-border/70 bg-gradient-to-br from-category-fresh/10 via-card to-card px-3.5 py-3 shadow-sm">
+            <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+              Available balance
+            </p>
+            <p className="mt-0.5 text-xl font-bold tabular-nums leading-tight text-category-fresh">
+              {formatPrice(walletBalance)}
+            </p>
+            <div className="mt-2.5 flex items-center gap-4 border-t border-border/60 pt-2.5">
+              <div>
+                <p className="text-[10px] text-muted-foreground">Orders</p>
+                <p className="text-sm font-semibold tabular-nums">{totalOrders}</p>
+              </div>
+              {pendingDeliveries > 0 ? (
+                <div>
+                  <p className="text-[10px] text-muted-foreground">Pending</p>
+                  <p className="text-sm font-semibold tabular-nums text-yellow-600">
+                    {pendingDeliveries}
+                  </p>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
 
         {/* Main Content Area */}
         <main
