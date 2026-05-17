@@ -1,7 +1,6 @@
 const SCRIPT_MARKER_ATTR = "data-kp-site-script";
 
-/** Chatboard embeds mount in a fixed host above the mobile tab bar (see `chatBoardFabLayout`). */
-const CHATBOARD_FAB_HOST_CLASS = "kp-chatboard-fab-host";
+import { CHATBOARD_FAB_HOST_CLASS } from "@/lib/chatBoardFabLayout";
 
 /** Inject third-party HTML (script tags, etc.) and remove on cleanup. */
 export function injectSiteScriptSnippet(html: string, marker: string): () => void {
