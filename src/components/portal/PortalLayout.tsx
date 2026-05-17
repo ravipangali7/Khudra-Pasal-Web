@@ -109,8 +109,8 @@ const PortalLayout = ({
 
   return (
     <PortalHeaderChromeContext.Provider value={portalChrome}>
-      <div className="flex h-dvh min-h-0 w-full overflow-hidden bg-background">
-        <header className="z-30 shrink-0 border-b border-border bg-card lg:hidden">
+      <div className="flex h-dvh min-h-0 w-full flex-col overflow-hidden bg-background">
+        <header className="z-30 w-full shrink-0 border-b border-border bg-card lg:hidden">
           <div className="flex min-w-0 items-center justify-between gap-2 px-4 py-3">
             <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
               <SheetTrigger asChild>
@@ -132,18 +132,18 @@ const PortalLayout = ({
           </div>
         </header>
 
-        <div className="hidden shrink-0 lg:block">
+        <div className="hidden w-full shrink-0 lg:block">
           <Header />
         </div>
 
-        <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
-          <aside className="hidden lg:block lg:h-full lg:shrink-0 lg:overflow-y-auto lg:self-stretch">
+        <div className="flex min-h-0 w-full min-w-0 flex-1 overflow-hidden">
+          <aside className="hidden lg:block lg:h-full lg:shrink-0 lg:overflow-y-auto">
             {sidebar}
           </aside>
 
           <main
             className={cn(
-              'min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto pt-4 lg:pb-8 lg:pt-6',
+              'min-h-0 w-full min-w-0 flex-1 overflow-x-hidden overflow-y-auto pt-4 lg:pb-8 lg:pt-6',
               'max-lg:pb-[calc(var(--tabbar-scroll-pad)+env(safe-area-inset-bottom,0px))]',
             )}
             style={{ ['--tabbar-scroll-pad' as string]: `${MOBILE_TABBAR_SCROLL_PADDING}px` }}
