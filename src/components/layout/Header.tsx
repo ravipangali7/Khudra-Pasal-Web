@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Menu, Search, ShoppingCart, User } from "lucide-react";
+import { Search, ShoppingCart, User } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
 import { useAuthUi } from "@/contexts/AuthUiContext";
@@ -8,8 +8,6 @@ import { usePortalHeaderChrome } from "@/contexts/PortalHeaderChromeContext";
 import LogoutConfirmDialog from "@/components/auth/LogoutConfirmDialog";
 import SearchDropdown from "@/components/search/SearchDropdown";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { clearAllAuthTokens, getAuthToken, portalApi, websiteApi } from "@/lib/api";
 import { portalDashboardHrefForRole } from "@/lib/portalNavigation";
 import { cn } from "@/lib/utils";
@@ -135,24 +133,6 @@ const Header = () => {
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-14 md:h-16 gap-2 md:gap-4">
             <div className="flex items-center gap-2 md:gap-3 shrink-0 min-w-0">
-              {portalChrome ? (
-                <Sheet open={portalChrome.mobileMenuOpen} onOpenChange={portalChrome.setMobileMenuOpen}>
-                  <SheetTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="h-9 w-9 shrink-0 lg:hidden"
-                      aria-label="Open menu"
-                    >
-                      <Menu className="w-5 h-5" />
-                    </Button>
-                  </SheetTrigger>
-                  <SheetContent side="left" className="p-0 w-72">
-                    {portalChrome.sidebar}
-                  </SheetContent>
-                </Sheet>
-              ) : null}
               <Link to="/" className="flex-shrink-0">
                 <img src={logo} alt="Khudra Pasal" className="h-8 md:h-12 w-auto object-contain" />
               </Link>
