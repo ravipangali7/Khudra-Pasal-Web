@@ -172,7 +172,7 @@ const Header = () => {
                 "flex items-center justify-end",
                 portalChrome
                   ? "shrink-0 flex-nowrap gap-2"
-                  : "min-w-0 flex-1 flex-wrap gap-1 sm:gap-2 lg:flex-none",
+                  : "min-w-0 flex-1 flex-nowrap gap-1 sm:gap-2 lg:flex-none",
               )}
             >
               {isLoggedIn ? (

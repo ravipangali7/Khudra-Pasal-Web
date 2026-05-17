@@ -18,7 +18,7 @@ import {
   MoreVertical, Lock, Unlock, Eye, Edit, Trash2, 
   UserPlus, CheckCircle, XCircle, Clock, AlertTriangle,
   TrendingUp, CreditCard, History, Filter, Download,
-  Home, Banknote, ShieldCheck, Cog, FileText, Store, ShoppingCart,
+  Home, Banknote, ShieldCheck, Cog, FileText, Store,
   Send, UserCog, Folder, Loader2, Link2, Copy
 } from 'lucide-react';
 import PortalLayout from '@/components/portal/PortalLayout';
@@ -110,7 +110,6 @@ import PortalFamilyChildProfileModule from '@/components/portal/PortalFamilyChil
 import PortalProductsCatalogSection from '@/components/portal/PortalProductsCatalogSection';
 import PortalKycSection from '@/components/portal/PortalKycSection';
 import FloatingCart from '@/components/cart/FloatingCart';
-import { useCart } from '@/contexts/CartContext';
 import PayoutAccountsManager from '@/components/wallet/PayoutAccountsManager';
 import WalletHubPanel from '@/components/wallet/WalletHubPanel';
 
@@ -287,7 +286,6 @@ export function FamilyPortal() {
     retry: false,
   });
 
-  const { setIsCartOpen, cartCount } = useCart();
 
   const { data: txResp } = useQuery({
     queryKey: ['portal', 'family', 'txns', sessionTick],

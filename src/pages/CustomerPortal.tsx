@@ -19,7 +19,6 @@ import {
   Menu,
   X,
   Send,
-  ShoppingCart,
   Store,
   Baby,
   FileText,
@@ -115,7 +114,7 @@ const CustomerPortal = () => {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
-  const { addToCart, cartCount, setIsCartOpen } = useCart();
+  const { addToCart } = useCart();
   const [sessionTick, setSessionTick] = useState(0);
   usePortalSwitchRefresh(() => setSessionTick((t) => t + 1));
   const portalToken = Boolean(getAuthToken());
@@ -718,7 +717,7 @@ const CustomerPortal = () => {
               <h2 className="text-lg font-bold capitalize hidden sm:block truncate">{activeSection.replace('-', ' ')}</h2>
             </div>
 
-            <motion.div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+            <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
               <div className="flex min-w-0 flex-wrap items-center gap-2 md:gap-4">
               <div className="flex-shrink-0 px-3 py-1.5 bg-category-fresh/10 rounded-lg">
                 <p className="text-[10px] text-muted-foreground">Balance</p>
@@ -762,7 +761,7 @@ const CustomerPortal = () => {
               <PortalHeaderCart />
               </div>
             </div>
-          </motion.div>
+          </div>
         </header>
 
         {/* Main Content Area */}

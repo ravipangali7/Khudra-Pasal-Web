@@ -81,7 +81,6 @@ import PortalKycSection from '@/components/portal/PortalKycSection';
 import PortalFamilyChildProfileModule from '@/components/portal/PortalFamilyChildProfileModule';
 import PortalProductsCatalogSection from '@/components/portal/PortalProductsCatalogSection';
 import FloatingCart from '@/components/cart/FloatingCart';
-import { useCart } from '@/contexts/CartContext';
 import PayoutAccountsManager from '@/components/wallet/PayoutAccountsManager';
 import OtpVerificationModal from '@/components/wallet/OtpVerificationModal';
 import { toast } from 'sonner';
@@ -221,7 +220,6 @@ const ChildPortal = () => {
     ...pollOpts,
   });
 
-  const { setIsCartOpen, cartCount } = useCart();
 
   const childTxQuery = useQuery({
     queryKey: ['portal', 'child', 'txns', sessionTick],
