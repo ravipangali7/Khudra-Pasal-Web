@@ -42,6 +42,7 @@ const ReelsFeedPage: React.FC = () => {
         tab: 'trending',
         page_size: PAGE_SIZE,
         page: pageParam as number,
+        feed: 'blended',
       }),
     initialPageParam: 1,
     getNextPageParam: (lastPage, allPages) => (lastPage.next ? allPages.length + 1 : undefined),

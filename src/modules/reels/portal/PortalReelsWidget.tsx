@@ -31,7 +31,12 @@ const PortalReelsWidget: React.FC<PortalReelsWidgetProps> = ({ variant }) => {
   const reelsAuthRev = useReelsQueryAuthRev();
   const { data, isLoading } = useQuery({
     queryKey: ['portal', 'reels-trending', variant, reelsAuthRev],
-    queryFn: () => websiteApiReelsTrendingPreferDirectMp4({ page_size: 32 }),
+    queryFn: () =>
+      websiteApiReelsTrendingPreferDirectMp4({
+        page_size: 32,
+        audience: variant === 'child' ? 'child' : variant === 'family' ? 'family' : 'customer',
+        feed: 'blended',
+      }),
   });
   const reels = useMemo(() => extractResults(data).map(mapApiReelToUi), [data]);
 
