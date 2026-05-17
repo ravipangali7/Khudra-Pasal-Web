@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { getAuthToken, portalApi, type PortalNotificationRow } from '@/lib/api';
 import { mapPortalNotificationUiType } from '@/lib/portalNotifications';
+import { resolveMediaUrl } from '@/pages/admin/hooks/adminFormUtils';
 
 function formatNotifTime(iso: string) {
   try {
@@ -137,6 +138,7 @@ export default function PortalNotificationsList({
         const title = n.title?.trim() || 'Notification';
         const body = (n.message || n.preview || '').trim();
         const unread = n.is_read === false;
+        const thumb = n.image_url ? resolveMediaUrl(n.image_url) : '';
         return (
           <button
             key={n.id}
@@ -158,7 +160,9 @@ export default function PortalNotificationsList({
                   uiType === 'info' && 'bg-primary/10',
                 )}
               >
-                {n.type === 'order' ? (
+                {thumb ? (
+                  <img src={thumb} alt="" className="w-9 h-9 rounded-full object-cover border border-border" />
+                ) : n.type === 'order' ? (
                   <Package className="w-4 h-4 text-emerald-600" />
                 ) : uiType === 'alert' ? (
                   <AlertTriangle className="w-4 h-4 text-destructive" />

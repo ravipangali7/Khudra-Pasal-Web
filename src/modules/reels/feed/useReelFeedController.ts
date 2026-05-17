@@ -364,7 +364,29 @@ export function useReelViewRecording(
   viewedReelIdsRef: React.MutableRefObject<Set<number>>,
   viewTimerRef: React.MutableRefObject<number | null>,
 ) {
+  const activeStartRef = useRef<number>(Date.now());
+  const prevIndexRef = useRef<number>(activeIndex);
+
   useEffect(() => {
+    const prevIdx = prevIndexRef.current;
+    if (prevIdx !== activeIndex && displayReels[prevIdx]) {
+      const prev = displayReels[prevIdx];
+      const watchSeconds = Math.round((Date.now() - activeStartRef.current) / 1000);
+      const quickSkip = watchSeconds < 2;
+      const watchCompleted = watchSeconds >= 8;
+      if (viewedReelIdsRef.current.has(prev.id)) {
+        void websiteApi
+          .recordReelView(prev.id, {
+            watch_seconds: watchSeconds,
+            quick_skip: quickSkip,
+            watch_completed: watchCompleted,
+          })
+          .catch(() => {});
+      }
+    }
+    prevIndexRef.current = activeIndex;
+    activeStartRef.current = Date.now();
+
     const active = displayReels[activeIndex];
     if (!active) return;
     if (viewedReelIdsRef.current.has(active.id)) return;
@@ -372,7 +394,7 @@ export function useReelViewRecording(
     viewTimerRef.current = window.setTimeout(() => {
       if (viewedReelIdsRef.current.has(active.id)) return;
       void websiteApi
-        .recordReelView(active.id)
+        .recordReelView(active.id, { watch_seconds: 0 })
         .then((res) => {
           viewedReelIdsRef.current.add(active.id);
           patchReel(active.id, (r) => ({ ...r, views: res.views }));

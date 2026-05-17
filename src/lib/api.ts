@@ -1178,10 +1178,20 @@ export const websiteApi = {
       { method: "POST", body: JSON.stringify({ body, ...(parent_id ? { parent_id } : {}) }) },
       true,
     ),
-  recordReelView: (reelId: number | string) =>
+  recordReelView: (
+    reelId: number | string,
+    opts?: { watch_seconds?: number; quick_skip?: boolean; watch_completed?: boolean },
+  ) =>
     apiFetch<{ created: boolean; views: number }>(
       `/website/reels/${encodeURIComponent(String(reelId))}/views/`,
-      { method: "POST" },
+      {
+        method: "POST",
+        body: JSON.stringify({
+          ...(opts?.watch_seconds != null ? { watch_seconds: opts.watch_seconds } : {}),
+          ...(opts?.quick_skip != null ? { quick_skip: opts.quick_skip } : {}),
+          ...(opts?.watch_completed != null ? { watch_completed: opts.watch_completed } : {}),
+        }),
+      },
       true,
     ),
   cart: () => apiFetch<WebsiteCartApi>("/website/cart/", undefined, true),
@@ -2680,6 +2690,8 @@ export type PortalOrderRow = {
   refunds?: PortalOrderRefundRow[];
   refund_estimate?: PortalRefundEstimate | null;
   refund_allowed?: boolean;
+  has_bill?: boolean;
+  bill_image_url?: string;
 };
 
 export type PortalWalletTxnRow = {
@@ -2776,6 +2788,7 @@ export type PortalNotificationRow = {
   created_at?: string;
   is_read?: boolean;
   action_url?: string;
+  image_url?: string;
   preview?: string;
 };
 
@@ -3156,6 +3169,29 @@ export const portalApi = {
     const prefix =
       surface === "main" ? "/portal" : surface === "family" ? "/family-portal" : "/child-portal";
     return portalFetch<PortalOrderRow>(`${prefix}/orders/${orderPk}/`, undefined, true);
+  },
+  orderInvoiceForSurface: (surface: "main" | "family" | "child", orderPk: number) => {
+    const prefix =
+      surface === "main" ? "/portal" : surface === "family" ? "/family-portal" : "/child-portal";
+    return portalFetch<Record<string, unknown>>(`${prefix}/orders/${orderPk}/invoice/`, undefined, true);
+  },
+  orderBillImageUrl: (surface: "main" | "family" | "child", orderPk: number) => {
+    const prefix =
+      surface === "main" ? "/portal" : surface === "family" ? "/family-portal" : "/child-portal";
+    return `${API_BASE}${prefix}/orders/${orderPk}/bill/`;
+  },
+  fetchOrderBillBlob: async (surface: "main" | "family" | "child", orderPk: number) => {
+    const prefix =
+      surface === "main" ? "/portal" : surface === "family" ? "/family-portal" : "/child-portal";
+    const path = `${API_BASE}${prefix}/orders/${orderPk}/bill/`;
+    const headers = new Headers();
+    const token = getAuthToken();
+    if (token) headers.set("Authorization", buildAuthHeaderValue(token));
+    const response = await fetch(path, { headers });
+    if (!response.ok) {
+      throw new PortalApiError("Could not load bill image.", response.status, {});
+    }
+    return response.blob();
   },
   walletTransactions: (params?: QueryParams) => portalPaged<PortalWalletTxnRow>("wallet-transactions", params),
   /** Alias for /portal/wallet-transactions/ */

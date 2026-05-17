@@ -1,7 +1,7 @@
 import { Fragment, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -60,6 +60,12 @@ function OrderViewAndRefundActions({
     <div className="flex flex-wrap justify-end gap-2">
       <Button type="button" variant="outline" size="sm" className="h-8 text-xs" asChild>
         <Link to={`${ordersListHref}/${o.pk}`}>View order</Link>
+      </Button>
+      <Button type="button" variant="outline" size="sm" className="h-8 text-xs" asChild>
+        <Link to={`${ordersListHref}/${o.pk}?bill=1`}>
+          <FileText className="w-3.5 h-3.5 mr-1 inline" />
+          Bill
+        </Link>
       </Button>
       {canRequestRefund(o) ? (
         <Button

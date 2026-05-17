@@ -28,7 +28,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import InvoiceDocument, { invoicePrintStyles, type InvoiceDocProps } from '@/components/admin/InvoiceDocument';
+import InvoiceDocument, {
+  invoicePrintStyles,
+  resolveBrandingLogoUrl,
+  type InvoiceDocProps,
+} from '@/components/admin/InvoiceDocument';
 
 interface OrdersModuleProps {
   activeSection: string;
@@ -90,7 +94,7 @@ function escapeHtml(value: string): string {
 
 function buildInvoiceDownloadHtml(doc: InvoiceDocProps): string {
   const cur = doc.branding.currency || 'NPR';
-  const siteLogo = doc.branding.site_logo_url ? resolveMediaUrl(doc.branding.site_logo_url) : '';
+  const siteLogo = resolveBrandingLogoUrl(doc.branding.site_logo_url);
   const priceColumns = doc.hidePrices ? '' : `
       <th style="text-align:right; padding: 8px 0;">Price</th>
       <th style="text-align:right; padding: 8px 0;">Total</th>
@@ -126,9 +130,7 @@ function buildInvoiceDownloadHtml(doc: InvoiceDocProps): string {
     <div style="max-width: 900px; margin: 0 auto;">
       <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom: 1px solid #cbd5e1; padding-bottom: 12px; margin-bottom: 16px;">
         <div style="display:flex; align-items:flex-start; gap: 10px;">
-          ${siteLogo
-      ? `<img src="${escapeHtml(siteLogo)}" alt="" style="width: 56px; height: 56px; object-fit: contain; border-radius: 8px; border: 1px solid #e2e8f0; background: #fff;" />`
-      : `<div style="width: 56px; height: 56px; border-radius: 8px; background: #f1f5f9; border: 1px solid #e2e8f0; display:flex; align-items:center; justify-content:center; color:#64748b; font-weight:700;">${escapeHtml((doc.branding.site_name || 'K').charAt(0).toUpperCase())}</div>`}
+          <img src="${escapeHtml(siteLogo)}" alt="" style="width: 56px; height: 56px; object-fit: contain; border-radius: 8px; border: 1px solid #e2e8f0; background: #fff;" />
           <div>
             <h1 style="margin:0; font-size: 22px;">${escapeHtml(doc.branding.site_name)}</h1>
             ${doc.branding.phone ? `<div style="color:#475569; font-size: 13px; margin-top: 4px;">${escapeHtml(doc.branding.phone)}</div>` : ''}

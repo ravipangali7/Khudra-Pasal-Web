@@ -1,4 +1,13 @@
+import defaultLogo from "@/assets/logo.png";
 import { resolveMediaUrl } from "@/pages/admin/hooks/adminFormUtils";
+
+/** Site logo from settings, or bundled Khudra Pasal logo when none is uploaded. */
+export function resolveBrandingLogoUrl(siteLogoUrl?: string): string {
+  if (siteLogoUrl?.trim()) {
+    return resolveMediaUrl(siteLogoUrl);
+  }
+  return defaultLogo;
+}
 
 export type InvoiceLine = {
   name: string;
@@ -84,19 +93,13 @@ export default function InvoiceDocument({
   hidePrices,
 }: InvoiceDocProps) {
   const cur = branding.currency || "NPR";
-  const logo = branding.site_logo_url ? resolveMediaUrl(branding.site_logo_url) : "";
+  const logo = resolveBrandingLogoUrl(branding.site_logo_url);
 
   return (
     <div id="invoice-print-root" className="invoice-doc bg-white text-slate-900 text-sm max-w-3xl mx-auto p-6 border rounded-lg shadow-sm">
       <div className="flex justify-between items-start gap-6 border-b pb-4 mb-4">
         <div className="flex items-center gap-3 min-w-0">
-          {logo ? (
-            <img src={logo} alt="" className="h-14 w-auto max-w-[140px] object-contain" />
-          ) : (
-            <div className="h-14 w-14 rounded-lg bg-slate-100 flex items-center justify-center text-lg font-bold text-slate-500">
-              {branding.site_name?.[0] ?? "K"}
-            </div>
-          )}
+          <img src={logo} alt={branding.site_name} className="h-14 w-auto max-w-[140px] object-contain" />
           <div>
             <h1 className="text-xl font-bold tracking-tight">{branding.site_name}</h1>
             {branding.phone ? <p className="text-xs text-slate-600">{branding.phone}</p> : null}

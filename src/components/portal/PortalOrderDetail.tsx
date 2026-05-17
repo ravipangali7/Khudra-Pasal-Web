@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
@@ -19,6 +19,7 @@ import {
   PortalApiError,
   type PortalOrderRow,
 } from "@/lib/api";
+import PortalOrderBillActions from "@/components/portal/PortalOrderBillActions";
 import type { PortalOrdersSurface } from "@/components/portal/PortalMyOrdersSection";
 
 function formatPrice(amount: number) {
@@ -59,6 +60,8 @@ export default function PortalOrderDetail({
   authed,
 }: Props) {
   const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
+  const openBillOnMount = searchParams.get("bill") === "1";
   const [refundOpen, setRefundOpen] = useState(false);
   const [refundReason, setRefundReason] = useState("");
   const [refundNotes, setRefundNotes] = useState("");
@@ -71,6 +74,10 @@ export default function PortalOrderDetail({
   });
 
   const o = orderQuery.data;
+  const showBillActions = useMemo(() => {
+    if (!o) return false;
+    return o.has_bill !== false;
+  }, [o]);
 
   const refundMut = useMutation({
     mutationFn: async () => {
@@ -146,21 +153,33 @@ export default function PortalOrderDetail({
                 <p className="text-xs text-muted-foreground mt-1">{o.items} item(s)</p>
               </div>
             </div>
-            {canRequestRefund(o) ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-9"
-                onClick={() => {
-                  setRefundOpen(true);
-                  setRefundReason("");
-                  setRefundNotes("");
-                }}
-              >
-                Request refund
-              </Button>
-            ) : null}
+            <div className="flex flex-col gap-3">
+              {showBillActions ? (
+                <PortalOrderBillActions
+                  surface={surface}
+                  orderPk={orderPk}
+                  orderNumber={o.id}
+                  sessionTick={sessionTick}
+                  authed={authed}
+                  openBillOnMount={openBillOnMount}
+                />
+              ) : null}
+              {canRequestRefund(o) ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-9 w-fit"
+                  onClick={() => {
+                    setRefundOpen(true);
+                    setRefundReason("");
+                    setRefundNotes("");
+                  }}
+                >
+                  Request refund
+                </Button>
+              ) : null}
+            </div>
           </div>
 
           <div className="p-4 md:p-6 space-y-6">
