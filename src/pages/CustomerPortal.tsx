@@ -635,6 +635,33 @@ const CustomerPortal = () => {
     return <Navigate to="/portal/dashboard" replace />;
   }
 
+  const portalHeaderToolbar = (
+    <>
+      <PortalNotificationBell
+        unreadCount={notifications}
+        onClick={() => setNotificationsModalOpen(true)}
+        className="h-9 w-9"
+      />
+      <PortalAccountSwitch currentSurface="main" />
+      <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" asChild>
+        <Link to="/homepage" aria-label="Go to shop">
+          <Store className="w-5 h-5" />
+        </Link>
+      </Button>
+      <ProfileMenu
+        onProfileClick={() => goTo('profile')}
+        avatarImageUrl={
+          (selfProfile?.logo_url || selfProfile?.avatar_url)?.trim()
+            ? String(selfProfile.logo_url || selfProfile.avatar_url)
+            : null
+        }
+        avatarFallback={displayInitials(me?.name)}
+        align="end"
+      />
+      <PortalHeaderCart />
+    </>
+  );
+
   return (
     <>
     <div className="flex h-dvh min-h-0 w-full overflow-hidden bg-muted/30">
@@ -706,59 +733,81 @@ const CustomerPortal = () => {
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {/* Top Header */}
         <header className="sticky top-0 z-30 bg-card border-b border-border px-4 py-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
-            <div className="flex items-center gap-3 min-w-0 shrink-0">
-              <button 
-                onClick={() => setSidebarOpen(true)}
-                className="lg:hidden p-2 hover:bg-muted rounded-lg"
-              >
-                <Menu className="w-5 h-5" />
-              </button>
-              <h2 className="text-lg font-bold capitalize hidden sm:block truncate">{activeSection.replace('-', ' ')}</h2>
+          {/* Mobile: balance card left, menu + icon column right */}
+          <div className="flex items-start gap-3 sm:hidden">
+            <div className="min-w-0 flex-1">
+              <div className="rounded-xl border border-border/70 bg-gradient-to-br from-category-fresh/10 via-card to-card px-3.5 py-3 shadow-sm">
+                <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Available balance
+                </p>
+                <p className="mt-0.5 text-xl font-bold tabular-nums leading-tight text-category-fresh">
+                  {formatPrice(walletBalance)}
+                </p>
+                <div className="mt-2.5 flex items-center gap-4 border-t border-border/60 pt-2.5">
+                  <div>
+                    <p className="text-[10px] text-muted-foreground">Orders</p>
+                    <p className="text-sm font-semibold tabular-nums">{totalOrders}</p>
+                  </div>
+                  {pendingDeliveries > 0 ? (
+                    <div>
+                      <p className="text-[10px] text-muted-foreground">Pending</p>
+                      <p className="text-sm font-semibold tabular-nums text-yellow-600">
+                        {pendingDeliveries}
+                      </p>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
             </div>
 
-            <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-              <div className="flex min-w-0 flex-wrap items-center gap-2 md:gap-4">
-              <div className="flex-shrink-0 px-3 py-1.5 bg-category-fresh/10 rounded-lg">
-                <p className="text-[10px] text-muted-foreground">Balance</p>
-                <p className="text-sm font-bold text-category-fresh">{formatPrice(walletBalance)}</p>
+            <div className="flex shrink-0 flex-col items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(true)}
+                className="flex h-9 w-9 items-center justify-center rounded-lg border border-border/70 bg-muted/50 hover:bg-muted"
+                aria-label="Open menu"
+              >
+                <Menu className="h-5 w-5" />
+              </button>
+              <div className="flex flex-col items-center gap-1">{portalHeaderToolbar}</div>
+            </div>
+          </div>
+
+          {/* Tablet / desktop */}
+          <div className="hidden sm:flex sm:items-center sm:justify-between sm:gap-4">
+            <div className="flex min-w-0 shrink-0 items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setSidebarOpen(true)}
+                className="rounded-lg p-2 hover:bg-muted lg:hidden"
+                aria-label="Open menu"
+              >
+                <Menu className="h-5 w-5" />
+              </button>
+              <h2 className="truncate text-lg font-bold capitalize">{activeSection.replace('-', ' ')}</h2>
+            </div>
+
+            <div className="flex min-w-0 flex-1 flex-col items-end gap-2 sm:flex-row sm:items-center sm:justify-end">
+              <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 md:gap-4">
+                <div className="shrink-0 rounded-lg bg-category-fresh/10 px-3 py-1.5">
+                  <p className="text-[10px] text-muted-foreground">Balance</p>
+                  <p className="text-sm font-bold text-category-fresh">{formatPrice(walletBalance)}</p>
+                </div>
+                <div className="hidden shrink-0 rounded-lg bg-primary/10 px-3 py-1.5 sm:block">
+                  <p className="text-[10px] text-muted-foreground">Orders</p>
+                  <p className="text-sm font-bold">{totalOrders}</p>
+                </div>
+                <div className="hidden shrink-0 rounded-lg bg-yellow-500/10 px-3 py-1.5 md:block">
+                  <p className="text-[10px] text-muted-foreground">Pending</p>
+                  <p className="text-sm font-bold text-yellow-600">{pendingDeliveries}</p>
+                </div>
+                <div className="hidden shrink-0 rounded-lg bg-muted px-3 py-1.5 lg:block">
+                  <p className="text-[10px] text-muted-foreground">Total Spent</p>
+                  <p className="text-sm font-bold">{formatPrice(totalSpent)}</p>
+                </div>
               </div>
-              <div className="flex-shrink-0 px-3 py-1.5 bg-primary/10 rounded-lg hidden sm:block">
-                <p className="text-[10px] text-muted-foreground">Orders</p>
-                <p className="text-sm font-bold">{totalOrders}</p>
-              </div>
-              <div className="flex-shrink-0 px-3 py-1.5 bg-yellow-500/10 rounded-lg hidden md:block">
-                <p className="text-[10px] text-muted-foreground">Pending</p>
-                <p className="text-sm font-bold text-yellow-600">{pendingDeliveries}</p>
-              </div>
-              <div className="flex-shrink-0 px-3 py-1.5 bg-muted rounded-lg hidden lg:block">
-                <p className="text-[10px] text-muted-foreground">Total Spent</p>
-                <p className="text-sm font-bold">{formatPrice(totalSpent)}</p>
-              </div>
-              </div>
-              <div className="flex shrink-0 flex-nowrap items-center justify-end gap-1.5 sm:gap-2 ml-auto">
-              <PortalNotificationBell
-                unreadCount={notifications}
-                onClick={() => setNotificationsModalOpen(true)}
-                className="h-9 w-9"
-              />
-              <PortalAccountSwitch currentSurface="main" />
-              <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" asChild>
-                <Link to="/homepage" aria-label="Go to shop">
-                  <Store className="w-5 h-5" />
-                </Link>
-              </Button>
-              <ProfileMenu
-                onProfileClick={() => goTo('profile')}
-                avatarImageUrl={
-                  (selfProfile?.logo_url || selfProfile?.avatar_url)?.trim()
-                    ? String(selfProfile.logo_url || selfProfile.avatar_url)
-                    : null
-                }
-                avatarFallback={displayInitials(me?.name)}
-                align="end"
-              />
-              <PortalHeaderCart />
+              <div className="ml-auto flex shrink-0 flex-nowrap items-center justify-end gap-1.5 sm:gap-2">
+                {portalHeaderToolbar}
               </div>
             </div>
           </div>
