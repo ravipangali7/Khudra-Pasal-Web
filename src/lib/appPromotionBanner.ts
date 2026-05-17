@@ -2,20 +2,48 @@ import type { CSSProperties } from "react";
 import type { WebsiteAppPromotionBanner } from "@/lib/api";
 import { PLAY_STORE_URL } from "@/config/appDownload";
 
-/** sessionStorage key — dismiss per browser tab */
-export const WEB_APP_DOWNLOAD_BANNER_DISMISS_KEY = "khudrapasal_download_banner_dismissed";
-
-export function resolveAppPromotionStoreUrl(banner: WebsiteAppPromotionBanner): string {
-  const fromAdmin = banner.store_url?.trim();
-  if (fromAdmin) return fromAdmin;
-  return PLAY_STORE_URL;
-}
+export const APP_PROMO_VISIT_TOKEN_KEY = "kp_app_promo_token";
 
 /** Banner is shown only when the API returns a non-empty headline. */
 export function isAppPromotionBannerActive(
   banner: WebsiteAppPromotionBanner | null | undefined,
 ): banner is WebsiteAppPromotionBanner {
   return Boolean(banner?.headline?.trim());
+}
+
+export function readAppPromoVisitToken(): string {
+  try {
+    return localStorage.getItem(APP_PROMO_VISIT_TOKEN_KEY)?.trim() || "";
+  } catch {
+    return "";
+  }
+}
+
+export function storeAppPromoVisitToken(token: string): void {
+  try {
+    localStorage.setItem(APP_PROMO_VISIT_TOKEN_KEY, token);
+  } catch {
+    /* private mode */
+  }
+}
+
+export function resolveAppPromotionStoreUrl(
+  banner: WebsiteAppPromotionBanner,
+  visitToken?: string,
+): string {
+  const fromAdmin = banner.store_url?.trim();
+  const base = fromAdmin || PLAY_STORE_URL;
+  if (base === "#") return base;
+  const token = visitToken?.trim() || readAppPromoVisitToken();
+  if (!token) return base;
+  try {
+    const url = new URL(base);
+    url.searchParams.set("referrer", `kp_token=${encodeURIComponent(token)}`);
+    return url.toString();
+  } catch {
+    const sep = base.includes("?") ? "&" : "?";
+    return `${base}${sep}referrer=${encodeURIComponent(`kp_token=${token}`)}`;
+  }
 }
 
 export function appPromotionBannerStyle(

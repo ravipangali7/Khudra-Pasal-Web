@@ -192,6 +192,14 @@ export type WebsiteAppPromotionBanner = {
   store_url?: string;
   gradient_from?: string;
   gradient_to?: string;
+  discount_percent?: string;
+};
+
+export type AppPromotionBannerClickResponse = {
+  ok: boolean;
+  visit_token?: string;
+  discount_percent?: number;
+  detail?: string;
 };
 
 export type WebsiteStoreInfo = {
@@ -1033,6 +1041,11 @@ export function mapWebsiteCartToCartItems(cart: WebsiteCartApi): CartItem[] {
 
 export const websiteApi = {
   storeInfo: () => apiFetch<WebsiteStoreInfo>("/website/store-info/"),
+  appPromotionBannerClick: (visitToken?: string) =>
+    apiFetch<AppPromotionBannerClickResponse>("/website/app-promotion-banner/click/", {
+      method: "POST",
+      body: JSON.stringify(visitToken ? { visit_token: visitToken } : {}),
+    }),
   shippingZones: () => apiFetch<WebsiteShippingZone[]>("/website/shipping-zones/"),
   shippingMethods: () => apiFetch<WebsiteShippingMethod[]>("/website/shipping-methods/"),
   shippingQuote: (body: {
@@ -1336,6 +1349,15 @@ export const authApi = {
     apiFetch<{ ok: true }>(
       "/auth/fcm-token/",
       { method: "POST", body: JSON.stringify(body) },
+      true,
+    ),
+  claimAppPromotionInstall: (visitToken?: string) =>
+    apiFetch<{ ok: boolean; status?: string; discount_percent?: number }>(
+      "/auth/app-promotion-banner/claim-install/",
+      {
+        method: "POST",
+        body: JSON.stringify(visitToken ? { visit_token: visitToken } : {}),
+      },
       true,
     ),
   loginWithGoogleCredential: async (opts: {
@@ -2123,6 +2145,25 @@ export const adminApi = {
   siteSettings: () => apiFetch<Record<string, unknown>>("/admin/site-settings/", undefined, true),
   updateSiteSettings: (payload: Record<string, unknown> | FormData) =>
     adminWrite<Record<string, unknown>>("site-settings", "PATCH", payload),
+  appPromotionAttributions: (params?: { status?: string; search?: string; limit?: number }) =>
+    apiFetch<{
+      results: Array<{
+        id: number;
+        visit_token: string;
+        user_id: number | null;
+        user_name: string;
+        user_phone: string;
+        status: string;
+        clicked_at: string | null;
+        installed_at: string | null;
+        redeemed_at: string | null;
+        discount_percent: number;
+        banner_headline: string;
+        first_order_id: number | null;
+        first_order_number: string;
+      }>;
+      summary: { clicked: number; installed: number; redeemed: number; total: number };
+    }>(`/admin/app-promotion-attributions/${buildQuery(params)}`, undefined, true),
   paymentGateways: () =>
     apiFetch<{ results: Record<string, unknown>[] }>("/admin/payment-gateways/", undefined, true),
   updatePaymentGateway: (gateway: string, payload: Record<string, unknown>) =>
@@ -2697,6 +2738,11 @@ export type PortalCheckoutQuoteCouponApplied = {
   value: number;
 };
 
+export type PortalCheckoutQuoteAppPromoApplied = {
+  percent: number;
+  headline: string;
+};
+
 export type PortalCheckoutQuoteResponse = {
   subtotal: number;
   list_subtotal: number;
@@ -2704,10 +2750,12 @@ export type PortalCheckoutQuoteResponse = {
   savings_flash: number;
   delivery_fee: number;
   coupon_discount: number;
+  app_promo_discount?: number;
   eligible_subtotal: number;
   total: number;
   coupon_error: string | null;
   coupon_applied?: PortalCheckoutQuoteCouponApplied | null;
+  app_promo_applied?: PortalCheckoutQuoteAppPromoApplied | null;
   flash_product_ids: number[];
   lines: PortalCheckoutQuoteLine[];
   stock_warnings: PortalCheckoutQuoteStockWarning[];

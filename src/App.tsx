@@ -12,6 +12,7 @@ import FcmForegroundListener from "@/components/FcmForegroundListener";
 import FcmTokenRegistrar from "@/components/FcmTokenRegistrar";
 import ScrollToTopOnNavigate from "@/components/ScrollToTopOnNavigate";
 import WebPromoLayer from "@/components/layout/WebPromoLayer";
+import AppPromoNativeClaim from "@/components/AppPromoNativeClaim";
 import StoreSiteScripts from "@/components/StoreSiteScripts";
 import RouteFallback from "@/components/RouteFallback";
 import Index from "./pages/Index";
@@ -100,6 +101,7 @@ const App = () => (
           <AuthUiProvider>
             <ScrollToTopOnNavigate />
             <WebPromoLayer />
+            <AppPromoNativeClaim />
             <StoreSiteScripts />
             <FcmTokenRegistrar />
             <FcmForegroundListener />

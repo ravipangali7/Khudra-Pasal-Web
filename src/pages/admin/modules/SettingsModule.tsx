@@ -293,10 +293,10 @@ export default function SettingsModule() {
     queryFn: () => adminApi.paymentGateways(),
   });
 
-  const updateSite = useAdminMutation(adminApi.updateSiteSettings, [
-    ['admin', 'site-settings'],
-    ['website', 'store-info'],
-  ]);
+  const updateSite = useAdminMutation(
+    adminApi.updateSiteSettings,
+    [['admin', 'site-settings'], ['website', 'store-info'], ['admin', 'app-promotion-attributions']],
+  );
   const updateGateway = useAdminMutation(
     ({ gateway, payload }: { gateway: string; payload: Record<string, unknown> }) =>
       adminApi.updatePaymentGateway(gateway, payload),

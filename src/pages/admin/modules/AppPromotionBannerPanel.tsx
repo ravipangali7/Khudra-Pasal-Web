@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Smartphone, X } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { appPromotionBannerStyle } from "@/lib/appPromotionBanner";
-import type { WebsiteAppPromotionBanner } from "@/lib/api";
+import { adminApi, type WebsiteAppPromotionBanner } from "@/lib/api";
 import { formatApiError } from "../hooks/adminFormUtils";
 
 export type AppPromotionBannerForm = {
@@ -15,6 +16,7 @@ export type AppPromotionBannerForm = {
   store_url: string;
   gradient_from: string;
   gradient_to: string;
+  discount_percent: string;
 };
 
 const EMPTY_FORM: AppPromotionBannerForm = {
@@ -24,6 +26,7 @@ const EMPTY_FORM: AppPromotionBannerForm = {
   store_url: "",
   gradient_from: "",
   gradient_to: "",
+  discount_percent: "20",
 };
 
 function formFromExtras(raw: Record<string, unknown> | undefined): AppPromotionBannerForm {
@@ -35,6 +38,7 @@ function formFromExtras(raw: Record<string, unknown> | undefined): AppPromotionB
     store_url: String(raw.store_url ?? ""),
     gradient_from: String(raw.gradient_from ?? ""),
     gradient_to: String(raw.gradient_to ?? ""),
+    discount_percent: String(raw.discount_percent ?? "") || "20",
   };
 }
 
@@ -116,6 +120,7 @@ export default function AppPromotionBannerPanel({
         store_url: form.store_url.trim(),
         gradient_from: form.gradient_from.trim(),
         gradient_to: form.gradient_to.trim(),
+        discount_percent: form.discount_percent.trim(),
       });
     } catch (e) {
       setErr(formatApiError(e));
@@ -132,6 +137,7 @@ export default function AppPromotionBannerPanel({
         store_url: "",
         gradient_from: "",
         gradient_to: "",
+        discount_percent: "",
       });
       setForm({ ...EMPTY_FORM });
     } catch (e) {
@@ -198,6 +204,23 @@ export default function AppPromotionBannerPanel({
               />
             </div>
             <div>
+              <Label htmlFor="app-promo-discount">First-order discount (%)</Label>
+              <Input
+                id="app-promo-discount"
+                type="number"
+                min={0}
+                max={100}
+                step={0.01}
+                className="mt-1.5"
+                value={form.discount_percent}
+                onChange={(e) => set("discount_percent", e.target.value)}
+                placeholder="20"
+              />
+              <p className="mt-1 text-xs text-muted-foreground">
+                Applied once on the first order after the customer opens the app (install claimed).
+              </p>
+            </div>
+            <div>
               <Label htmlFor="app-promo-from">Gradient start color</Label>
               <div className="mt-1.5 flex gap-2">
                 <Input
@@ -246,6 +269,86 @@ export default function AppPromotionBannerPanel({
           </div>
         </CardContent>
       </Card>
+
+      <AppPromoAttributionTracking />
     </div>
+  );
+}
+
+function AppPromoAttributionTracking() {
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ["admin", "app-promotion-attributions"],
+    queryFn: () => adminApi.appPromotionAttributions({ limit: 100 }),
+    refetchInterval: 30_000,
+  });
+
+  const summary = data?.summary;
+  const rows = data?.results ?? [];
+
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between gap-2">
+        <div>
+          <CardTitle>Attribution tracking</CardTitle>
+          <CardDescription>
+            Banner clicks, app install claims, and first-order discount redemptions.
+          </CardDescription>
+        </div>
+        <Button type="button" variant="outline" size="sm" onClick={() => { void refetch(); }}>
+          Refresh
+        </Button>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {summary ? (
+          <div className="flex flex-wrap gap-3 text-sm">
+            <span className="rounded-md bg-muted px-2 py-1">Clicked: {summary.clicked}</span>
+            <span className="rounded-md bg-muted px-2 py-1">Installed: {summary.installed}</span>
+            <span className="rounded-md bg-muted px-2 py-1">Redeemed: {summary.redeemed}</span>
+            <span className="rounded-md bg-muted px-2 py-1">Total: {summary.total}</span>
+          </div>
+        ) : null}
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
+        ) : rows.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No attributions yet.</p>
+        ) : (
+          <div className="overflow-x-auto rounded-md border">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 text-left">
+                <tr>
+                  <th className="p-2 font-medium">Customer</th>
+                  <th className="p-2 font-medium">Status</th>
+                  <th className="p-2 font-medium">Discount</th>
+                  <th className="p-2 font-medium">Clicked</th>
+                  <th className="p-2 font-medium">Installed</th>
+                  <th className="p-2 font-medium">First order</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.id} className="border-t">
+                    <td className="p-2">
+                      {r.user_name || "—"}
+                      {r.user_phone ? (
+                        <span className="block text-xs text-muted-foreground">{r.user_phone}</span>
+                      ) : null}
+                    </td>
+                    <td className="p-2 capitalize">{r.status}</td>
+                    <td className="p-2">{r.discount_percent}%</td>
+                    <td className="p-2 text-xs text-muted-foreground">
+                      {r.clicked_at ? new Date(r.clicked_at).toLocaleString() : "—"}
+                    </td>
+                    <td className="p-2 text-xs text-muted-foreground">
+                      {r.installed_at ? new Date(r.installed_at).toLocaleString() : "—"}
+                    </td>
+                    <td className="p-2 text-xs">{r.first_order_number || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

@@ -1426,6 +1426,17 @@ const Checkout = () => {
                       <span>−{formatPrice(quoteData.coupon_discount)}</span>
                     </div>
                   ) : null}
+                  {quoteData && (quoteData.app_promo_discount ?? 0) > 0 ? (
+                    <div className="flex justify-between text-sm text-violet-700 dark:text-violet-300">
+                      <span>
+                        App install offer
+                        {quoteData.app_promo_applied?.percent
+                          ? ` (−${quoteData.app_promo_applied.percent}%)`
+                          : ''}
+                      </span>
+                      <span>−{formatPrice(quoteData.app_promo_discount ?? 0)}</span>
+                    </div>
+                  ) : null}
                 </div>
 
                 {wantDelivery && (
