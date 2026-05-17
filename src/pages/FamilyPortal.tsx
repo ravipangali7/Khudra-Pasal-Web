@@ -360,59 +360,24 @@ export function FamilyPortal() {
   );
 
   const headerActions = (
-    <div className="flex items-center gap-2">
-      {activeSection === 'profile' ? (
-        <>
-          <Button
-            type="button"
-            variant="secondary"
-            size="icon"
-            className="relative h-9 w-9 lg:hidden"
-            aria-label="Open shopping cart"
-            onClick={() => setIsCartOpen(true)}
-          >
-            <ShoppingCart className="w-5 h-5" />
-            {cartCount > 0 ? (
-              <span className="absolute -top-1 -right-1 min-w-[1.25rem] h-5 px-1 bg-primary text-primary-foreground text-[10px] rounded-full flex items-center justify-center font-bold">
-                {cartCount > 99 ? '99+' : cartCount}
-              </span>
-            ) : null}
-          </Button>
-          <div className="hidden lg:block">
-            <ProfileMenu
-              onProfileClick={() => goTo('profile')}
-              onLogout={() => setLogoutConfirmOpen(true)}
-              avatarImageUrl={
-                (selfProfile?.avatar_url || selfProfile?.logo_url)?.trim()
-                  ? String(selfProfile.avatar_url || selfProfile.logo_url)
-                  : null
-              }
-              avatarFallback="SA"
-              align="end"
-            />
-          </div>
-        </>
-      ) : (
-        <ProfileMenu
-          onProfileClick={() => goTo('profile')}
-          onLogout={() => setLogoutConfirmOpen(true)}
-          avatarImageUrl={
-            (selfProfile?.avatar_url || selfProfile?.logo_url)?.trim()
-              ? String(selfProfile.avatar_url || selfProfile.logo_url)
-              : null
-          }
-          avatarFallback="SA"
-          align="end"
-        />
-      )}
-      <Link
-        to="/homepage"
-        className="relative shrink-0 rounded-lg p-2 text-foreground hover:bg-muted"
-        aria-label="Go to shop"
-      >
-        <Store className="h-5 w-5" />
-      </Link>
-    </div>
+    <>
+      <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" asChild>
+        <Link to="/homepage" aria-label="Go to shop">
+          <Store className="h-5 w-5" />
+        </Link>
+      </Button>
+      <ProfileMenu
+        onProfileClick={() => goTo('profile')}
+        onLogout={() => setLogoutConfirmOpen(true)}
+        avatarImageUrl={
+          (selfProfile?.avatar_url || selfProfile?.logo_url)?.trim()
+            ? String(selfProfile.avatar_url || selfProfile.logo_url)
+            : null
+        }
+        avatarFallback="SA"
+        align="end"
+      />
+    </>
   );
 
   const renderContent = () => {
@@ -480,7 +445,7 @@ export function FamilyPortal() {
   // Dashboard Content
   function DashboardContent() {
     return (
-      <div className="p-4 lg:p-6 space-y-6">
+      <div className="space-y-6 p-4 lg:p-6 lg:pt-0">
         {/* Stats Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           <StatCard 

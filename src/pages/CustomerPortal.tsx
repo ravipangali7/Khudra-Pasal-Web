@@ -80,6 +80,8 @@ import PortalWishlistSection from '@/components/portal/PortalWishlistSection';
 import PortalNotificationBell from '@/components/portal/PortalNotificationBell';
 import PortalNotificationsModal from '@/components/portal/PortalNotificationsModal';
 import PortalAccountSwitch from '@/components/portal/PortalAccountSwitch';
+import PortalHeaderCart from '@/components/portal/PortalHeaderCart';
+import { Button } from '@/components/ui/button';
 import { mapPortalNotificationUiType } from '@/lib/portalNotifications';
 import { useSessionHomeRedirect } from '@/lib/sessionHomeRedirect';
 import { usePortalSwitchRefresh } from '@/hooks/usePortalSwitchRefresh';
@@ -716,8 +718,8 @@ const CustomerPortal = () => {
               <h2 className="text-lg font-bold capitalize hidden sm:block truncate">{activeSection.replace('-', ' ')}</h2>
             </div>
 
-            {/* Stats Bar — wrap instead of horizontal scroll (avoids visible scrollbar) */}
-            <div className="flex min-w-0 flex-wrap items-center justify-start sm:justify-end gap-2 md:gap-4">
+            <motion.div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
+              <div className="flex min-w-0 flex-wrap items-center gap-2 md:gap-4">
               <div className="flex-shrink-0 px-3 py-1.5 bg-category-fresh/10 rounded-lg">
                 <p className="text-[10px] text-muted-foreground">Balance</p>
                 <p className="text-sm font-bold text-category-fresh">{formatPrice(walletBalance)}</p>
@@ -734,59 +736,33 @@ const CustomerPortal = () => {
                 <p className="text-[10px] text-muted-foreground">Total Spent</p>
                 <p className="text-sm font-bold">{formatPrice(totalSpent)}</p>
               </div>
+              </div>
+              <div className="flex shrink-0 flex-nowrap items-center justify-end gap-1.5 sm:gap-2 ml-auto">
               <PortalNotificationBell
                 unreadCount={notifications}
                 onClick={() => setNotificationsModalOpen(true)}
                 className="h-9 w-9"
               />
               <PortalAccountSwitch currentSurface="main" />
-              <Link
-                to="/homepage"
-                className="relative p-2 hover:bg-muted rounded-lg shrink-0 text-foreground"
-                aria-label="Go to shop"
-              >
-                <Store className="w-5 h-5" />
-              </Link>
-              <button
-                type="button"
-                onClick={() => setIsCartOpen(true)}
-                className="relative p-2 hover:bg-muted rounded-lg shrink-0"
-                aria-label="Open shopping cart"
-              >
-                <ShoppingCart className="w-5 h-5" />
-                {cartCount > 0 && (
-                  <span className="absolute -top-1 -right-1 min-w-[1.25rem] h-5 px-1 bg-primary text-[10px] text-primary-foreground rounded-full flex items-center justify-center font-bold">
-                    {cartCount > 99 ? '99+' : cartCount}
-                  </span>
-                )}
-              </button>
-              {activeSection === 'profile' ? (
-                <div className="hidden lg:block">
-                  <ProfileMenu
-                    onProfileClick={() => goTo('profile')}
-                    avatarImageUrl={
-                      (selfProfile?.logo_url || selfProfile?.avatar_url)?.trim()
-                        ? String(selfProfile.logo_url || selfProfile.avatar_url)
-                        : null
-                    }
-                    avatarFallback={displayInitials(me?.name)}
-                    align="end"
-                  />
-                </div>
-              ) : (
-                <ProfileMenu
-                  onProfileClick={() => goTo('profile')}
-                  avatarImageUrl={
-                    (selfProfile?.logo_url || selfProfile?.avatar_url)?.trim()
-                      ? String(selfProfile.logo_url || selfProfile.avatar_url)
-                      : null
-                  }
-                  avatarFallback={displayInitials(me?.name)}
-                  align="end"
-                />
-              )}
+              <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" asChild>
+                <Link to="/homepage" aria-label="Go to shop">
+                  <Store className="w-5 h-5" />
+                </Link>
+              </Button>
+              <ProfileMenu
+                onProfileClick={() => goTo('profile')}
+                avatarImageUrl={
+                  (selfProfile?.logo_url || selfProfile?.avatar_url)?.trim()
+                    ? String(selfProfile.logo_url || selfProfile.avatar_url)
+                    : null
+                }
+                avatarFallback={displayInitials(me?.name)}
+                align="end"
+              />
+              <PortalHeaderCart />
+              </div>
             </div>
-          </div>
+          </motion.div>
         </header>
 
         {/* Main Content Area */}

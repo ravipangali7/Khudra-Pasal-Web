@@ -7,6 +7,7 @@ import {
   type PortalHeaderChromeValue,
 } from '@/contexts/PortalHeaderChromeContext';
 import PortalAccountSwitch from '@/components/portal/PortalAccountSwitch';
+import PortalHeaderCart from '@/components/portal/PortalHeaderCart';
 import PortalHeaderNotifications, {
   type PortalHeaderNotificationsProps,
 } from '@/components/portal/PortalHeaderNotifications';
@@ -39,7 +40,7 @@ const PortalLayout = ({
   const portalChrome = useMemo(
     (): PortalHeaderChromeValue => ({
       toolbar: (
-        <>
+        <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
           {showNotifications ? (
             <PortalHeaderNotifications
               surface={notificationSurface}
@@ -47,8 +48,11 @@ const PortalLayout = ({
             />
           ) : null}
           {portalSurface ? <PortalAccountSwitch currentSurface={portalSurface} /> : null}
-          {headerActions ?? null}
-        </>
+          <div className="flex shrink-0 flex-nowrap items-center gap-1.5 sm:gap-2">
+            {headerActions ?? null}
+            <PortalHeaderCart />
+          </div>
+        </div>
       ),
       sidebar,
       mobileMenuOpen,
@@ -75,7 +79,7 @@ const PortalLayout = ({
             {sidebar}
           </div>
 
-          <main className="min-w-0 flex-1 pb-24 lg:pb-8">{children}</main>
+          <main className="min-w-0 flex-1 pb-24 pt-4 lg:pb-8 lg:pt-6">{children}</main>
         </div>
 
         <AIChatbot />

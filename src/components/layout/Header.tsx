@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { clearAllAuthTokens, getAuthToken, portalApi, websiteApi } from "@/lib/api";
 import { portalDashboardHrefForRole } from "@/lib/portalNavigation";
+import { cn } from "@/lib/utils";
 import logo from "@/assets/logo.png";
 
 function initialsFromName(name: string | undefined): string {
@@ -107,10 +108,21 @@ const Header = () => {
     <button
       type="button"
       onClick={() => setIsCartOpen(true)}
-      className="relative flex shrink-0 items-center gap-2 px-2 md:px-3 py-2 rounded-full hover:bg-primary/10 transition-colors"
+      className={cn(
+        "relative flex h-9 shrink-0 items-center justify-center gap-2 rounded-full px-2 transition-colors hover:bg-primary/10 md:px-3",
+        portalChrome && "md:px-2.5",
+      )}
+      aria-label="Open shopping cart"
     >
       <ShoppingCart className="w-5 h-5 text-foreground" />
-      <span className="hidden md:inline text-sm font-medium">Cart</span>
+      <span
+        className={cn(
+          "hidden text-sm font-medium",
+          portalChrome ? "xl:inline" : "md:inline",
+        )}
+      >
+        Cart
+      </span>
       {cartCount > 0 && (
         <span className="cart-badge">{cartCount > 99 ? "99+" : cartCount}</span>
       )}
@@ -146,19 +158,26 @@ const Header = () => {
               </Link>
             </div>
 
-            <div className="hidden md:flex md:flex-1 md:justify-center min-w-0 max-w-2xl mx-2 md:mx-6">
+            <div
+              className={cn(
+                "hidden min-w-0 md:flex md:flex-1 md:justify-center",
+                portalChrome ? "mx-2 max-w-md lg:max-w-lg md:mx-4" : "mx-2 max-w-2xl md:mx-6",
+              )}
+            >
               {searchTrigger}
             </div>
 
-            <div className="min-w-0 flex-1 flex-wrap items-center justify-end gap-1 sm:gap-2 lg:flex-none">
+            <div
+              className={cn(
+                "flex items-center justify-end",
+                portalChrome
+                  ? "shrink-0 flex-nowrap gap-2"
+                  : "min-w-0 flex-1 flex-wrap gap-1 sm:gap-2 lg:flex-none",
+              )}
+            >
               {isLoggedIn ? (
                 portalChrome ? (
-                  <>
-                    <div className="flex min-w-0 flex-wrap items-center justify-end gap-1 sm:gap-2">
-                      {portalChrome.toolbar}
-                    </div>
-                    {cartButton}
-                  </>
+                  portalChrome.toolbar
                 ) : (
                   <>
                     <button

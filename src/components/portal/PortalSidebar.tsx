@@ -91,7 +91,7 @@ const PortalSidebar = ({
       )}
     >
       {showHeaderRow ? (
-        <div className="p-4 border-b border-border flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3.5">
           {!collapsed && title && (
             <h2 className="font-semibold text-foreground truncate">{title}</h2>
           )}

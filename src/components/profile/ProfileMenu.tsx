@@ -29,7 +29,7 @@ export default function ProfileMenu({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="ghost" size="icon" className="rounded-full shrink-0">
+        <Button type="button" variant="ghost" size="icon" className="h-9 w-9 shrink-0 rounded-full">
           <Avatar className="h-8 w-8">
             {avatarImageUrl ? <AvatarImage src={avatarImageUrl} alt="" /> : null}
             <AvatarFallback>{avatarFallback}</AvatarFallback>
