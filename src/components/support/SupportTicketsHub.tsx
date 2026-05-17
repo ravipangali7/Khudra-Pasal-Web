@@ -25,6 +25,7 @@ import { toast } from 'sonner';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import SupportTicketChatPanel, { type SupportTicketChatPanelHandle } from './SupportTicketChatPanel';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useMobileUx } from '@/hooks/useMobileUx';
 import { useLockBodyScroll } from '@/hooks/useLockBodyScroll';
 import { useVisualViewportLayout } from '@/hooks/useVisualViewportLayout';
 import {
@@ -67,6 +68,7 @@ const SupportTicketsHub = forwardRef<SupportTicketsHubHandle, SupportTicketsHubP
 ) {
   const qc = useQueryClient();
   const isMobile = useIsMobile();
+  const mobileUx = useMobileUx();
   const [searchParams, setSearchParams] = useSearchParams();
   const chatRef = useRef<SupportTicketChatPanelHandle>(null);
   const pendingOpenMessagesRef = useRef(false);
@@ -81,7 +83,7 @@ const SupportTicketsHub = forwardRef<SupportTicketsHubHandle, SupportTicketsHubP
   const [loadOlderExhausted, setLoadOlderExhausted] = useState(false);
   const [loadOlderPending, setLoadOlderPending] = useState(false);
 
-  const mobileTicketChatOpen = Boolean(selectedId) && isMobile;
+  const mobileTicketChatOpen = Boolean(selectedId) && mobileUx;
   const vvLayout = useVisualViewportLayout(mobileTicketChatOpen);
   useLockBodyScroll(mobileTicketChatOpen);
 
@@ -408,10 +410,10 @@ const SupportTicketsHub = forwardRef<SupportTicketsHubHandle, SupportTicketsHubP
           className={cn(
             'flex min-h-0 flex-col',
             selectedId &&
-              !isMobile &&
+              !mobileUx &&
               'max-lg:fixed max-lg:inset-0 max-lg:z-[10050] max-lg:flex max-lg:flex-col max-lg:space-y-3 max-lg:bg-background max-lg:p-3 max-lg:pb-[max(0.75rem,env(safe-area-inset-bottom))] max-lg:pt-[max(0.75rem,env(safe-area-inset-top))]',
             selectedId &&
-              isMobile &&
+              mobileUx &&
               'max-lg:fixed max-lg:left-0 max-lg:right-0 max-lg:z-[10050] max-lg:flex max-lg:flex-col max-lg:overflow-hidden max-lg:bg-background max-lg:p-0',
           )}
           style={mobileTicketChatStyle}
@@ -421,12 +423,12 @@ const SupportTicketsHub = forwardRef<SupportTicketsHubHandle, SupportTicketsHubP
               <div
                 className={cn(
                   'relative shrink-0',
-                  isMobile
+                  mobileUx
                     ? 'px-3 pb-2 pt-[max(0.35rem,env(safe-area-inset-top))]'
                     : 'space-y-1 rounded-xl border border-border bg-card p-4',
                 )}
               >
-                {isMobile ? (
+                {mobileUx ? (
                   <Button
                     type="button"
                     variant="secondary"
@@ -441,10 +443,10 @@ const SupportTicketsHub = forwardRef<SupportTicketsHubHandle, SupportTicketsHubP
                 <div
                   className={cn(
                     'flex items-start justify-between gap-2',
-                    isMobile && 'mt-8 rounded-xl border border-border bg-card p-3 shadow-sm',
+                    mobileUx && 'mt-8 rounded-xl border border-border bg-card p-3 shadow-sm',
                   )}
                 >
-                  {!isMobile ? (
+                  {!mobileUx ? (
                     <Button
                       type="button"
                       variant="ghost"
@@ -456,7 +458,7 @@ const SupportTicketsHub = forwardRef<SupportTicketsHubHandle, SupportTicketsHubP
                       Back
                     </Button>
                   ) : null}
-                  <div className={cn('min-w-0 flex-1', isMobile && 'pl-0.5')}>
+                  <div className={cn('min-w-0 flex-1', mobileUx && 'pl-0.5')}>
                     <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-semibold text-foreground">{detail?.subject ?? '…'}</h3>
                       {detail && (
@@ -533,16 +535,16 @@ const SupportTicketsHub = forwardRef<SupportTicketsHubHandle, SupportTicketsHubP
               <div
                 className={cn(
                   'flex min-h-0 flex-1 flex-col',
-                  isMobile ? 'min-h-0 px-2 pb-1' : 'max-lg:min-h-[50vh]',
+                  mobileUx ? 'min-h-0 px-2 pb-1' : 'max-lg:min-h-[50vh]',
                 )}
               >
                 <SupportTicketChatPanel
                   ref={chatRef}
                   messages={mergedMessages}
                   isLoading={detailQuery.isLoading}
-                  onSend={(body, files) => {
+                  onSend={async (body, files) => {
                     if (!selectedId) return;
-                    sendMut.mutate({ body, files });
+                    await sendMut.mutateAsync({ body, files });
                   }}
                   sendPending={sendMut.isPending}
                   sendError={sendMut.isError}

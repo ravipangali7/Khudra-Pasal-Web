@@ -16,7 +16,6 @@ import DiscountPromoCard from '@/components/home/DiscountPromoCard';
 import SmallBannerSection from '@/components/banners/SmallBannerSection';
 import FooterPromoGrid from '@/components/banners/FooterPromoGrid';
 import ScrollToTop from '@/components/ui/ScrollToTop';
-import AIChatbot from '@/components/chat/AIChatbot';
 import type { StorefrontCategorySlug } from '@/types';
 import { useQuery } from '@tanstack/react-query';
 import {
@@ -381,7 +380,6 @@ const Index = () => {
 
       <Footer />
       <ScrollToTop />
-      <AIChatbot />
       <MobileFooterNav />
     </div>
   );

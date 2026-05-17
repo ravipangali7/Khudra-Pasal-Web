@@ -431,7 +431,7 @@ export default function SupportTicketsModule() {
                   ref={chatRef}
                   messages={mergedMessages}
                   isLoading={detailQuery.isLoading}
-                  onSend={(body, files) => sendMut.mutate({ body, files })}
+                  onSend={async (body, files) => sendMut.mutateAsync({ body, files })}
                   sendPending={sendMut.isPending}
                   sendError={sendMut.isError}
                   viewerRole="staff"

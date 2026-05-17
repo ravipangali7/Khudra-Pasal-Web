@@ -2,7 +2,6 @@ import { ReactNode, useCallback, useMemo, useState } from 'react';
 import { Menu, X } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import MobileFooterNav, { MOBILE_TABBAR_SCROLL_PADDING } from '@/components/layout/MobileFooterNav';
-import AIChatbot from '@/components/chat/AIChatbot';
 import {
   PortalHeaderChromeContext,
   type PortalHeaderChromeValue,

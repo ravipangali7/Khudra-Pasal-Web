@@ -4,12 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import SupportChatAttachTray from './SupportChatAttachTray';
+import { PendingAttachmentStrip } from './PendingAttachmentStrip';
 import { SUPPORT_CHAT_DESKTOP_ACCEPT } from './supportChatConstants';
-
-export type PendingAttachmentTileProps = {
-  file: File;
-  onRemove: () => void;
-};
 
 type SupportTicketChatComposerProps = {
   mobileUx: boolean;
@@ -28,7 +24,6 @@ type SupportTicketChatComposerProps = {
   placeholder?: string;
   dragOver?: boolean;
   textareaRef: React.RefObject<HTMLTextAreaElement | null>;
-  PendingTile: React.ComponentType<PendingAttachmentTileProps>;
 };
 
 export function SupportTicketChatComposer({
@@ -47,7 +42,6 @@ export function SupportTicketChatComposer({
   placeholder = 'Type a message…',
   dragOver,
   textareaRef,
-  PendingTile,
 }: SupportTicketChatComposerProps) {
   const [attachOpen, setAttachOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -63,7 +57,13 @@ export function SupportTicketChatComposer({
   const handlePickFiles = (list: FileList | null) => {
     onPickFiles(list);
     setAttachOpen(false);
+    scrollComposerIntoView();
   };
+
+  const inputShellClass = cn(
+    'flex min-w-0 flex-1 flex-col overflow-hidden rounded-3xl border border-input bg-muted/40 shadow-none transition-shadow',
+    dragOver && !mobileUx && 'ring-2 ring-primary/45 ring-offset-2 ring-offset-background',
+  );
 
   return (
     <div
@@ -85,7 +85,7 @@ export function SupportTicketChatComposer({
       ) : null}
       {sendError ? (
         <p className="text-xs text-destructive px-1 pb-1">
-          Message failed to send. Fix the issue and try again.
+          Message failed to send. Your draft and attachments were restored — try again.
         </p>
       ) : null}
 
@@ -96,18 +96,10 @@ export function SupportTicketChatComposer({
         className="hidden"
         accept={SUPPORT_CHAT_DESKTOP_ACCEPT}
         onChange={(e) => {
-          onPickFiles(e.target.files);
+          handlePickFiles(e.target.files);
           e.target.value = '';
         }}
       />
-
-      {pendingFiles.length > 0 ? (
-        <div className="mb-2 flex max-h-[7.5rem] gap-2.5 overflow-x-auto overflow-y-hidden px-0.5">
-          {pendingFiles.map((f, i) => (
-            <PendingTile key={`${f.name}-${i}-${f.size}-${f.lastModified}`} file={f} onRemove={() => onRemovePending(i)} />
-          ))}
-        </div>
-      ) : null}
 
       {mobileUx && attachOpen ? (
         <SupportChatAttachTray
@@ -134,17 +126,24 @@ export function SupportTicketChatComposer({
           >
             <Paperclip className="h-5 w-5" />
           </Button>
-          <Textarea
-            ref={textareaRef}
-            value={draft}
-            onChange={(e) => onDraftChange(e.target.value)}
-            onKeyDown={onKeyDown}
-            onFocus={scrollComposerIntoView}
-            placeholder={placeholder}
-            rows={1}
-            disabled={Boolean(disabledComposer) || sendPending}
-            className="max-h-28 min-h-[2.75rem] flex-1 resize-none rounded-3xl border border-input bg-muted/40 px-4 py-2.5 shadow-none focus-visible:ring-1"
-          />
+          <div className={inputShellClass}>
+            <PendingAttachmentStrip
+              files={pendingFiles}
+              onRemove={onRemovePending}
+              compact
+            />
+            <Textarea
+              ref={textareaRef}
+              value={draft}
+              onChange={(e) => onDraftChange(e.target.value)}
+              onKeyDown={onKeyDown}
+              onFocus={scrollComposerIntoView}
+              placeholder={pendingFiles.length > 0 ? 'Add a caption…' : placeholder}
+              rows={1}
+              disabled={Boolean(disabledComposer) || sendPending}
+              className="max-h-28 min-h-[2.75rem] resize-none rounded-none border-0 bg-transparent px-4 py-2.5 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+            />
+          </div>
           <Button
             type="button"
             size="icon"
@@ -170,24 +169,18 @@ export function SupportTicketChatComposer({
             >
               <ImagePlus className="h-4 w-4" />
             </Button>
-            <div
-              className={cn(
-                'flex min-h-[5.5rem] flex-1 flex-col rounded-lg border border-input bg-background shadow-sm transition-shadow',
-                dragOver && 'ring-2 ring-primary/45 ring-offset-2 ring-offset-background',
-              )}
-            >
+            <div className={cn(inputShellClass, 'rounded-lg')}>
+              <PendingAttachmentStrip files={pendingFiles} onRemove={onRemovePending} />
               <Textarea
                 ref={textareaRef}
                 value={draft}
                 onChange={(e) => onDraftChange(e.target.value)}
                 onKeyDown={onKeyDown}
                 onFocus={scrollComposerIntoView}
-                placeholder={placeholder}
+                placeholder={pendingFiles.length > 0 ? 'Add a caption…' : placeholder}
                 rows={3}
                 disabled={Boolean(disabledComposer) || sendPending}
-                className={cn(
-                  'min-h-[4.5rem] flex-1 resize-y rounded-lg border-0 px-3 py-2.5 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0',
-                )}
+                className="min-h-[4.5rem] flex-1 resize-y rounded-none border-0 bg-transparent px-3 py-2.5 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
               />
             </div>
           </div>

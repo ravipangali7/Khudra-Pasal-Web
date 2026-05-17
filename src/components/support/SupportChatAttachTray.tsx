@@ -1,6 +1,10 @@
-import { Camera, FileText, Images, Video } from 'lucide-react';
+import { Camera, FileText, FileUp, Images, Video } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { SUPPORT_CHAT_GALLERY_ACCEPT, SUPPORT_CHAT_PDF_ACCEPT } from './supportChatConstants';
+import {
+  SUPPORT_CHAT_DOCUMENT_ACCEPT,
+  SUPPORT_CHAT_GALLERY_ACCEPT,
+  SUPPORT_CHAT_PDF_ACCEPT,
+} from './supportChatConstants';
 
 type SupportChatAttachTrayProps = {
   disabled?: boolean;
@@ -89,8 +93,15 @@ export default function SupportChatAttachTray({ disabled, onFiles, className }: 
       />
       <AttachOption
         icon={FileText}
-        label="PDF document"
+        label="PDF"
         accept={SUPPORT_CHAT_PDF_ACCEPT}
+        disabled={disabled}
+        onFiles={onFiles}
+      />
+      <AttachOption
+        icon={FileUp}
+        label="Document"
+        accept={SUPPORT_CHAT_DOCUMENT_ACCEPT}
         disabled={disabled}
         onFiles={onFiles}
       />

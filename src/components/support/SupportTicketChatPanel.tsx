@@ -1,4 +1,4 @@
-import {
+﻿import {
   forwardRef,
   useCallback,
   useEffect,
@@ -6,14 +6,14 @@ import {
   useRef,
   useState,
 } from 'react';
-import { ChevronUp, FileText, Loader2, Paperclip, Video, X } from 'lucide-react';
+import { ChevronUp, Loader2, Paperclip } from 'lucide-react';
 import type { SupportTicketAttachmentRow, SupportTicketMessageRow } from '@/lib/api';
 import { fetchAuthenticatedBlob } from '@/lib/api';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 import { SupportTicketChatComposer } from './SupportTicketChatComposer';
-import { useIsMobile } from '@/hooks/use-mobile';
-import { useNativeAppShell } from '@/hooks/useNativeAppShell';
+import { mergePickedSupportFiles } from './supportChatFiles';
+import { useMobileUx } from '@/hooks/useMobileUx';
 import { cn } from '@/lib/utils';
 import { MessageDeliveryTicks } from './MessageDeliveryTicks';
 
@@ -53,95 +53,6 @@ function normalizeMessage(m: SupportTicketMessageRow): SupportTicketMessageRow {
   return { ...m, attachments: m.attachments ?? [] };
 }
 
-function pendingFileKind(file: File): 'image' | 'video' | 'pdf' | 'doc' {
-  const t = (file.type || '').toLowerCase();
-  const n = file.name.toLowerCase();
-  if (t.startsWith('image/')) return 'image';
-  if (t.startsWith('video/')) return 'video';
-  if (t === 'application/pdf' || n.endsWith('.pdf')) return 'pdf';
-  return 'doc';
-}
-
-function useFileObjectUrl(file: File | null) {
-  const [url, setUrl] = useState<string | null>(null);
-  useEffect(() => {
-    if (!file) {
-      setUrl(null);
-      return;
-    }
-    const u = URL.createObjectURL(file);
-    setUrl(u);
-    return () => URL.revokeObjectURL(u);
-  }, [file]);
-  return url;
-}
-
-function PendingAttachmentTile({
-  file,
-  onRemove,
-}: {
-  file: File;
-  onRemove: () => void;
-}) {
-  const kind = pendingFileKind(file);
-  const previewUrl = useFileObjectUrl(kind === 'image' ? file : null);
-  const shortName =
-    file.name.length > 16 ? `${file.name.slice(0, 14)}…` : file.name;
-
-  return (
-    <div className="relative group shrink-0 w-[5.5rem]">
-      <div
-        className={cn(
-          'rounded-lg border border-border bg-muted/50 overflow-hidden aspect-square flex flex-col',
-          'shadow-sm ring-1 ring-black/5 dark:ring-white/10',
-        )}
-      >
-        {kind === 'image' && previewUrl ? (
-          <img
-            src={previewUrl}
-            alt=""
-            className="w-full h-full object-cover"
-          />
-        ) : kind === 'image' ? (
-          <div className="w-full h-full flex items-center justify-center bg-muted">
-            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-          </div>
-        ) : kind === 'video' ? (
-          <div className="w-full h-full flex flex-col items-center justify-center gap-1 p-1 bg-muted">
-            <Video className="w-7 h-7 text-muted-foreground" />
-          </div>
-        ) : kind === 'pdf' ? (
-          <div className="w-full h-full flex flex-col items-center justify-center gap-1 p-1 bg-amber-500/10">
-            <FileText className="w-7 h-7 text-amber-600 dark:text-amber-400" />
-          </div>
-        ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center gap-1 p-1 bg-muted">
-            <Paperclip className="w-6 h-6 text-muted-foreground" />
-          </div>
-        )}
-      </div>
-      <button
-        type="button"
-        onClick={onRemove}
-        className={cn(
-          'absolute -top-1.5 -right-1.5 flex h-6 w-6 items-center justify-center rounded-full',
-          'bg-destructive text-destructive-foreground shadow-md',
-          'opacity-90 hover:opacity-100 transition-opacity',
-          'ring-2 ring-background',
-        )}
-        aria-label={`Remove ${file.name}`}
-      >
-        <X className="h-3.5 w-3.5" />
-      </button>
-      <p
-        className="mt-1 text-[10px] text-muted-foreground text-center truncate px-0.5 max-w-[5.5rem] leading-tight"
-        title={file.name}
-      >
-        {shortName}
-      </p>
-    </div>
-  );
-}
 
 function ChatAttachment({
   att,
@@ -235,7 +146,7 @@ function ChatAttachment({
 export type SupportTicketChatPanelProps = {
   messages: SupportTicketMessageRow[];
   isLoading: boolean;
-  onSend: (body: string, files: File[]) => void;
+  onSend: (body: string, files: File[]) => void | Promise<void>;
   sendPending: boolean;
   sendError?: boolean;
   viewerRole: ViewerRole;
@@ -258,7 +169,7 @@ const SupportTicketChatPanel = forwardRef<SupportTicketChatPanelHandle, SupportT
       sendError,
       viewerRole,
       disabledComposer,
-      placeholder = 'Type a message…',
+      placeholder = 'Type a messageâ€¦',
       onLoadOlder,
       loadOlderPending,
       showLoadOlder,
@@ -272,9 +183,7 @@ const SupportTicketChatPanel = forwardRef<SupportTicketChatPanelHandle, SupportT
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const nearBottomRef = useRef(true);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-  const isMobile = useIsMobile();
-  const inNativeApp = useNativeAppShell();
-  const mobileUx = isMobile || inNativeApp;
+  const mobileUx = useMobileUx();
 
   useImperativeHandle(ref, () => ({
     focusComposer: () => {
@@ -313,19 +222,33 @@ const SupportTicketChatPanel = forwardRef<SupportTicketChatPanelHandle, SupportT
     return m.sender_name || 'User';
   };
 
-  const submit = () => {
-    const t = draft.trim();
-    if ((!t && pendingFiles.length === 0) || sendPending) return;
-    onSend(t, [...pendingFiles]);
+  const submit = async () => {
+    const body = draft.trim();
+    if ((!body && pendingFiles.length === 0) || sendPending) return;
+    const files = [...pendingFiles];
+    const savedDraft = draft;
     setDraft('');
     setPendingFiles([]);
     nearBottomRef.current = true;
+    try {
+      await Promise.resolve(onSend(body, files));
+    } catch {
+      setDraft(savedDraft);
+      setPendingFiles(files);
+    }
   };
 
   const onPickFiles = (list: FileList | null) => {
     if (!list?.length) return;
-    setPendingFiles((prev) => [...prev, ...Array.from(list)]);
+    setPendingFiles((prev) => mergePickedSupportFiles(prev, Array.from(list)));
   };
+
+  useEffect(() => {
+    if (pendingFiles.length === 0) return;
+    requestAnimationFrame(() => {
+      textareaRef.current?.scrollIntoView({ block: 'end', behavior: 'smooth' });
+    });
+  }, [pendingFiles.length]);
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.nativeEvent.isComposing) return;
@@ -480,7 +403,6 @@ const SupportTicketChatPanel = forwardRef<SupportTicketChatPanelHandle, SupportT
         placeholder={placeholder}
         dragOver={dragOver}
         textareaRef={textareaRef}
-        PendingTile={PendingAttachmentTile}
       />
     </div>
   );
