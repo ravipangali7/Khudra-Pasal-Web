@@ -662,6 +662,20 @@ const CustomerPortal = () => {
     </>
   );
 
+  const portalMobileIconColumn = (
+    <div className="flex w-9 flex-col items-center gap-1.5 [&>*]:shrink-0">
+      <button
+        type="button"
+        onClick={() => setSidebarOpen(true)}
+        className="flex h-9 w-9 items-center justify-center rounded-lg border border-border/70 bg-muted/50 hover:bg-muted"
+        aria-label="Open menu"
+      >
+        <Menu className="h-5 w-5" />
+      </button>
+      {portalHeaderToolbar}
+    </div>
+  );
+
   return (
     <>
     <div className="flex h-dvh min-h-0 w-full overflow-hidden bg-muted/30">
@@ -733,18 +747,8 @@ const CustomerPortal = () => {
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {/* Top Header */}
         <header className="sticky top-0 z-30 bg-card border-b border-border px-4 py-3">
-          {/* Mobile: menu left, action icons in a column on the right */}
-          <div className="flex items-start justify-between gap-3 sm:hidden">
-            <button
-              type="button"
-              onClick={() => setSidebarOpen(true)}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border/70 bg-muted/50 hover:bg-muted"
-              aria-label="Open menu"
-            >
-              <Menu className="h-5 w-5" />
-            </button>
-            <div className="flex flex-col items-center gap-1">{portalHeaderToolbar}</div>
-          </div>
+          {/* Mobile: all header icons in one vertical column on the left */}
+          <div className="flex items-start sm:hidden">{portalMobileIconColumn}</div>
 
           {/* Tablet / desktop */}
           <div className="hidden sm:flex sm:items-center sm:justify-between sm:gap-4">
