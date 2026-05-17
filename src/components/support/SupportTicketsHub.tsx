@@ -422,28 +422,16 @@ const SupportTicketsHub = forwardRef<SupportTicketsHubHandle, SupportTicketsHubP
             <>
               <div
                 className={cn(
-                  'relative shrink-0',
+                  'shrink-0',
                   mobileUx
                     ? 'px-3 pb-2 pt-[max(0.35rem,env(safe-area-inset-top))]'
                     : 'space-y-1 rounded-xl border border-border bg-card p-4',
                 )}
               >
-                {mobileUx ? (
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="icon"
-                    className="absolute -top-1 left-2 z-20 h-10 w-10 rounded-full border border-border bg-card shadow-md touch-manipulation"
-                    onClick={() => setSelectedId(null)}
-                    aria-label="Back to tickets"
-                  >
-                    <ArrowLeft className="h-5 w-5" />
-                  </Button>
-                ) : null}
                 <div
                   className={cn(
                     'flex items-start justify-between gap-2',
-                    mobileUx && 'mt-8 rounded-xl border border-border bg-card p-3 shadow-sm',
+                    mobileUx && 'rounded-xl border border-border bg-card p-3 shadow-sm',
                   )}
                 >
                   {!mobileUx ? (
