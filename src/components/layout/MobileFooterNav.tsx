@@ -14,10 +14,10 @@ import {
 import { cn } from '@/lib/utils';
 import { useNativeAppShell } from '@/hooks/useNativeAppShell';
 
-const FOOTER_HEIGHT = 64;
+export const MOBILE_TABBAR_HEIGHT = 64;
 
 /** Space reserved above the tab bar (matches prior body padding when the window was the scroller). */
-export const MOBILE_TABBAR_SCROLL_PADDING = FOOTER_HEIGHT + 16;
+export const MOBILE_TABBAR_SCROLL_PADDING = MOBILE_TABBAR_HEIGHT + 16;
 
 interface MobileFooterNavProps {
   /**
@@ -61,7 +61,7 @@ const MobileFooterNav = ({ skipDocumentPadding = false }: MobileFooterNavProps) 
         backdropFilter: 'blur(20px)',
         borderTop: '1px solid hsl(270 60% 30% / 0.4)',
         paddingBottom: 'env(safe-area-inset-bottom)',
-        height: `${FOOTER_HEIGHT}px`,
+        height: `${MOBILE_TABBAR_HEIGHT}px`,
       }}
     >
       <div className="flex items-center justify-around h-full px-0.5">

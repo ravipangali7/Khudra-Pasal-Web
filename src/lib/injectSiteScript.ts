@@ -1,5 +1,8 @@
 const SCRIPT_MARKER_ATTR = "data-kp-site-script";
 
+/** Chatboard embeds mount in a fixed host above the mobile tab bar (see `chatBoardFabLayout`). */
+const CHATBOARD_FAB_HOST_CLASS = "kp-chatboard-fab-host";
+
 /** Inject third-party HTML (script tags, etc.) and remove on cleanup. */
 export function injectSiteScriptSnippet(html: string, marker: string): () => void {
   const trimmed = html.trim();
@@ -8,6 +11,16 @@ export function injectSiteScriptSnippet(html: string, marker: string): () => voi
   const added: Node[] = [];
   const tpl = document.createElement("template");
   tpl.innerHTML = trimmed;
+
+  const useFabHost = marker === "chabot";
+  let fabHost: HTMLDivElement | null = null;
+  if (useFabHost) {
+    fabHost = document.createElement("div");
+    fabHost.className = CHATBOARD_FAB_HOST_CLASS;
+    fabHost.setAttribute(SCRIPT_MARKER_ATTR, marker);
+    document.body.appendChild(fabHost);
+    added.push(fabHost);
+  }
 
   tpl.content.querySelectorAll("script").forEach((oldScript) => {
     const script = document.createElement("script");
@@ -28,7 +41,8 @@ export function injectSiteScriptSnippet(html: string, marker: string): () => voi
     if (clone instanceof HTMLElement) {
       clone.setAttribute(SCRIPT_MARKER_ATTR, marker);
     }
-    document.head.appendChild(clone);
+    const parent = fabHost ?? document.head;
+    parent.appendChild(clone);
     added.push(clone);
   });
 

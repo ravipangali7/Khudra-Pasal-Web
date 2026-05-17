@@ -390,6 +390,57 @@
   html.native-app-shell .download-app-banner {
     display: none !important;
   }
+
+  /**
+   * Chatboard / third-party chat launcher — float above the mobile tab bar (FAB style).
+   * JS in `useChatBoardFabPosition` reinforces this when widgets inject after load.
+   */
+  html.native-app-shell {
+    --kp-mobile-tabbar-height: 64px;
+    --kp-chatboard-fab-bottom: calc(var(--kp-mobile-tabbar-height) + 12px + env(safe-area-inset-bottom, 0px));
+  }
+
+  html.native-app-shell .kp-chatboard-fab-host,
+  html.native-app-shell #tawk-bubble-container,
+  html.native-app-shell .tawk-min-container,
+  html.native-app-shell #tawk-chatbox-container,
+  html.native-app-shell .intercom-lightweight-app-launcher,
+  html.native-app-shell #crisp-chatbox,
+  html.native-app-shell #crisp-chatbox-button {
+    position: fixed !important;
+    bottom: var(--kp-chatboard-fab-bottom) !important;
+    right: 12px !important;
+    left: auto !important;
+    top: auto !important;
+    z-index: 10000 !important;
+    margin: 0 !important;
+  }
+
+  html.native-app-shell .kp-chatboard-fab-host {
+    pointer-events: none;
+  }
+
+  html.native-app-shell .kp-chatboard-fab-host > * {
+    pointer-events: auto;
+  }
+
+  @media (max-width: 767px) {
+    .kp-chatboard-fab-host,
+    #tawk-bubble-container,
+    .tawk-min-container,
+    #tawk-chatbox-container,
+    .intercom-lightweight-app-launcher,
+    #crisp-chatbox,
+    #crisp-chatbox-button {
+      position: fixed !important;
+      bottom: var(--kp-chatboard-fab-bottom, calc(64px + 12px + env(safe-area-inset-bottom, 0px))) !important;
+      right: 12px !important;
+      left: auto !important;
+      top: auto !important;
+      z-index: 10000 !important;
+      margin: 0 !important;
+    }
+  }
 }
 
 @layer utilities {
