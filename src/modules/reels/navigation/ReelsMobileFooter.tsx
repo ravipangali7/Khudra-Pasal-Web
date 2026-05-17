@@ -49,8 +49,9 @@ const ReelsMobileFooter: React.FC = () => {
         background: 'rgba(10, 10, 10, 0.95)',
         backdropFilter: 'blur(20px)',
         borderTop: '1px solid rgba(255,255,255,0.08)',
-        paddingBottom: 'env(safe-area-inset-bottom)',
-        height: `${FOOTER_HEIGHT}px`,
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        height: `calc(${FOOTER_HEIGHT}px + env(safe-area-inset-bottom, 0px))`,
+        boxSizing: 'border-box',
       }}
     >
       <div className="flex items-center justify-around h-full px-0.5">

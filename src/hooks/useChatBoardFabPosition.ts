@@ -1,5 +1,9 @@
 import { useEffect } from "react";
-import { repositionChatBoardFab } from "@/lib/chatBoardFabLayout";
+import {
+  CHATBOARD_FAB_REPOSITION_EVENT,
+  registerChatBoardFabRepositionGlobal,
+  repositionChatBoardFab,
+} from "@/lib/chatBoardFabLayout";
 import { NATIVE_APP_CHANGED_EVENT } from "@/lib/nativeAppShell";
 
 const MOBILE_MQ = "(max-width: 767px)";
@@ -12,33 +16,48 @@ export function useChatBoardFabPosition(): void {
   useEffect(() => {
     if (typeof window === "undefined" || typeof document === "undefined") return;
 
+    registerChatBoardFabRepositionGlobal();
+
     let raf = 0;
-    const schedule = () => {
+    let debounce = 0;
+
+    const run = () => {
       cancelAnimationFrame(raf);
       raf = requestAnimationFrame(() => repositionChatBoardFab());
     };
 
-    schedule();
+    const schedule = () => {
+      window.clearTimeout(debounce);
+      debounce = window.setTimeout(run, 80);
+    };
+
+    run();
 
     const mq = window.matchMedia(MOBILE_MQ);
-    const onMq = () => schedule();
-    mq.addEventListener("change", onMq);
+    mq.addEventListener("change", schedule);
     window.addEventListener("resize", schedule);
     window.addEventListener("orientationchange", schedule);
     window.addEventListener(NATIVE_APP_CHANGED_EVENT, schedule);
+    window.addEventListener(CHATBOARD_FAB_REPOSITION_EVENT, schedule);
 
     const observer = new MutationObserver(schedule);
-    observer.observe(document.body, { childList: true, subtree: true, attributes: true });
+    observer.observe(document.body, { childList: true, subtree: true });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["class"],
+    });
 
-    const delays = [400, 1200, 3000, 6000];
-    const timers = delays.map((ms) => window.setTimeout(schedule, ms));
+    const delays = [200, 600, 1500, 3500, 8000];
+    const timers = delays.map((ms) => window.setTimeout(run, ms));
 
     return () => {
       cancelAnimationFrame(raf);
-      mq.removeEventListener("change", onMq);
+      window.clearTimeout(debounce);
+      mq.removeEventListener("change", schedule);
       window.removeEventListener("resize", schedule);
       window.removeEventListener("orientationchange", schedule);
       window.removeEventListener(NATIVE_APP_CHANGED_EVENT, schedule);
+      window.removeEventListener(CHATBOARD_FAB_REPOSITION_EVENT, schedule);
       observer.disconnect();
       for (const id of timers) window.clearTimeout(id);
     };

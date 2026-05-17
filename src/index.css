@@ -397,12 +397,11 @@
    */
   html.native-app-shell {
     --kp-mobile-tabbar-height: 64px;
-    --kp-chatboard-fab-bottom: calc(var(--kp-mobile-tabbar-height) + 16px + env(safe-area-inset-bottom, 0px));
+    --kp-chatboard-fab-bottom: calc(var(--kp-mobile-tabbar-height) + 12px + env(safe-area-inset-bottom, 0px));
   }
 
   html.native-app-shell .kp-chatboard-fab-host,
   html.native-app-shell #sbchat,
-  html.native-app-shell .sb-chat,
   html.native-app-shell #tawk-bubble-container,
   html.native-app-shell .tawk-min-container,
   html.native-app-shell #tawk-chatbox-container,
@@ -414,7 +413,7 @@
     right: 12px !important;
     left: auto !important;
     top: auto !important;
-    z-index: 10000 !important;
+    z-index: 10001 !important;
     margin: 0 !important;
   }
 
@@ -426,10 +425,23 @@
     pointer-events: auto;
   }
 
+  html.native-app-shell .kp-chatboard-fab-host > #sbchat,
+  html.native-app-shell .kp-chatboard-fab-host > .sb-chat {
+    position: absolute !important;
+    bottom: 0 !important;
+    right: 0 !important;
+    left: auto !important;
+    top: auto !important;
+  }
+
   @media (max-width: 767px) {
+    :root {
+      --kp-mobile-tabbar-height: 64px;
+      --kp-chatboard-fab-bottom: calc(var(--kp-mobile-tabbar-height) + 12px + env(safe-area-inset-bottom, 0px));
+    }
+
     .kp-chatboard-fab-host,
     #sbchat,
-    .sb-chat,
     #tawk-bubble-container,
     .tawk-min-container,
     #tawk-chatbox-container,
@@ -437,12 +449,29 @@
     #crisp-chatbox,
     #crisp-chatbox-button {
       position: fixed !important;
-      bottom: var(--kp-chatboard-fab-bottom, calc(64px + 16px + env(safe-area-inset-bottom, 0px))) !important;
+      bottom: var(--kp-chatboard-fab-bottom) !important;
       right: 12px !important;
       left: auto !important;
       top: auto !important;
-      z-index: 10000 !important;
+      z-index: 10001 !important;
       margin: 0 !important;
+    }
+
+    .kp-chatboard-fab-host {
+      pointer-events: none;
+    }
+
+    .kp-chatboard-fab-host > * {
+      pointer-events: auto;
+    }
+
+    .kp-chatboard-fab-host > #sbchat,
+    .kp-chatboard-fab-host > .sb-chat {
+      position: absolute !important;
+      bottom: 0 !important;
+      right: 0 !important;
+      left: auto !important;
+      top: auto !important;
     }
   }
 }

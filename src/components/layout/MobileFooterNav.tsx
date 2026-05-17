@@ -60,8 +60,9 @@ const MobileFooterNav = ({ skipDocumentPadding = false }: MobileFooterNavProps) 
         background: 'linear-gradient(135deg, hsl(270 80% 20%) 0%, hsl(270 60% 12%) 50%, hsl(220 40% 10%) 100%)',
         backdropFilter: 'blur(20px)',
         borderTop: '1px solid hsl(270 60% 30% / 0.4)',
-        paddingBottom: 'env(safe-area-inset-bottom)',
-        height: `${MOBILE_TABBAR_HEIGHT}px`,
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        height: `calc(${MOBILE_TABBAR_HEIGHT}px + env(safe-area-inset-bottom, 0px))`,
+        boxSizing: 'border-box',
       }}
     >
       <div className="flex items-center justify-around h-full px-0.5">
