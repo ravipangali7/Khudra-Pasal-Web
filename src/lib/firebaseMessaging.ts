@@ -101,7 +101,24 @@ export async function getFcmRegistrationToken(): Promise<string | null> {
   try {
     const registration = await navigator.serviceWorker.register("/firebase-messaging-sw.js", {
       scope: "/",
+      updateViaCache: "none",
     });
+    await navigator.serviceWorker.ready;
+    if (registration.installing) {
+      await new Promise<void>((resolve, reject) => {
+        const worker = registration.installing!;
+        const timeout = window.setTimeout(() => reject(new Error("service worker activation timeout")), 15_000);
+        worker.addEventListener("statechange", () => {
+          if (worker.state === "activated") {
+            window.clearTimeout(timeout);
+            resolve();
+          } else if (worker.state === "redundant") {
+            window.clearTimeout(timeout);
+            reject(new Error("service worker redundant"));
+          }
+        });
+      });
+    }
     const token = await getToken(messaging, { vapidKey, serviceWorkerRegistration: registration });
     return token || null;
   } catch {

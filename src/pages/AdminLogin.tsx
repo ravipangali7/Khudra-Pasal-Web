@@ -77,7 +77,7 @@ export default function AdminLogin() {
                   <img src={logo} alt="Khudra Pasal" className="h-14 w-auto mx-auto mb-4" />
                 </Link>
                 <h1 className="text-2xl lg:text-3xl font-bold text-neutral-900 mb-2">Admin sign-in</h1>
-                <p className="text-neutral-500">Sign in with Gmail or your admin email and password.</p>
+                <p className="text-neutral-500">Sign in with Gmail, or use your email or mobile number and password.</p>
               </div>
               <AdminLoginForm
                 postLoginTarget={postLoginTarget}
