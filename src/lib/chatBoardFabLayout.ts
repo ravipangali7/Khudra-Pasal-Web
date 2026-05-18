@@ -6,6 +6,11 @@ export const CHATBOARD_FAB_REPOSITION_EVENT = "kp-reposition-chat-fab";
 /** Minimum gap between the tab bar top edge and the chat launcher bottom edge. */
 export const CHATBOARD_FAB_GAP_PX = 12;
 
+/** Scale minimized launcher on mobile (character + speech bubble). */
+export const CHATBOARD_FAB_SCALE = 0.82;
+
+const CHATBOARD_FAB_EXPANDED_CLASS = "kp-chatboard-expanded";
+
 const MOBILE_TABBAR_SELECTOR = ".mobile-tabbar-fixed";
 const MOBILE_MQ = "(max-width: 767px)";
 
@@ -26,6 +31,8 @@ export const SBCHAT_LAUNCHER_SELECTORS = [
   "#sbchat > .sb-chat",
   "#sbchat .sb-chat-btn",
   "#sbchat .sb-icon-btn",
+  "#sbchat > .sb-button",
+  "#sbchat .sb-popup-message",
 ] as const;
 
 const CHAT_FAB_Z_INDEX = "10001";
@@ -81,7 +88,11 @@ function syncFabBottomCssVar(bottomPx: number): void {
   document.documentElement.style.setProperty("--kp-chatboard-fab-bottom", `${bottomPx}px`);
 }
 
-function applyFixedFab(el: HTMLElement, bottomPx: number): void {
+function syncFabScaleCssVar(scale: number): void {
+  document.documentElement.style.setProperty("--kp-chatboard-fab-scale", String(scale));
+}
+
+function applyFixedFabPosition(el: HTMLElement, bottomPx: number): void {
   el.style.setProperty("position", "fixed", "important");
   el.style.setProperty("bottom", `${bottomPx}px`, "important");
   el.style.setProperty("right", "12px", "important");
@@ -92,10 +103,26 @@ function applyFixedFab(el: HTMLElement, bottomPx: number): void {
   el.style.setProperty("pointer-events", "auto", "important");
 }
 
+function applyFixedFab(el: HTMLElement, bottomPx: number, scale = CHATBOARD_FAB_SCALE): void {
+  applyFixedFabPosition(el, bottomPx);
+  if (scale !== 1) {
+    el.style.setProperty("transform", `scale(${scale})`, "important");
+    el.style.setProperty("transform-origin", "bottom right", "important");
+  } else {
+    clearFabTransform(el);
+  }
+}
+
+function clearFabTransform(el: HTMLElement): void {
+  el.style.removeProperty("transform");
+  el.style.removeProperty("transform-origin");
+}
+
 function clearSbChatLauncherFab(el: HTMLElement): void {
   for (const prop of ["position", "bottom", "right", "left", "top", "z-index", "margin"] as const) {
     el.style.removeProperty(prop);
   }
+  clearFabTransform(el);
 }
 
 /** True for viewport-fixed Support Board nodes that anchor the minimized launcher. */
@@ -103,8 +130,22 @@ export function isSbChatLauncherCandidate(el: HTMLElement): boolean {
   if (typeof window === "undefined") return false;
   const rect = el.getBoundingClientRect();
   if (rect.width < 1 || rect.height < 1) return false;
-  if (rect.width > 340 && rect.height > 420) return false;
-  return window.innerHeight - rect.bottom < 280;
+  if (rect.width > 380 && rect.height > 480) return false;
+  return window.innerHeight - rect.bottom < 320;
+}
+
+function isSbChatExpanded(sbchat: HTMLElement): boolean {
+  if (typeof window === "undefined") return false;
+  const rect = sbchat.getBoundingClientRect();
+  return rect.height > window.innerHeight * 0.42;
+}
+
+function syncSbChatExpandedClass(sbchat: HTMLElement | null, host: HTMLElement | null): void {
+  const expanded = sbchat instanceof HTMLElement && isSbChatExpanded(sbchat);
+  for (const el of [host, sbchat]) {
+    if (!el) continue;
+    el.classList.toggle(CHATBOARD_FAB_EXPANDED_CLASS, expanded);
+  }
 }
 
 function collectSbChatLauncherNodes(sbchat: HTMLElement): HTMLElement[] {
@@ -121,7 +162,13 @@ function collectSbChatLauncherNodes(sbchat: HTMLElement): HTMLElement[] {
   }
 
   sbchat.querySelectorAll<HTMLElement>("*").forEach((el) => {
-    if (getComputedStyle(el).position !== "fixed") return;
+    const pos = getComputedStyle(el).position;
+    if (pos !== "fixed" && pos !== "absolute") return;
+    if (!isSbChatLauncherCandidate(el)) return;
+    add(el);
+  });
+
+  sbchat.querySelectorAll<HTMLElement>(":scope > *").forEach((el) => {
     if (!isSbChatLauncherCandidate(el)) return;
     add(el);
   });
@@ -132,7 +179,8 @@ function collectSbChatLauncherNodes(sbchat: HTMLElement): HTMLElement[] {
 function applySbChatLauncherPins(sbchat: HTMLElement, bottomPx: number): HTMLElement[] {
   const nodes = collectSbChatLauncherNodes(sbchat);
   for (const el of nodes) {
-    applyFixedFab(el, bottomPx);
+    applyFixedFabPosition(el, bottomPx);
+    clearFabTransform(el);
   }
   return nodes;
 }
@@ -150,6 +198,8 @@ function clearFixedFab(el: HTMLElement): void {
   for (const prop of ["position", "bottom", "right", "left", "top", "z-index", "margin", "pointer-events"] as const) {
     el.style.removeProperty(prop);
   }
+  clearFabTransform(el);
+  el.classList.remove(CHATBOARD_FAB_EXPANDED_CLASS);
 }
 
 function getFabHost(): HTMLElement | null {
@@ -161,13 +211,14 @@ function mountChatBoardInHost(sbchat: HTMLElement, host: HTMLElement): void {
   if (sbchat.parentElement !== host) {
     host.appendChild(sbchat);
   }
-  sbchat.style.setProperty("position", "absolute", "important");
-  sbchat.style.setProperty("bottom", "0", "important");
-  sbchat.style.setProperty("right", "0", "important");
+  sbchat.style.setProperty("position", "relative", "important");
+  sbchat.style.setProperty("bottom", "auto", "important");
+  sbchat.style.setProperty("right", "auto", "important");
   sbchat.style.setProperty("left", "auto", "important");
   sbchat.style.setProperty("top", "auto", "important");
   sbchat.style.setProperty("margin", "0", "important");
   sbchat.style.removeProperty("z-index");
+  clearFabTransform(sbchat);
 }
 
 function collectLauncherElements(): HTMLElement[] {
@@ -235,6 +286,7 @@ export function repositionChatBoardFab(): void {
 
   if (!pin) {
     document.documentElement.style.removeProperty("--kp-chatboard-fab-bottom");
+    document.documentElement.style.removeProperty("--kp-chatboard-fab-scale");
     collectLauncherElements().forEach((el) => {
       if (el.classList.contains(CHATBOARD_FAB_HOST_CLASS)) {
         el.style.removeProperty("pointer-events");
@@ -266,22 +318,29 @@ export function repositionChatBoardFab(): void {
   const collisionTargets = launchers.filter(
     (el) => !(sbchat instanceof HTMLElement && el === sbchat && el.parentElement === host),
   );
+  if (host) collisionTargets.push(host);
+
   bottomPx = resolveTabBarCollisions(collisionTargets, bottomPx);
   syncFabBottomCssVar(bottomPx);
 
+  const sbchatExpanded = sbchat instanceof HTMLElement && isSbChatExpanded(sbchat);
+  const fabScale = sbchatExpanded ? 1 : CHATBOARD_FAB_SCALE;
+  syncFabScaleCssVar(fabScale);
+  syncSbChatExpandedClass(sbchat instanceof HTMLElement ? sbchat : null, host);
+
   const applyAll = (px: number) => {
     if (host) {
-      applyFixedFab(host, px);
+      applyFixedFab(host, px, fabScale);
     } else if (sbchat instanceof HTMLElement) {
-      applyFixedFab(sbchat, px);
+      applyFixedFab(sbchat, px, fabScale);
     }
 
     for (const el of launchers) {
       if (el === host || el === sbchat) continue;
-      applyFixedFab(el, px);
+      applyFixedFab(el, px, fabScale);
     }
 
-    if (sbchat instanceof HTMLElement) {
+    if (sbchat instanceof HTMLElement && !sbchatExpanded) {
       applySbChatLauncherPins(sbchat, px);
     }
   };

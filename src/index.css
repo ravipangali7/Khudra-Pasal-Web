@@ -398,6 +398,7 @@
   html.native-app-shell {
     --kp-mobile-tabbar-height: 64px;
     --kp-chatboard-fab-bottom: calc(var(--kp-mobile-tabbar-height) + 12px + env(safe-area-inset-bottom, 0px));
+    --kp-chatboard-fab-scale: 0.82;
   }
 
   html.native-app-shell .kp-chatboard-fab-host,
@@ -425,18 +426,25 @@
     pointer-events: auto;
   }
 
+  html.native-app-shell .kp-chatboard-fab-host:not(.kp-chatboard-expanded) {
+    transform: scale(var(--kp-chatboard-fab-scale, 0.82));
+    transform-origin: bottom right;
+  }
+
   html.native-app-shell .kp-chatboard-fab-host > #sbchat,
   html.native-app-shell .kp-chatboard-fab-host > .sb-chat {
-    position: absolute !important;
-    bottom: 0 !important;
-    right: 0 !important;
+    position: relative !important;
+    bottom: auto !important;
+    right: auto !important;
     left: auto !important;
     top: auto !important;
   }
 
-  html.native-app-shell #sbchat .sb-chat-btn,
-  html.native-app-shell #sbchat > .sb-chat,
-  html.native-app-shell #sbchat .sb-icon-btn {
+  html.native-app-shell #sbchat:not(.kp-chatboard-expanded) .sb-chat-btn,
+  html.native-app-shell #sbchat:not(.kp-chatboard-expanded) > .sb-chat,
+  html.native-app-shell #sbchat:not(.kp-chatboard-expanded) .sb-icon-btn,
+  html.native-app-shell #sbchat:not(.kp-chatboard-expanded) > .sb-button,
+  html.native-app-shell #sbchat:not(.kp-chatboard-expanded) .sb-popup-message {
     bottom: var(--kp-chatboard-fab-bottom) !important;
     z-index: 10001 !important;
   }
@@ -445,6 +453,12 @@
     :root {
       --kp-mobile-tabbar-height: 64px;
       --kp-chatboard-fab-bottom: calc(var(--kp-mobile-tabbar-height) + 12px + env(safe-area-inset-bottom, 0px));
+      --kp-chatboard-fab-scale: 0.82;
+    }
+
+    .kp-chatboard-fab-host:not(.kp-chatboard-expanded) {
+      transform: scale(var(--kp-chatboard-fab-scale, 0.82));
+      transform-origin: bottom right;
     }
 
     .kp-chatboard-fab-host,
@@ -474,16 +488,18 @@
 
     .kp-chatboard-fab-host > #sbchat,
     .kp-chatboard-fab-host > .sb-chat {
-      position: absolute !important;
-      bottom: 0 !important;
-      right: 0 !important;
+      position: relative !important;
+      bottom: auto !important;
+      right: auto !important;
       left: auto !important;
       top: auto !important;
     }
 
-    #sbchat .sb-chat-btn,
-    #sbchat > .sb-chat,
-    #sbchat .sb-icon-btn {
+    #sbchat:not(.kp-chatboard-expanded) .sb-chat-btn,
+    #sbchat:not(.kp-chatboard-expanded) > .sb-chat,
+    #sbchat:not(.kp-chatboard-expanded) .sb-icon-btn,
+    #sbchat:not(.kp-chatboard-expanded) > .sb-button,
+    #sbchat:not(.kp-chatboard-expanded) .sb-popup-message {
       bottom: var(--kp-chatboard-fab-bottom) !important;
       z-index: 10001 !important;
     }
@@ -561,18 +577,28 @@
   :root {
     --kp-mobile-tabbar-height: 64px;
     --kp-chatboard-fab-bottom: calc(var(--kp-mobile-tabbar-height) + 12px + env(safe-area-inset-bottom, 0px));
+    --kp-chatboard-fab-scale: 0.82;
   }
 
   .kp-chatboard-fab-host,
-  #sbchat .sb-chat-btn,
-  #sbchat > .sb-chat,
-  #sbchat .sb-icon-btn {
+  #sbchat:not(.kp-chatboard-expanded) .sb-chat-btn,
+  #sbchat:not(.kp-chatboard-expanded) > .sb-chat,
+  #sbchat:not(.kp-chatboard-expanded) .sb-icon-btn,
+  #sbchat:not(.kp-chatboard-expanded) > .sb-button,
+  #sbchat:not(.kp-chatboard-expanded) .sb-popup-message {
     z-index: 10001 !important;
   }
 
-  #sbchat .sb-chat-btn,
-  #sbchat > .sb-chat,
-  #sbchat .sb-icon-btn {
+  .kp-chatboard-fab-host:not(.kp-chatboard-expanded) {
+    transform: scale(var(--kp-chatboard-fab-scale, 0.82));
+    transform-origin: bottom right;
+  }
+
+  #sbchat:not(.kp-chatboard-expanded) .sb-chat-btn,
+  #sbchat:not(.kp-chatboard-expanded) > .sb-chat,
+  #sbchat:not(.kp-chatboard-expanded) .sb-icon-btn,
+  #sbchat:not(.kp-chatboard-expanded) > .sb-button,
+  #sbchat:not(.kp-chatboard-expanded) .sb-popup-message {
     position: fixed !important;
     bottom: var(--kp-chatboard-fab-bottom) !important;
     right: 12px !important;
@@ -585,12 +611,19 @@
 html.native-app-shell {
   --kp-mobile-tabbar-height: 64px;
   --kp-chatboard-fab-bottom: calc(var(--kp-mobile-tabbar-height) + 12px + env(safe-area-inset-bottom, 0px));
+  --kp-chatboard-fab-scale: 0.82;
 }
 
-html.native-app-shell .kp-chatboard-fab-host,
-html.native-app-shell #sbchat .sb-chat-btn,
-html.native-app-shell #sbchat > .sb-chat,
-html.native-app-shell #sbchat .sb-icon-btn {
+html.native-app-shell .kp-chatboard-fab-host:not(.kp-chatboard-expanded) {
+  transform: scale(var(--kp-chatboard-fab-scale, 0.82));
+  transform-origin: bottom right;
+}
+
+html.native-app-shell #sbchat:not(.kp-chatboard-expanded) .sb-chat-btn,
+html.native-app-shell #sbchat:not(.kp-chatboard-expanded) > .sb-chat,
+html.native-app-shell #sbchat:not(.kp-chatboard-expanded) .sb-icon-btn,
+html.native-app-shell #sbchat:not(.kp-chatboard-expanded) > .sb-button,
+html.native-app-shell #sbchat:not(.kp-chatboard-expanded) .sb-popup-message {
   position: fixed !important;
   bottom: var(--kp-chatboard-fab-bottom) !important;
   right: 12px !important;

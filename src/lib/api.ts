@@ -1,6 +1,7 @@
 import { CartItem, Product } from "@/types";
 import type { ApiReelPublicRow } from "@/modules/reels/api/apiTypes";
 import { clearFcmTokenRegistrationDedup } from "@/lib/firebaseMessaging";
+import { requestFcmTokenSync } from "@/lib/fcmTokenSync";
 
 export const API_BASE = import.meta.env.VITE_API_BASE ?? "/api";
 
@@ -129,6 +130,7 @@ export function setAuthToken(token: string, surface?: "admin" | "vendor" | "port
   }
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent("khudra-auth-changed"));
+    requestFcmTokenSync({ force: true });
   }
 }
 

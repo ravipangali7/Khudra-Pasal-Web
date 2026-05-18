@@ -1,60 +1,39 @@
-import { useEffect, useRef, type MutableRefObject } from "react";
+import { useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
-import { authApi, getAuthToken } from "@/lib/api";
-import { FCM_LAST_SENT_TOKEN_STORAGE_KEY, getFcmRegistrationToken } from "@/lib/firebaseMessaging";
+import { getAuthToken } from "@/lib/api";
+import {
+  requestFcmTokenSync,
+  shouldForceFcmSyncForPath,
+} from "@/lib/fcmTokenSync";
 
 const VISIBILITY_RESYNC_MS = 400;
 
-/** Sync when authenticated except on auth entry pages (no session yet). */
+/** Skip token fetch on auth entry pages when there is no session yet. */
 function shouldSyncFcmForPath(pathname: string): boolean {
-  if (pathname === "/login" || pathname === "/signup" || pathname === "/admin/login") return false;
+  if (pathname === "/login" || pathname === "/signup" || pathname === "/admin/login") {
+    return false;
+  }
   return true;
 }
 
-async function syncFcmIfNeeded(busyRef: MutableRefObject<boolean>): Promise<void> {
-  if (busyRef.current) return;
-  busyRef.current = true;
-  try {
-    const token = await getFcmRegistrationToken();
-    if (!token) return;
-    let prev = "";
-    try {
-      prev = localStorage.getItem(FCM_LAST_SENT_TOKEN_STORAGE_KEY) ?? "";
-    } catch {
-      /* ignore */
-    }
-    if (token === prev) return;
-    await authApi.registerFcmToken({ fcm_token: token });
-    try {
-      localStorage.setItem(FCM_LAST_SENT_TOKEN_STORAGE_KEY, token);
-    } catch {
-      /* ignore */
-    }
-  } catch {
-    /* permission denied, network, etc. */
-  } finally {
-    busyRef.current = false;
-  }
-}
-
 /**
- * When the user is signed in, registers the FCM web token with the API (deduped).
- * Re-syncs on route change, auth change, and when the tab becomes visible (token rotation / permission edge cases).
+ * Registers FCM with the API when signed in.
+ * Instant forced sync on login (auth change), home, and any account dashboard.
+ * Re-syncs on route change and when the tab becomes visible (token rotation).
  */
 export default function FcmTokenRegistrar() {
   const location = useLocation();
-  const busyRef = useRef(false);
   const visibilityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!getAuthToken() || !shouldSyncFcmForPath(location.pathname)) return;
-    void syncFcmIfNeeded(busyRef);
+    requestFcmTokenSync({ force: shouldForceFcmSyncForPath(location.pathname) });
   }, [location.pathname]);
 
   useEffect(() => {
     const onAuth = () => {
-      if (!getAuthToken() || !shouldSyncFcmForPath(window.location.pathname)) return;
-      void syncFcmIfNeeded(busyRef);
+      if (!getAuthToken()) return;
+      requestFcmTokenSync({ force: true });
     };
     window.addEventListener("khudra-auth-changed", onAuth);
     return () => window.removeEventListener("khudra-auth-changed", onAuth);
@@ -67,7 +46,8 @@ export default function FcmTokenRegistrar() {
       if (visibilityTimerRef.current) clearTimeout(visibilityTimerRef.current);
       visibilityTimerRef.current = setTimeout(() => {
         visibilityTimerRef.current = null;
-        void syncFcmIfNeeded(busyRef);
+        const path = window.location.pathname;
+        requestFcmTokenSync({ force: shouldForceFcmSyncForPath(path) });
       }, VISIBILITY_RESYNC_MS);
     };
     document.addEventListener("visibilitychange", onVisibility);
