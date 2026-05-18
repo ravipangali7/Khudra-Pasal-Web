@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Image, Clock, Ticket, MoreVertical, Edit, Trash2, Eye, Bell, X
+  Image, Clock, Ticket, MoreVertical, Edit, Trash2, Eye, Bell, X, Send, Loader2
 } from 'lucide-react';
 import AdminTable from '@/components/admin/AdminTable';
 import { CRUDModal, DeleteConfirm } from '@/components/admin/CRUDModal';
@@ -25,6 +25,7 @@ import { AdminSearchCombobox } from '@/components/admin/AdminSearchCombobox';
 import type { AdminSearchOption } from '@/components/admin/AdminSearchCombobox';
 import { fetchVendorAdminOptions, fetchCategoryAdminOptions } from '@/components/admin/adminRelationalPickers';
 import { toast } from 'sonner';
+import { Progress } from '@/components/ui/progress';
 
 type BannerRow = {
   id: string;
@@ -929,10 +930,38 @@ function CouponsView() {
   );
 }
 
+type NotificationPushStats = {
+  firebase_configured: boolean;
+  device_tokens: number;
+  delivered: number;
+  failed: number;
+  skip_reason: string | null;
+  first_error: string | null;
+};
+
+function toastNotificationPushResult(p: NotificationPushStats) {
+  if (!p.firebase_configured) {
+    toast.warning(
+      'Push is disabled: Firebase Admin is not configured on the server (set FIREBASE_CREDENTIALS_PATH to your service account JSON).',
+    );
+  } else if (p.skip_reason === 'no_device_tokens') {
+    toast.message('No FCM device tokens on file for this recipient or audience.');
+  } else if (p.failed > 0) {
+    toast.warning(
+      `Push: ${p.delivered} delivered, ${p.failed} failed.${p.first_error ? ` ${p.first_error}` : ''}`,
+    );
+  } else if (p.device_tokens > 0) {
+    toast.success(`Push sent to ${p.delivered} device(s).`);
+  }
+}
+
 function NotificationsView() {
   const [modalOpen, setModalOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [pushingId, setPushingId] = useState<string | null>(null);
+  const [pushProgress, setPushProgress] = useState(0);
+  const pushProgressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [target, setTarget] = useState('all');
@@ -950,7 +979,43 @@ function NotificationsView() {
     status: n.read ? 'read' : 'unread',
   }));
   const broadcastMut = useAdminMutation(adminApi.broadcastNotification, [['admin', 'notifications']]);
+  const pushMut = useAdminMutation(adminApi.sendNotificationPush, [['admin', 'notifications']]);
   const deleteMut = useAdminMutation(adminApi.deleteNotification, [['admin', 'notifications']]);
+
+  const clearPushProgressTimer = useCallback(() => {
+    if (pushProgressTimerRef.current) {
+      clearInterval(pushProgressTimerRef.current);
+      pushProgressTimerRef.current = null;
+    }
+  }, []);
+
+  const startPushProgress = useCallback(() => {
+    clearPushProgressTimer();
+    setPushProgress(8);
+    pushProgressTimerRef.current = setInterval(() => {
+      setPushProgress((prev) => (prev >= 92 ? prev : prev + 6));
+    }, 180);
+  }, [clearPushProgressTimer]);
+
+  useEffect(() => () => clearPushProgressTimer(), [clearPushProgressTimer]);
+
+  const sendRowPush = async (id: string) => {
+    setPushingId(id);
+    startPushProgress();
+    try {
+      const res = await pushMut.mutateAsync(id);
+      setPushProgress(100);
+      toastNotificationPushResult(res.push);
+    } catch (e) {
+      toast.error(formatApiError(e));
+    } finally {
+      clearPushProgressTimer();
+      window.setTimeout(() => {
+        setPushingId(null);
+        setPushProgress(0);
+      }, 400);
+    }
+  };
 
   const sendBroadcast = async () => {
     setFormError('');
@@ -968,18 +1033,14 @@ function NotificationsView() {
       const p = res.push;
       if (!p.firebase_configured) {
         toast.warning(
-          'In-app notifications were created, but push is disabled: Firebase Admin is not configured on the server (set FIREBASE_CREDENTIALS_PATH to your service account JSON).',
+          `In-app notifications were created for ${res.created} user(s), but push is disabled: Firebase Admin is not configured on the server (set FIREBASE_CREDENTIALS_PATH to your service account JSON).`,
         );
       } else if (p.skip_reason === 'no_device_tokens') {
         toast.message(
           `Notifications created for ${res.created} user(s). No FCM device tokens on file — users must open the app (or web) while logged in to register this device.`,
         );
-      } else if (p.failed > 0) {
-        toast.warning(
-          `Push: ${p.delivered} delivered, ${p.failed} failed.${p.first_error ? ` ${p.first_error}` : ''}`,
-        );
-      } else if (p.device_tokens > 0) {
-        toast.success(`Push sent to ${p.delivered} device(s).`);
+      } else {
+        toastNotificationPushResult(p);
       }
       setModalOpen(false);
       setTitle('');
@@ -1007,14 +1068,42 @@ function NotificationsView() {
           { key: 'status', label: 'Read', render: (n) => (
             <Badge variant={n.status === 'read' ? 'secondary' : 'default'} className={cn("text-xs", n.status === 'unread' && "bg-sky-600")}>{n.status}</Badge>
           )},
-          { key: 'actions', label: '', render: (n) => (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="w-4 h-4" /></Button></DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem className="text-destructive" onClick={() => { setDeleteId(n.id); setDeleteOpen(true); }}><Trash2 className="w-4 h-4 mr-2" /> Delete</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+          { key: 'actions', label: '', render: (n) => {
+            const isPushing = pushingId === n.id;
+            const pushBusy = pushMut.isPending && isPushing;
+            return (
+              <div className="flex flex-col items-end gap-1.5 min-w-[7rem]">
+                {isPushing ? (
+                  <div className="w-full space-y-1">
+                    <Progress value={pushProgress} className="h-1.5" />
+                    <p className="text-[10px] text-muted-foreground text-right">Sending push…</p>
+                  </div>
+                ) : null}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" disabled={pushBusy}>
+                      {pushBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <MoreVertical className="w-4 h-4" />}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem
+                      disabled={pushMut.isPending}
+                      onClick={() => void sendRowPush(n.id)}
+                    >
+                      <Send className="w-4 h-4 mr-2" /> Send push
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem
+                      className="text-destructive"
+                      onClick={() => { setDeleteId(n.id); setDeleteOpen(true); }}
+                    >
+                      <Trash2 className="w-4 h-4 mr-2" /> Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            );
+          }}
         ]}
         onAdd={() => { setFormError(''); setModalOpen(true); }} addLabel="Send Notification"
       />

@@ -2007,6 +2007,17 @@ export const adminApi = {
     }>("notifications/broadcast", "POST", payload),
   updateNotification: (id: string, payload: Record<string, unknown>) =>
     adminWrite<Record<string, unknown>>(`notifications/${id}`, "PATCH", payload),
+  sendNotificationPush: (id: string) =>
+    adminWrite<{
+      push: {
+        firebase_configured: boolean;
+        device_tokens: number;
+        delivered: number;
+        failed: number;
+        skip_reason: string | null;
+        first_error: string | null;
+      };
+    }>(`notifications/${id}/push`, "POST", {}),
   deleteNotification: (id: string) => adminWrite<{ ok: true }>(`notifications/${id}`, "DELETE"),
   updateProductApproval: (id: string, payload: Record<string, unknown>) =>
     adminWrite<Record<string, unknown>>(`product-approvals/${id}`, "PATCH", payload),
