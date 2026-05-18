@@ -402,6 +402,7 @@
   }
 
   html.native-app-shell .kp-chatboard-fab-host,
+  html.native-app-shell #saastech-chat-widget-host,
   html.native-app-shell #sbchat,
   html.native-app-shell #tawk-bubble-container,
   html.native-app-shell .tawk-min-container,
@@ -426,7 +427,8 @@
     pointer-events: auto;
   }
 
-  html.native-app-shell .kp-chatboard-fab-host:not(.kp-chatboard-expanded) {
+  html.native-app-shell .kp-chatboard-fab-host:not(.kp-chatboard-expanded),
+  html.native-app-shell #saastech-chat-widget-host:not(.kp-chatboard-expanded) {
     transform: scale(var(--kp-chatboard-fab-scale, 0.82));
     transform-origin: bottom right;
   }
@@ -456,12 +458,14 @@
       --kp-chatboard-fab-scale: 0.82;
     }
 
-    .kp-chatboard-fab-host:not(.kp-chatboard-expanded) {
+    .kp-chatboard-fab-host:not(.kp-chatboard-expanded),
+    #saastech-chat-widget-host:not(.kp-chatboard-expanded) {
       transform: scale(var(--kp-chatboard-fab-scale, 0.82));
       transform-origin: bottom right;
     }
 
     .kp-chatboard-fab-host,
+    #saastech-chat-widget-host,
     #sbchat,
     #tawk-bubble-container,
     .tawk-min-container,
@@ -570,9 +574,27 @@
 }
 
 /**
- * Support Board (Namaste launcher) — unlayered so it wins over injected widget CSS.
+ * Third-party chat widgets — unlayered so rules win over injected widget CSS.
  * JS in chatBoardFabLayout.ts sets --kp-chatboard-fab-bottom from live tab bar geometry.
  */
+:root {
+  --kp-chatboard-fab-bottom: 24px;
+  --kp-chatboard-fab-scale: 0.82;
+}
+
+#saastech-chat-widget-host:not(.kp-chatboard-expanded),
+.kp-chatboard-fab-host:not(.kp-chatboard-expanded) {
+  position: fixed !important;
+  bottom: var(--kp-chatboard-fab-bottom) !important;
+  right: 12px !important;
+  left: auto !important;
+  top: auto !important;
+  z-index: 10001 !important;
+  margin: 0 !important;
+  transform: scale(var(--kp-chatboard-fab-scale, 0.82));
+  transform-origin: bottom right;
+}
+
 @media (max-width: 767px) {
   :root {
     --kp-mobile-tabbar-height: 64px;
@@ -581,6 +603,7 @@
   }
 
   .kp-chatboard-fab-host,
+  #saastech-chat-widget-host,
   #sbchat:not(.kp-chatboard-expanded) .sb-chat-btn,
   #sbchat:not(.kp-chatboard-expanded) > .sb-chat,
   #sbchat:not(.kp-chatboard-expanded) .sb-icon-btn,
@@ -589,7 +612,8 @@
     z-index: 10001 !important;
   }
 
-  .kp-chatboard-fab-host:not(.kp-chatboard-expanded) {
+  .kp-chatboard-fab-host:not(.kp-chatboard-expanded),
+  #saastech-chat-widget-host:not(.kp-chatboard-expanded) {
     transform: scale(var(--kp-chatboard-fab-scale, 0.82));
     transform-origin: bottom right;
   }
@@ -614,9 +638,20 @@ html.native-app-shell {
   --kp-chatboard-fab-scale: 0.82;
 }
 
-html.native-app-shell .kp-chatboard-fab-host:not(.kp-chatboard-expanded) {
+html.native-app-shell .kp-chatboard-fab-host:not(.kp-chatboard-expanded),
+html.native-app-shell #saastech-chat-widget-host:not(.kp-chatboard-expanded) {
   transform: scale(var(--kp-chatboard-fab-scale, 0.82));
   transform-origin: bottom right;
+}
+
+html.native-app-shell #saastech-chat-widget-host:not(.kp-chatboard-expanded) {
+  position: fixed !important;
+  bottom: var(--kp-chatboard-fab-bottom) !important;
+  right: 12px !important;
+  left: auto !important;
+  top: auto !important;
+  z-index: 10001 !important;
+  margin: 0 !important;
 }
 
 html.native-app-shell #sbchat:not(.kp-chatboard-expanded) .sb-chat-btn,

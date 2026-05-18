@@ -3,9 +3,11 @@ import { GoogleOAuthProvider } from "@react-oauth/google";
 import App from "./App.tsx";
 import "./index.css";
 import { API_BASE } from "./lib/api";
+import { bootstrapNativeFcmTokenListener } from "./lib/fcmTokenSync";
 import { bootstrapNativeAppShell } from "./lib/nativeAppShell";
 
 bootstrapNativeAppShell();
+bootstrapNativeFcmTokenListener();
 
 /** Lets the native Android WebView shell POST `/auth/fcm-token/` to the same API origin as this build. */
 try {

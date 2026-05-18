@@ -1357,7 +1357,7 @@ export const authApi = {
     }),
   /** GET — canonical SPA home for the authenticated user (role-ordered shell guard). */
   sessionHome: () => apiFetch<{ redirect: string }>("/auth/session-home/", undefined, true),
-  registerFcmToken: (body: { fcm_token: string }) =>
+  registerFcmToken: (body: { fcm_token: string; platform?: string }) =>
     apiFetch<{ ok: true }>(
       "/auth/fcm-token/",
       { method: "POST", body: JSON.stringify(body) },

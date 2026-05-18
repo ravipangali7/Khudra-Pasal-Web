@@ -1,9 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import {
   getChatBoardFabBottomPx,
-  isSbChatLauncherCandidate,
+  isChatLauncherCandidate,
   repositionChatBoardFab,
   CHATBOARD_FAB_GAP_PX,
+  DESKTOP_CHATBOARD_FAB_BOTTOM_PX,
+  SAASTECH_CHAT_HOST_ID,
 } from "@/lib/chatBoardFabLayout";
 import { MOBILE_TABBAR_HEIGHT } from "@/components/layout/MobileFooterNav";
 
@@ -67,7 +69,61 @@ describe("chatBoardFabLayout", () => {
         y: 760,
         toJSON: () => ({}),
       }) as DOMRect;
-    expect(isSbChatLauncherCandidate(el)).toBe(true);
+    expect(isChatLauncherCandidate(el)).toBe(true);
+  });
+
+  it("uses a desktop bottom gap when the mobile tab bar is hidden", () => {
+    Object.defineProperty(window, "matchMedia", {
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    });
+    expect(getChatBoardFabBottomPx()).toBe(DESKTOP_CHATBOARD_FAB_BOTTOM_PX);
+  });
+
+  it("pins the SaasTech chat host above the mobile tab bar", () => {
+    const tabbar = document.createElement("nav");
+    tabbar.className = "mobile-tabbar-fixed";
+    tabbar.getBoundingClientRect = () =>
+      ({
+        top: 780,
+        bottom: 844,
+        left: 0,
+        right: 390,
+        width: 390,
+        height: 64,
+        x: 0,
+        y: 780,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    document.body.appendChild(tabbar);
+
+    const widget = document.createElement("div");
+    widget.id = SAASTECH_CHAT_HOST_ID;
+    widget.getBoundingClientRect = () =>
+      ({
+        top: 790,
+        bottom: 838,
+        left: 280,
+        right: 378,
+        width: 98,
+        height: 48,
+        x: 280,
+        y: 790,
+        toJSON: () => ({}),
+      }) as DOMRect;
+    document.body.appendChild(widget);
+
+    repositionChatBoardFab();
+
+    const bottomPx = parseInt(widget.style.getPropertyValue("bottom"), 10);
+    expect(bottomPx).toBeGreaterThanOrEqual(844 - 780 + CHATBOARD_FAB_GAP_PX);
+    expect(widget.style.getPropertyValue("transform")).toContain("0.82");
+    expect(widget.style.getPropertyValue("z-index")).toBe("10001");
   });
 
   it("pins Support Board inner fixed launcher above the tab bar", () => {
