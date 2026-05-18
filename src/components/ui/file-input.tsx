@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useNativeAppShell } from '@/hooks/useNativeAppShell';
+import { FilePreview } from '@/components/ui/file-preview';
 import { pickNativeFileList } from '@/lib/nativeFilePick';
 
 function acceptsImages(accept?: string): boolean {
@@ -156,7 +157,8 @@ export const FileInput = React.forwardRef<HTMLInputElement, FileInputProps>(
             </Button>
           ) : null}
         </div>
-        {displayName ? (
+        {selectedFile ? <FilePreview file={selectedFile} /> : null}
+        {displayName && !selectedFile ? (
           <p className="text-sm text-muted-foreground truncate" title={displayName}>
             Selected: {displayName}
           </p>

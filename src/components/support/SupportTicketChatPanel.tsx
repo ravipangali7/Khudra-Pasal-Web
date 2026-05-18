@@ -6,7 +6,8 @@
   useRef,
   useState,
 } from 'react';
-import { ChevronUp, Loader2, Paperclip } from 'lucide-react';
+import { ChevronUp, Download, Loader2, Paperclip } from 'lucide-react';
+import { toast } from 'sonner';
 import type { SupportTicketAttachmentRow, SupportTicketMessageRow } from '@/lib/api';
 import { fetchAuthenticatedBlob } from '@/lib/api';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -14,6 +15,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { SupportTicketChatComposer } from './SupportTicketChatComposer';
 import { mergePickedSupportFiles } from './supportChatFiles';
 import { useMobileUx } from '@/hooks/useMobileUx';
+import { useNativeAppShell } from '@/hooks/useNativeAppShell';
+import { downloadAuthenticatedPath } from '@/lib/nativeFileDownload';
 import { cn } from '@/lib/utils';
 import { MessageDeliveryTicks } from './MessageDeliveryTicks';
 
@@ -61,8 +64,11 @@ function ChatAttachment({
   att: SupportTicketAttachmentRow;
   mine: boolean;
 }) {
+  const inNativeApp = useNativeAppShell();
+  const blobRef = useRef<Blob | null>(null);
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
   const [err, setErr] = useState(false);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -71,6 +77,8 @@ function ChatAttachment({
     (async () => {
       try {
         const blob = await fetchAuthenticatedBlob(path);
+        if (cancelled) return;
+        blobRef.current = blob;
         objectUrl = URL.createObjectURL(blob);
         if (!cancelled) setBlobUrl(objectUrl);
       } catch {
@@ -79,9 +87,31 @@ function ChatAttachment({
     })();
     return () => {
       cancelled = true;
+      blobRef.current = null;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [att.url]);
+
+  const handleDocumentDownload = async () => {
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      const path = att.url.startsWith('/') ? att.url : `/${att.url}`;
+      const ok = await downloadAuthenticatedPath(path, att.filename, {
+        mimeType: att.mime_type,
+        blob: blobRef.current ?? undefined,
+      });
+      if (!ok) {
+        toast.error('Could not download file');
+      } else if (!inNativeApp) {
+        toast.success('Download started');
+      }
+    } catch {
+      toast.error('Could not download file');
+    } finally {
+      setDownloading(false);
+    }
+  };
 
   if (err) {
     return (
@@ -126,18 +156,41 @@ function ChatAttachment({
     );
   }
 
+  if (inNativeApp) {
+    return (
+      <button
+        type="button"
+        disabled={downloading}
+        onClick={() => void handleDocumentDownload()}
+        className={cn(
+          'inline-flex items-center gap-2 mt-2 text-xs font-medium underline underline-offset-2 touch-manipulation',
+          mine ? 'text-primary-foreground/90' : 'text-primary',
+        )}
+      >
+        {downloading ? (
+          <Loader2 className="w-3.5 h-3.5 shrink-0 animate-spin" aria-hidden />
+        ) : (
+          <Download className="w-3.5 h-3.5 shrink-0" aria-hidden />
+        )}
+        <span className="truncate max-w-[min(100%,240px)]">{att.filename}</span>
+      </button>
+    );
+  }
+
   return (
     <a
       href={blobUrl}
       download={att.filename}
-      target="_blank"
-      rel="noreferrer"
+      onClick={(e) => {
+        e.preventDefault();
+        void handleDocumentDownload();
+      }}
       className={cn(
         'inline-flex items-center gap-2 mt-2 text-xs font-medium underline underline-offset-2',
         mine ? 'text-primary-foreground/90' : 'text-primary',
       )}
     >
-      <Paperclip className="w-3.5 h-3.5 shrink-0" />
+      <Download className="w-3.5 h-3.5 shrink-0" aria-hidden />
       {att.filename}
     </a>
   );

@@ -27,6 +27,12 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { mapApiReelToUi } from '@/modules/reels/api/reelMappers';
 import { useVendorReelViewer } from '@/modules/reels/vendor/VendorReelViewerContext';
+import {
+  assignObjectUrlPreview,
+  pickImageInNativeApp,
+  revokeStoredObjectUrl,
+} from '@/lib/imagePick';
+import { resolveMediaUrl } from '@/pages/admin/hooks/adminFormUtils';
 
 type VendorProfileRow = {
   id?: string;
@@ -104,6 +110,8 @@ export default function VendorStoreModule() {
   const [address, setAddress] = useState('');
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+  const [pendingLogo, setPendingLogo] = useState<File | null>(null);
+  const [pendingBanner, setPendingBanner] = useState<File | null>(null);
   const [editOpen, setEditOpen] = useState(false);
 
   useEffect(() => {
@@ -114,24 +122,48 @@ export default function VendorStoreModule() {
     setPhone(String(data.phone ?? ''));
     setAddress(String(data.address ?? ''));
     // If we were previewing local files, switch back to backend URLs on refresh/GET.
-    if (logoObjectUrlRef.current) {
-      URL.revokeObjectURL(logoObjectUrlRef.current);
-      logoObjectUrlRef.current = null;
-    }
-    if (bannerObjectUrlRef.current) {
-      URL.revokeObjectURL(bannerObjectUrlRef.current);
-      bannerObjectUrlRef.current = null;
-    }
-    setLogoPreview(String(data.logo_url ?? '') || null);
-    setBannerPreview(String(data.banner_url ?? '') || null);
+    revokeStoredObjectUrl(logoObjectUrlRef);
+    revokeStoredObjectUrl(bannerObjectUrlRef);
+    setPendingLogo(null);
+    setPendingBanner(null);
+    setLogoPreview(data.logo_url ? resolveMediaUrl(String(data.logo_url)) : null);
+    setBannerPreview(data.banner_url ? resolveMediaUrl(String(data.banner_url)) : null);
   }, [data]);
 
   useEffect(() => {
     return () => {
-      if (logoObjectUrlRef.current) URL.revokeObjectURL(logoObjectUrlRef.current);
-      if (bannerObjectUrlRef.current) URL.revokeObjectURL(bannerObjectUrlRef.current);
+      revokeStoredObjectUrl(logoObjectUrlRef);
+      revokeStoredObjectUrl(bannerObjectUrlRef);
     };
   }, []);
+
+  const applyLogoFile = (file: File) => {
+    setPendingLogo(file);
+    assignObjectUrlPreview(file, logoObjectUrlRef, setLogoPreview);
+  };
+
+  const applyBannerFile = (file: File) => {
+    setPendingBanner(file);
+    assignObjectUrlPreview(file, bannerObjectUrlRef, setBannerPreview);
+  };
+
+  const openLogoPicker = async () => {
+    const fromNative = await pickImageInNativeApp();
+    if (fromNative) {
+      applyLogoFile(fromNative);
+      return;
+    }
+    logoInputRef.current?.click();
+  };
+
+  const openBannerPicker = async () => {
+    const fromNative = await pickImageInNativeApp();
+    if (fromNative) {
+      applyBannerFile(fromNative);
+      return;
+    }
+    bannerInputRef.current?.click();
+  };
 
   const saveMut = useMutation({
     mutationFn: (fd: FormData) => vendorApi.updateProfile(fd),
@@ -139,6 +171,8 @@ export default function VendorStoreModule() {
       void qc.invalidateQueries({ queryKey: ['vendor'] });
       toast.success('Store profile saved');
       setEditOpen(false);
+      setPendingLogo(null);
+      setPendingBanner(null);
       if (bannerInputRef.current) bannerInputRef.current.value = '';
       if (logoInputRef.current) logoInputRef.current.value = '';
     },
@@ -153,10 +187,8 @@ export default function VendorStoreModule() {
     fd.append('contact_email', contactEmail);
     fd.append('phone', phone);
     fd.append('address', address);
-    const logoInput = logoInputRef.current?.files?.[0];
-    const bannerInput = bannerInputRef.current?.files?.[0];
-    if (logoInput) fd.append('logo', logoInput);
-    if (bannerInput) fd.append('banner', bannerInput);
+    if (pendingLogo) fd.append('logo', pendingLogo);
+    if (pendingBanner) fd.append('banner', pendingBanner);
     saveMut.mutate(fd);
   };
 
@@ -183,12 +215,7 @@ export default function VendorStoreModule() {
         aria-hidden
         onChange={(ev) => {
           const f = ev.target.files?.[0];
-          if (f) {
-            if (bannerObjectUrlRef.current) URL.revokeObjectURL(bannerObjectUrlRef.current);
-            const url = URL.createObjectURL(f);
-            bannerObjectUrlRef.current = url;
-            setBannerPreview(url);
-          }
+          if (f) applyBannerFile(f);
         }}
       />
       <input
@@ -199,12 +226,7 @@ export default function VendorStoreModule() {
         aria-hidden
         onChange={(ev) => {
           const f = ev.target.files?.[0];
-          if (f) {
-            if (logoObjectUrlRef.current) URL.revokeObjectURL(logoObjectUrlRef.current);
-            const url = URL.createObjectURL(f);
-            logoObjectUrlRef.current = url;
-            setLogoPreview(url);
-          }
+          if (f) applyLogoFile(f);
         }}
       />
 
@@ -228,7 +250,7 @@ export default function VendorStoreModule() {
             variant="secondary"
             size="sm"
             className="absolute bottom-3 right-3 gap-2 rounded-lg border border-border/80 bg-background/85 shadow-sm backdrop-blur-sm hover:bg-background"
-            onClick={() => bannerInputRef.current?.click()}
+            onClick={() => void openBannerPicker()}
           >
             <Camera className="h-4 w-4" />
             Edit Cover
@@ -254,7 +276,7 @@ export default function VendorStoreModule() {
                   type="button"
                   className="absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md ring-4 ring-card transition hover:opacity-90"
                   aria-label="Change store logo"
-                  onClick={() => logoInputRef.current?.click()}
+                  onClick={() => void openLogoPicker()}
                 >
                   <Camera className="h-4 w-4" />
                 </button>
@@ -430,7 +452,7 @@ export default function VendorStoreModule() {
                     variant="secondary"
                     size="sm"
                     className="absolute bottom-3 right-3 gap-2 rounded-lg border border-border/80 bg-background/85 shadow-sm backdrop-blur-sm hover:bg-background"
-                    onClick={() => bannerInputRef.current?.click()}
+                    onClick={() => void openBannerPicker()}
                   >
                     <Camera className="h-4 w-4" />
                     Change Cover
@@ -452,7 +474,7 @@ export default function VendorStoreModule() {
                           type="button"
                           className="absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md ring-4 ring-card transition hover:opacity-90"
                           aria-label="Change store logo"
-                          onClick={() => logoInputRef.current?.click()}
+                          onClick={() => void openLogoPicker()}
                         >
                           <Camera className="h-4 w-4" />
                         </button>

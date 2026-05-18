@@ -22,6 +22,12 @@ import { cn } from '@/lib/utils';
 import PortalActiveRoleBadge from '@/components/portal/PortalActiveRoleBadge';
 import PortalSavedReelsCard from '@/components/portal/PortalSavedReelsCard';
 import { portalRoleDisplayLabel } from '@/lib/portalRoleLabels';
+import {
+  assignObjectUrlPreview,
+  pickImageInNativeApp,
+  revokeStoredObjectUrl,
+} from '@/lib/imagePick';
+import { resolveMediaUrl } from '@/pages/admin/hooks/adminFormUtils';
 
 type Props = {
   variant: 'family' | 'child';
@@ -43,6 +49,7 @@ export default function PortalFamilyChildProfileModule({ variant, onLogoutClick 
   const [phone, setPhone] = useState('');
   const [address, setAddress] = useState('');
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [pendingAvatar, setPendingAvatar] = useState<File | null>(null);
 
   useEffect(() => {
     if (!data) return;
@@ -51,25 +58,38 @@ export default function PortalFamilyChildProfileModule({ variant, onLogoutClick 
     setEmail(String(d.email ?? ''));
     setPhone(String(d.phone ?? ''));
     setAddress(String(d.address ?? ''));
-    if (objectUrlRef.current) {
-      URL.revokeObjectURL(objectUrlRef.current);
-      objectUrlRef.current = null;
-    }
+    revokeStoredObjectUrl(objectUrlRef);
+    setPendingAvatar(null);
     const url = d.logo_url || d.avatar_url;
-    setAvatarPreview(url ? String(url) : null);
+    setAvatarPreview(url ? resolveMediaUrl(String(url)) : null);
   }, [data]);
 
   useEffect(() => {
     return () => {
-      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+      revokeStoredObjectUrl(objectUrlRef);
     };
   }, []);
+
+  const applyAvatarFile = (file: File) => {
+    setPendingAvatar(file);
+    assignObjectUrlPreview(file, objectUrlRef, setAvatarPreview);
+  };
+
+  const openAvatarPicker = async () => {
+    const fromNative = await pickImageInNativeApp();
+    if (fromNative) {
+      applyAvatarFile(fromNative);
+      return;
+    }
+    fileRef.current?.click();
+  };
 
   const saveMut = useMutation({
     mutationFn: (fd: FormData) => portalApi.updateSelfProfile(fd),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['portal'] });
       toast.success('Profile saved');
+      setPendingAvatar(null);
       if (fileRef.current) fileRef.current.value = '';
     },
     onError: (e: Error) => toast.error(e.message),
@@ -82,8 +102,7 @@ export default function PortalFamilyChildProfileModule({ variant, onLogoutClick 
     fd.append('email', email);
     fd.append('phone', phone);
     fd.append('address', address);
-    const f = fileRef.current?.files?.[0];
-    if (f) fd.append('avatar', f);
+    if (pendingAvatar) fd.append('avatar', pendingAvatar);
     saveMut.mutate(fd);
   };
 
@@ -132,12 +151,7 @@ export default function PortalFamilyChildProfileModule({ variant, onLogoutClick 
                 aria-hidden
                 onChange={(ev) => {
                   const f = ev.target.files?.[0];
-                  if (f) {
-                    if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
-                    const url = URL.createObjectURL(f);
-                    objectUrlRef.current = url;
-                    setAvatarPreview(url);
-                  }
+                  if (f) applyAvatarFile(f);
                 }}
               />
               <div className="flex flex-col gap-3 rounded-xl border border-border bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
@@ -159,7 +173,7 @@ export default function PortalFamilyChildProfileModule({ variant, onLogoutClick 
                   variant="outline"
                   size="sm"
                   className="w-full gap-2 sm:w-auto"
-                  onClick={() => fileRef.current?.click()}
+                  onClick={() => void openAvatarPicker()}
                 >
                   <Camera className="h-4 w-4" />
                   Change photo

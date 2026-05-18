@@ -7,6 +7,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
+import {
+  assignObjectUrlPreview,
+  pickImageInNativeApp,
+  revokeStoredObjectUrl,
+} from "@/lib/imagePick";
+import { resolveMediaUrl } from "@/pages/admin/hooks/adminFormUtils";
 
 export default function AccountProfileModule() {
   const qc = useQueryClient();
@@ -24,6 +30,7 @@ export default function AccountProfileModule() {
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [pendingAvatar, setPendingAvatar] = useState<File | null>(null);
 
   useEffect(() => {
     if (!data) return;
@@ -31,24 +38,37 @@ export default function AccountProfileModule() {
     setEmail(data.email ?? "");
     setPhone(data.phone ?? "");
     setAddress(data.address ?? "");
-    if (objectUrlRef.current) {
-      URL.revokeObjectURL(objectUrlRef.current);
-      objectUrlRef.current = null;
-    }
-    setAvatarPreview(data.avatar_url || null);
+    revokeStoredObjectUrl(objectUrlRef);
+    setPendingAvatar(null);
+    setAvatarPreview(data.avatar_url ? resolveMediaUrl(data.avatar_url) : null);
   }, [data]);
 
   useEffect(() => {
     return () => {
-      if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
+      revokeStoredObjectUrl(objectUrlRef);
     };
   }, []);
+
+  const applyAvatarFile = (file: File) => {
+    setPendingAvatar(file);
+    assignObjectUrlPreview(file, objectUrlRef, setAvatarPreview);
+  };
+
+  const openAvatarPicker = async () => {
+    const fromNative = await pickImageInNativeApp();
+    if (fromNative) {
+      applyAvatarFile(fromNative);
+      return;
+    }
+    fileRef.current?.click();
+  };
 
   const saveProfile = useMutation({
     mutationFn: (fd: FormData) => adminApi.updateProfile(fd),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["admin"] });
       toast.success("Profile saved");
+      setPendingAvatar(null);
       if (fileRef.current) fileRef.current.value = "";
     },
     onError: (e: Error) => toast.error(e.message),
@@ -61,8 +81,7 @@ export default function AccountProfileModule() {
     fd.append("email", email);
     fd.append("phone", phone);
     fd.append("address", address);
-    const f = fileRef.current?.files?.[0];
-    if (f) fd.append("avatar", f);
+    if (pendingAvatar) fd.append("avatar", pendingAvatar);
     saveProfile.mutate(fd);
   };
 
@@ -94,12 +113,7 @@ export default function AccountProfileModule() {
               aria-hidden
               onChange={(ev) => {
                 const f = ev.target.files?.[0];
-                if (f) {
-                  if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
-                  const url = URL.createObjectURL(f);
-                  objectUrlRef.current = url;
-                  setAvatarPreview(url);
-                }
+                if (f) applyAvatarFile(f);
               }}
             />
             <div className="flex items-center gap-4">
@@ -112,7 +126,7 @@ export default function AccountProfileModule() {
                   </div>
                 )}
               </div>
-              <Button type="button" variant="outline" size="sm" className="gap-2" onClick={() => fileRef.current?.click()}>
+              <Button type="button" variant="outline" size="sm" className="gap-2" onClick={() => void openAvatarPicker()}>
                 <Camera className="h-4 w-4" />
                 Change photo
               </Button>

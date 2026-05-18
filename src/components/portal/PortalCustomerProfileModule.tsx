@@ -21,6 +21,12 @@ import { cn } from '@/lib/utils';
 import PortalActiveRoleBadge from '@/components/portal/PortalActiveRoleBadge';
 import PortalSavedReelsCard from '@/components/portal/PortalSavedReelsCard';
 import { portalRoleDisplayLabel } from '@/lib/portalRoleLabels';
+import {
+  assignObjectUrlPreview,
+  pickImageInNativeApp,
+  revokeStoredObjectUrl,
+} from '@/lib/imagePick';
+import { resolveMediaUrl } from '@/pages/admin/hooks/adminFormUtils';
 
 function splitDescription(desc: string): { highlights: string[]; bio: string } {
   const t = desc.trim();
@@ -81,6 +87,8 @@ export default function PortalCustomerProfileModule({ onSignOutClick }: Props) {
   const [address, setAddress] = useState('');
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+  const [pendingLogo, setPendingLogo] = useState<File | null>(null);
+  const [pendingBanner, setPendingBanner] = useState<File | null>(null);
 
   useEffect(() => {
     if (!data) return;
@@ -91,33 +99,59 @@ export default function PortalCustomerProfileModule({ onSignOutClick }: Props) {
     );
     setPhone(String(data.phone ?? ''));
     setAddress(String(data.address ?? ''));
-    if (logoObjectUrlRef.current) {
-      URL.revokeObjectURL(logoObjectUrlRef.current);
-      logoObjectUrlRef.current = null;
-    }
-    if (bannerObjectUrlRef.current) {
-      URL.revokeObjectURL(bannerObjectUrlRef.current);
-      bannerObjectUrlRef.current = null;
-    }
+    revokeStoredObjectUrl(logoObjectUrlRef);
+    revokeStoredObjectUrl(bannerObjectUrlRef);
+    setPendingLogo(null);
+    setPendingBanner(null);
     const logo =
       String((data as { logo_url?: string; avatar_url?: string }).logo_url ?? '') ||
       String((data as { avatar_url?: string }).avatar_url ?? '');
-    setLogoPreview(logo || null);
-    setBannerPreview(String(data.banner_url ?? '') || null);
+    setLogoPreview(logo ? resolveMediaUrl(logo) : null);
+    setBannerPreview(data.banner_url ? resolveMediaUrl(String(data.banner_url)) : null);
   }, [data]);
 
   useEffect(() => {
     return () => {
-      if (logoObjectUrlRef.current) URL.revokeObjectURL(logoObjectUrlRef.current);
-      if (bannerObjectUrlRef.current) URL.revokeObjectURL(bannerObjectUrlRef.current);
+      revokeStoredObjectUrl(logoObjectUrlRef);
+      revokeStoredObjectUrl(bannerObjectUrlRef);
     };
   }, []);
+
+  const applyLogoFile = (file: File) => {
+    setPendingLogo(file);
+    assignObjectUrlPreview(file, logoObjectUrlRef, setLogoPreview);
+  };
+
+  const applyBannerFile = (file: File) => {
+    setPendingBanner(file);
+    assignObjectUrlPreview(file, bannerObjectUrlRef, setBannerPreview);
+  };
+
+  const openLogoPicker = async () => {
+    const fromNative = await pickImageInNativeApp();
+    if (fromNative) {
+      applyLogoFile(fromNative);
+      return;
+    }
+    logoInputRef.current?.click();
+  };
+
+  const openBannerPicker = async () => {
+    const fromNative = await pickImageInNativeApp();
+    if (fromNative) {
+      applyBannerFile(fromNative);
+      return;
+    }
+    bannerInputRef.current?.click();
+  };
 
   const saveMut = useMutation({
     mutationFn: (fd: FormData) => portalApi.updateSelfProfile(fd),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['portal'] });
       toast.success('Profile saved');
+      setPendingLogo(null);
+      setPendingBanner(null);
       if (bannerInputRef.current) bannerInputRef.current.value = '';
       if (logoInputRef.current) logoInputRef.current.value = '';
     },
@@ -132,10 +166,8 @@ export default function PortalCustomerProfileModule({ onSignOutClick }: Props) {
     fd.append('contact_email', contactEmail);
     fd.append('phone', phone);
     fd.append('address', address);
-    const logoInput = logoInputRef.current?.files?.[0];
-    const bannerInput = bannerInputRef.current?.files?.[0];
-    if (logoInput) fd.append('logo', logoInput);
-    if (bannerInput) fd.append('banner', bannerInput);
+    if (pendingLogo) fd.append('logo', pendingLogo);
+    if (pendingBanner) fd.append('banner', pendingBanner);
     saveMut.mutate(fd);
   };
 
@@ -176,12 +208,7 @@ export default function PortalCustomerProfileModule({ onSignOutClick }: Props) {
         aria-hidden
         onChange={(ev) => {
           const f = ev.target.files?.[0];
-          if (f) {
-            if (bannerObjectUrlRef.current) URL.revokeObjectURL(bannerObjectUrlRef.current);
-            const url = URL.createObjectURL(f);
-            bannerObjectUrlRef.current = url;
-            setBannerPreview(url);
-          }
+          if (f) applyBannerFile(f);
         }}
       />
       <input
@@ -192,12 +219,7 @@ export default function PortalCustomerProfileModule({ onSignOutClick }: Props) {
         aria-hidden
         onChange={(ev) => {
           const f = ev.target.files?.[0];
-          if (f) {
-            if (logoObjectUrlRef.current) URL.revokeObjectURL(logoObjectUrlRef.current);
-            const url = URL.createObjectURL(f);
-            logoObjectUrlRef.current = url;
-            setLogoPreview(url);
-          }
+          if (f) applyLogoFile(f);
         }}
       />
 
@@ -223,7 +245,7 @@ export default function PortalCustomerProfileModule({ onSignOutClick }: Props) {
             variant="secondary"
             size="sm"
             className="absolute bottom-3 right-3 gap-2 rounded-lg border border-border/80 bg-background/85 shadow-sm backdrop-blur-sm hover:bg-background"
-            onClick={() => bannerInputRef.current?.click()}
+            onClick={() => void openBannerPicker()}
           >
             <Camera className="h-4 w-4" />
             Edit Cover
@@ -249,7 +271,7 @@ export default function PortalCustomerProfileModule({ onSignOutClick }: Props) {
                   type="button"
                   className="absolute -bottom-1 -right-1 flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md ring-4 ring-card transition hover:opacity-90"
                   aria-label="Change profile photo"
-                  onClick={() => logoInputRef.current?.click()}
+                  onClick={() => void openLogoPicker()}
                 >
                   <Camera className="h-4 w-4" />
                 </button>
