@@ -7,7 +7,11 @@ import Footer from "@/components/layout/Footer";
 import MobileFooterNav from "@/components/layout/MobileFooterNav";
 import ScrollToTop from "@/components/ui/ScrollToTop";
 import ProductCard from "@/components/product/ProductCard";
+import { PageSeo } from "@/components/seo/PageSeo";
+import SocialShareButtons from "@/components/seo/SocialShareButtons";
 import { getApiErrorHttpStatus, mapWebsiteProductToUi, websiteApi } from "@/lib/api";
+import { buildCanonicalUrl } from "@/lib/seo/metaTags";
+import { pickOgImage } from "@/lib/seo/ogImage";
 import { storefrontRoutes } from "@/lib/routes";
 
 const BrandDetail = () => {
@@ -48,8 +52,22 @@ const BrandDetail = () => {
 
   const productsNotFound = productsError && getApiErrorHttpStatus(productsErr) === 404;
 
+  const brandSeo = useMemo(() => {
+    if (numericId == null) return null;
+    const name = brand?.name || "Brand";
+    const path = `/brands/${numericId}`;
+    return {
+      title: name,
+      description: `Shop ${name} on Khudra Pasal — delivered across Nepal.`,
+      canonicalUrl: buildCanonicalUrl(path),
+      ogUrl: buildCanonicalUrl(path),
+      ogImage: pickOgImage(brand?.logo_url),
+    };
+  }, [brand, numericId]);
+
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
+      {brandSeo ? <PageSeo {...brandSeo} /> : null}
       <Header />
 
       <main className="container mx-auto space-y-6 px-4 py-4">
@@ -85,9 +103,19 @@ const BrandDetail = () => {
                 <span className="text-3xl font-bold text-muted-foreground">{brand.name.slice(0, 1).toUpperCase()}</span>
               )}
             </div>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">{brand.name}</h1>
-              <p className="mt-1 text-sm text-muted-foreground">Products from this brand</p>
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h1 className="text-2xl font-bold text-foreground">{brand.name}</h1>
+                  <p className="mt-1 text-sm text-muted-foreground">Products from this brand</p>
+                </div>
+                <SocialShareButtons
+                  kind="brand"
+                  slug={String(numericId)}
+                  title={brand.name}
+                  description={brandSeo?.description}
+                />
+              </div>
             </div>
           </div>
         )}

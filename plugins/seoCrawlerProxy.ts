@@ -13,6 +13,12 @@ function shareApiPath(pathname: string): string | null {
   if (blog) return `/api/website/blog-posts/${encodeURIComponent(blog[1])}/share/`;
   const page = p.match(/^\/page\/([^/]+)$/);
   if (page) return `/api/website/cms-pages/${encodeURIComponent(page[1])}/share/`;
+  const category = p.match(/^\/category\/([^/]+)$/);
+  if (category) return `/api/website/categories/${encodeURIComponent(category[1])}/share/`;
+  const brand = p.match(/^\/brands\/(\d+)$/);
+  if (brand) return `/api/website/brands/${brand[1]}/share/`;
+  const store = p.match(/^\/store\/([^/]+)$/);
+  if (store) return `/api/website/stores/${encodeURIComponent(store[1])}/share/`;
   return null;
 }
 

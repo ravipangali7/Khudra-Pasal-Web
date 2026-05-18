@@ -16,7 +16,7 @@ import {
 } from '@/lib/seo/shareUrls';
 import { buildCanonicalUrl } from '@/lib/seo/metaTags';
 
-export type ShareEntityKind = 'product' | 'blog' | 'cms';
+export type ShareEntityKind = 'product' | 'blog' | 'cms' | 'category' | 'brand' | 'store';
 
 type Props = {
   kind: ShareEntityKind;
@@ -36,6 +36,12 @@ function spaPath(kind: ShareEntityKind, slug: string): string {
       return `/blog/${slug}`;
     case 'cms':
       return `/page/${slug}`;
+    case 'category':
+      return `/category/${slug}`;
+    case 'brand':
+      return `/brands/${slug}`;
+    case 'store':
+      return `/store/${slug}`;
   }
 }
 

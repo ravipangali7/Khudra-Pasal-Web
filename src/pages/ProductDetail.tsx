@@ -32,6 +32,7 @@ import { useChildPurchaseApprovalRequest } from '@/hooks/useChildPurchaseApprova
 import { toast } from 'sonner';
 import { PageSeo } from '@/components/seo/PageSeo';
 import SocialShareButtons from '@/components/seo/SocialShareButtons';
+import { pickOgImage } from '@/lib/seo/ogImage';
 import {
   breadcrumbJsonLd,
   buildCanonical,
@@ -353,7 +354,11 @@ const ProductDetail = () => {
     return {
       title,
       description: (detailData.metaDescription || detailData.seo_description)?.trim() || desc,
-      ogImage: detailData.featuredImage || detailData.image_url || undefined,
+      ogImage: pickOgImage(
+        detailData.featuredImage,
+        detailData.image_url,
+        detailData.images?.[0]?.image_url,
+      ),
       canonicalUrl: canonical,
       ogUrl: canonical,
       ogType: 'product' as const,

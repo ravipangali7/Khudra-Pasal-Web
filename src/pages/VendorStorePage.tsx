@@ -5,7 +5,11 @@ import { ArrowLeft, Store } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import MobileFooterNav from '@/components/layout/MobileFooterNav';
 import ProductCard from '@/components/product/ProductCard';
+import { PageSeo } from '@/components/seo/PageSeo';
+import SocialShareButtons from '@/components/seo/SocialShareButtons';
 import { extractResults, mapWebsiteProductToUi, websiteApi } from '@/lib/api';
+import { buildCanonicalUrl } from '@/lib/seo/metaTags';
+import { pickOgImage } from '@/lib/seo/ogImage';
 import { Button } from '@/components/ui/button';
 import { BadgeCheck } from 'lucide-react';
 
@@ -31,8 +35,22 @@ export default function VendorStorePage() {
   const logo = products[0]?.vendor?.logo;
   const verified = products[0]?.vendor?.isVerified;
 
+  const storeSeo = useMemo(() => {
+    if (!slug) return null;
+    const path = `/store/${slug}`;
+    const title = storeLabel || 'Store';
+    return {
+      title,
+      description: `Shop at ${title} on Khudra Pasal.`,
+      canonicalUrl: buildCanonicalUrl(path),
+      ogUrl: buildCanonicalUrl(path),
+      ogImage: pickOgImage(logo),
+    };
+  }, [slug, storeLabel, logo]);
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
+      {storeSeo ? <PageSeo {...storeSeo} /> : null}
       <Header />
       <main className="flex-1 container mx-auto px-4 py-6 pb-24 md:pb-8 max-w-6xl">
         <Button variant="ghost" size="sm" className="mb-4 gap-2 -ml-2" onClick={() => navigate(-1)}>
@@ -41,7 +59,7 @@ export default function VendorStorePage() {
         </Button>
 
         <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-8 p-4 rounded-2xl border bg-card">
-          <div className="flex items-center gap-4 min-w-0">
+          <div className="flex items-center gap-4 min-w-0 flex-1">
             {logo ? (
               <img src={logo} alt="" className="w-16 h-16 rounded-full object-cover border shrink-0" />
             ) : (
@@ -49,12 +67,24 @@ export default function VendorStorePage() {
                 <Store className="w-8 h-8 text-muted-foreground" />
               </div>
             )}
-            <div className="min-w-0">
-              <h1 className="text-xl font-bold truncate flex items-center gap-2">
-                {storeLabel}
-                {verified ? <BadgeCheck className="w-5 h-5 text-sky-500 shrink-0" aria-label="Verified" /> : null}
-              </h1>
-              <p className="text-sm text-muted-foreground">@{slug}</p>
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h1 className="text-xl font-bold truncate flex items-center gap-2">
+                    {storeLabel}
+                    {verified ? <BadgeCheck className="w-5 h-5 text-sky-500 shrink-0" aria-label="Verified" /> : null}
+                  </h1>
+                  <p className="text-sm text-muted-foreground">@{slug}</p>
+                </div>
+                {slug ? (
+                  <SocialShareButtons
+                    kind="store"
+                    slug={slug}
+                    title={storeLabel}
+                    description={storeSeo?.description}
+                  />
+                ) : null}
+              </div>
             </div>
           </div>
         </div>

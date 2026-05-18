@@ -18,4 +18,16 @@
 /page/*  https://khudrapasalserver.360winx.com/api/website/cms-pages/:splat/share/  200!  User-Agent=Twitterbot
 /page/*  https://khudrapasalserver.360winx.com/api/website/cms-pages/:splat/share/  200!  User-Agent=WhatsApp
 
+/category/*  https://khudrapasalserver.360winx.com/api/website/categories/:splat/share/  200!  User-Agent=facebookexternalhit
+/category/*  https://khudrapasalserver.360winx.com/api/website/categories/:splat/share/  200!  User-Agent=Twitterbot
+/category/*  https://khudrapasalserver.360winx.com/api/website/categories/:splat/share/  200!  User-Agent=WhatsApp
+
+/brands/*  https://khudrapasalserver.360winx.com/api/website/brands/:splat/share/  200!  User-Agent=facebookexternalhit
+/brands/*  https://khudrapasalserver.360winx.com/api/website/brands/:splat/share/  200!  User-Agent=Twitterbot
+/brands/*  https://khudrapasalserver.360winx.com/api/website/brands/:splat/share/  200!  User-Agent=WhatsApp
+
+/store/*  https://khudrapasalserver.360winx.com/api/website/stores/:splat/share/  200!  User-Agent=facebookexternalhit
+/store/*  https://khudrapasalserver.360winx.com/api/website/stores/:splat/share/  200!  User-Agent=Twitterbot
+/store/*  https://khudrapasalserver.360winx.com/api/website/stores/:splat/share/  200!  User-Agent=WhatsApp
+
 /*  /index.html  200

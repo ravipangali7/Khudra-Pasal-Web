@@ -13,6 +13,7 @@ import { extractResults, mapWebsiteProductToUi, websiteApi, type WebsiteProduct 
 import { findCategoryDisplayName } from '@/lib/categoryDisplayName';
 import { findCategoryBySlug } from '@/lib/categorySeo';
 import { PageSeo } from '@/components/seo/PageSeo';
+import { pickOgImage } from '@/lib/seo/ogImage';
 import { buildCanonical } from '@/lib/seoUtils';
 import { storefrontRoutes } from '@/lib/routes';
 
@@ -92,7 +93,7 @@ const Category = () => {
       title,
       description,
       canonicalUrl: canonical,
-      ogImage: categoryRow?.image_url,
+      ogImage: pickOgImage(categoryRow?.image_url),
       robots: hasSearch ? ('noindex,follow' as const) : undefined,
     };
   }, [activeCategory, categoryRow, displayName, searchQuery]);

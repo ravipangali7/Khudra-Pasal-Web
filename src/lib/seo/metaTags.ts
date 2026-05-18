@@ -150,9 +150,9 @@ export function applyMetaTags(input: MetaInput = {}) {
     ? toAbsoluteUrl(input.canonicalUrl)
     : buildCanonicalUrl(typeof window !== 'undefined' ? window.location.pathname : '/');
   const ogUrl = input.ogUrl ? toAbsoluteUrl(input.ogUrl) : canonical;
-  let ogImage = toAbsoluteUrl(
-    input.ogImage?.trim() || siteDefaults.defaultOgImage || '',
-  );
+  const rawOg = input.ogImage?.trim() || siteDefaults.defaultOgImage || '';
+  let ogImage = toAbsoluteUrl(rawOg);
+  if (/placeholder/i.test(ogImage)) ogImage = '';
   if (ogImage.startsWith('http://')) {
     ogImage = `https://${ogImage.slice(7)}`;
   }
