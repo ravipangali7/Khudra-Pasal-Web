@@ -10,9 +10,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
-  buildBlogShareUrl,
-  buildCmsShareUrl,
-  buildProductShareUrl,
   facebookShareUrl,
   linkedInShareUrl,
   whatsAppShareUrl,
@@ -31,17 +28,6 @@ type Props = {
   className?: string;
 };
 
-function buildShareApiUrl(kind: ShareEntityKind, slug: string): string {
-  switch (kind) {
-    case 'product':
-      return buildProductShareUrl(slug);
-    case 'blog':
-      return buildBlogShareUrl(slug);
-    case 'cms':
-      return buildCmsShareUrl(slug);
-  }
-}
-
 function spaPath(kind: ShareEntityKind, slug: string): string {
   switch (kind) {
     case 'product':
@@ -53,6 +39,11 @@ function spaPath(kind: ShareEntityKind, slug: string): string {
   }
 }
 
+/**
+ * Share the public storefront URL (e.g. /product/slug).
+ * Social crawlers must receive OG HTML via nginx / Netlify _redirects / Cloudflare Worker
+ * (see deploy/nginx-storefront-seo-bots.conf).
+ */
 export default function SocialShareButtons({
   kind,
   slug,
@@ -62,14 +53,13 @@ export default function SocialShareButtons({
   className,
 }: Props) {
   const [open, setOpen] = useState(false);
-  const shareApiUrl = buildShareApiUrl(kind, slug);
   const pageUrl = buildCanonicalUrl(spaPath(kind, slug));
   const shareText = description?.trim() || `Check out ${title} on Khudra Pasal`;
 
   const copyPageLink = async () => {
     try {
       await navigator.clipboard.writeText(pageUrl);
-      toast.success('Page link copied');
+      toast.success('Link copied — paste in Facebook, WhatsApp, or Messenger');
     } catch {
       toast.error('Could not copy link');
     }
@@ -78,24 +68,23 @@ export default function SocialShareButtons({
   const nativeShare = async () => {
     if (navigator.share) {
       try {
-        await navigator.share({
-          title,
-          text: shareText,
-          url: shareApiUrl,
-        });
+        await navigator.share({ title, text: shareText, url: pageUrl });
         return;
       } catch {
-        /* fall through */
+        /* cancelled */
       }
     }
-    window.open(facebookShareUrl(shareApiUrl), '_blank', 'noopener,noreferrer,width=600,height=520');
+    void copyPageLink();
   };
 
   const trigger =
     variant === 'icon' ? (
       <button
         type="button"
-        className={className ?? 'p-2 bg-card/90 backdrop-blur-sm rounded-full shadow-md hover:bg-card transition-colors'}
+        className={
+          className ??
+          'p-2 bg-card/90 backdrop-blur-sm rounded-full shadow-md hover:bg-card transition-colors'
+        }
         aria-label="Share"
       >
         <Share2 className="w-5 h-5 text-foreground" />
@@ -110,10 +99,10 @@ export default function SocialShareButtons({
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-52">
+      <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuItem
           onClick={() => {
-            window.open(facebookShareUrl(shareApiUrl), '_blank', 'noopener,noreferrer');
+            window.open(facebookShareUrl(pageUrl), '_blank', 'noopener,noreferrer');
             setOpen(false);
           }}
         >
@@ -122,7 +111,7 @@ export default function SocialShareButtons({
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => {
-            window.open(whatsAppShareUrl(shareApiUrl, shareText), '_blank', 'noopener,noreferrer');
+            window.open(whatsAppShareUrl(pageUrl, shareText), '_blank', 'noopener,noreferrer');
             setOpen(false);
           }}
         >
@@ -131,7 +120,7 @@ export default function SocialShareButtons({
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => {
-            window.open(linkedInShareUrl(shareApiUrl), '_blank', 'noopener,noreferrer');
+            window.open(linkedInShareUrl(pageUrl), '_blank', 'noopener,noreferrer');
             setOpen(false);
           }}
         >
@@ -146,7 +135,7 @@ export default function SocialShareButtons({
           }}
         >
           <Share2 className="w-4 h-4 mr-2" />
-          More options…
+          Share / copy link
         </DropdownMenuItem>
         <DropdownMenuItem
           onClick={() => {
@@ -155,7 +144,7 @@ export default function SocialShareButtons({
           }}
         >
           <Copy className="w-4 h-4 mr-2" />
-          Copy page link
+          Copy product link
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

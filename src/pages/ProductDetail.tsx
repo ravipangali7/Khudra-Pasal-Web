@@ -355,6 +355,7 @@ const ProductDetail = () => {
       description: (detailData.metaDescription || detailData.seo_description)?.trim() || desc,
       ogImage: detailData.featuredImage || detailData.image_url || undefined,
       canonicalUrl: canonical,
+      ogUrl: canonical,
       ogType: 'product' as const,
       jsonLd: [
         productJsonLd({

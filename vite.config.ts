@@ -2,6 +2,7 @@ import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
+import { seoCrawlerProxyPlugin } from "./plugins/seoCrawlerProxy";
 
 function seoBuildPlugin(): Plugin {
   const siteOrigin = (
@@ -66,6 +67,7 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [
     react(),
+    seoCrawlerProxyPlugin(),
     seoBuildPlugin(),
     mode === "development" && componentTagger(),
   ].filter(Boolean),

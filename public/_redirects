@@ -1,0 +1,21 @@
+# Netlify: social crawlers get OG HTML; shared URL stays /product/slug (click → product page).
+# Update API host if different.
+
+/product/*  https://khudrapasalserver.360winx.com/api/website/products/:splat/share/  200!  User-Agent=facebookexternalhit
+/product/*  https://khudrapasalserver.360winx.com/api/website/products/:splat/share/  200!  User-Agent=Facebot
+/product/*  https://khudrapasalserver.360winx.com/api/website/products/:splat/share/  200!  User-Agent=Twitterbot
+/product/*  https://khudrapasalserver.360winx.com/api/website/products/:splat/share/  200!  User-Agent=LinkedInBot
+/product/*  https://khudrapasalserver.360winx.com/api/website/products/:splat/share/  200!  User-Agent=WhatsApp
+/product/*  https://khudrapasalserver.360winx.com/api/website/products/:splat/share/  200!  User-Agent=Slackbot
+/product/*  https://khudrapasalserver.360winx.com/api/website/products/:splat/share/  200!  User-Agent=TelegramBot
+/product/*  https://khudrapasalserver.360winx.com/api/website/products/:splat/share/  200!  User-Agent=Discordbot
+
+/blog/*  https://khudrapasalserver.360winx.com/api/website/blog-posts/:splat/share/  200!  User-Agent=facebookexternalhit
+/blog/*  https://khudrapasalserver.360winx.com/api/website/blog-posts/:splat/share/  200!  User-Agent=Twitterbot
+/blog/*  https://khudrapasalserver.360winx.com/api/website/blog-posts/:splat/share/  200!  User-Agent=WhatsApp
+
+/page/*  https://khudrapasalserver.360winx.com/api/website/cms-pages/:splat/share/  200!  User-Agent=facebookexternalhit
+/page/*  https://khudrapasalserver.360winx.com/api/website/cms-pages/:splat/share/  200!  User-Agent=Twitterbot
+/page/*  https://khudrapasalserver.360winx.com/api/website/cms-pages/:splat/share/  200!  User-Agent=WhatsApp
+
+/*  /index.html  200
