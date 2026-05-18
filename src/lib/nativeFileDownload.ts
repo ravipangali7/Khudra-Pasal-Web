@@ -1,8 +1,10 @@
-import { API_BASE, getAuthToken } from "@/lib/api";
+import { buildAuthenticatedApiUrl, getAuthToken } from "@/lib/api";
 import { isNativeAppShell } from "@/lib/nativeAppShell";
 
-export const NATIVE_DOWNLOAD_REQUEST_EVENT = "khudra-native-download-request";
 export const NATIVE_DOWNLOAD_RESULT_EVENT = "khudra-native-download-result";
+
+/** Stay under Android WebView JavascriptInterface message limits (~2–4 MB). */
+const NATIVE_BRIDGE_MAX_BYTES = 1.5 * 1024 * 1024;
 
 export type NativeDownloadResultDetail = {
   requestId?: string;
@@ -24,22 +26,13 @@ function newRequestId(): string {
   return `kp-dl-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
-/** Full URL for an authenticated media path (Flutter download bridge). */
-export function authenticatedMediaDownloadUrl(path: string): string {
-  const p = path.startsWith("/") ? path : `/${path}`;
-  let base = (API_BASE || "/api").trim();
-  try {
-    const stored = localStorage.getItem("khudrapasal_api_base");
-    if (stored?.startsWith("http")) base = stored;
-  } catch {
-    /* private mode */
-  }
-  if (!base.startsWith("http")) {
-    const origin =
-      typeof window !== "undefined" ? window.location.origin.replace(/\/$/, "") : "";
-    base = `${origin}${base.startsWith("/") ? base : `/${base}`}`;
-  }
-  return `${base.replace(/\/$/, "")}${p}`;
+function authHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {
+    Accept: "*/*",
+  };
+  const token = getAuthToken();
+  if (token) headers.Authorization = `Token ${token}`;
+  return headers;
 }
 
 function postNativeDownloadRequest(detail: Record<string, unknown>): Promise<NativeDownloadResultDetail> {
@@ -81,6 +74,10 @@ function postNativeDownloadRequest(detail: Record<string, unknown>): Promise<Nat
   });
 }
 
+function downloadOk(result: NativeDownloadResultDetail): boolean {
+  return result.ok === true || (result.ok as unknown) === "true";
+}
+
 async function blobToBase64(blob: Blob): Promise<string> {
   const buffer = await blob.arrayBuffer();
   const bytes = new Uint8Array(buffer);
@@ -105,6 +102,34 @@ export function downloadBlobInBrowser(blob: Blob, filename: string): void {
   window.setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
+async function downloadViaNativeBridge(
+  filename: string,
+  options: { mimeType?: string; blob?: Blob; path?: string },
+): Promise<boolean> {
+  const mimeType =
+    options.mimeType || options.blob?.type || "application/octet-stream";
+
+  if (options.blob && options.blob.size > 0 && options.blob.size <= NATIVE_BRIDGE_MAX_BYTES) {
+    const result = await postNativeDownloadRequest({
+      filename,
+      mimeType,
+      base64: await blobToBase64(options.blob),
+    });
+    return downloadOk(result);
+  }
+
+  const path = options.path ?? "";
+  if (!path) return false;
+
+  const result = await postNativeDownloadRequest({
+    filename,
+    mimeType,
+    url: buildAuthenticatedApiUrl(path),
+    headers: authHeaders(),
+  });
+  return downloadOk(result);
+}
+
 /**
  * Download a file in the Flutter app (Downloads folder) or via browser anchor on web.
  */
@@ -116,16 +141,7 @@ export async function downloadBlobAsFile(
   if (typeof window === "undefined") return false;
 
   if (isNativeAppShell()) {
-    const token = getAuthToken();
-    const headers: Record<string, string> = {};
-    if (token) headers.Authorization = `Token ${token}`;
-
-    const result = await postNativeDownloadRequest({
-      filename,
-      mimeType: options?.mimeType || blob.type || "application/octet-stream",
-      base64: await blobToBase64(blob),
-    });
-    return result.ok === true;
+    return downloadViaNativeBridge(filename, { mimeType: options?.mimeType, blob });
   }
 
   downloadBlobInBrowser(blob, filename);
@@ -141,17 +157,11 @@ export async function downloadAuthenticatedPath(
   if (typeof window === "undefined") return false;
 
   if (isNativeAppShell()) {
-    const token = getAuthToken();
-    const headers: Record<string, string> = {};
-    if (token) headers.Authorization = `Token ${token}`;
-
-    const result = await postNativeDownloadRequest({
-      filename,
-      mimeType: options?.mimeType || options?.blob?.type || "application/octet-stream",
-      url: authenticatedMediaDownloadUrl(path),
-      headers,
+    return downloadViaNativeBridge(filename, {
+      mimeType: options?.mimeType,
+      blob: options?.blob,
+      path,
     });
-    return result.ok === true;
   }
 
   const { fetchAuthenticatedBlob } = await import("@/lib/api");

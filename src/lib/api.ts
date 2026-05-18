@@ -1495,13 +1495,28 @@ export type SupportSuperAdminContact = {
   is_online: boolean;
 };
 
+/** Absolute URL for an authenticated API media path (WebView fetch + native download). */
+export function buildAuthenticatedApiUrl(path: string): string {
+  const raw = (path ?? "").trim();
+  if (/^https?:\/\//i.test(raw)) return raw;
+  const p = raw.startsWith("/") ? raw : `/${raw}`;
+  const base = (API_BASE || "/api").trim();
+  if (base.startsWith("http://") || base.startsWith("https://")) {
+    return `${base.replace(/\/$/, "")}${p}`;
+  }
+  const prefix = base.startsWith("/") ? base : `/${base}`;
+  if (typeof window !== "undefined") {
+    return new URL(`${prefix}${p}`, window.location.origin).href;
+  }
+  return `${prefix}${p}`;
+}
+
 /** Authenticated binary fetch (support attachments, etc.). */
 export async function fetchAuthenticatedBlob(path: string): Promise<Blob> {
   const headers = new Headers();
   const token = getAuthToken();
-  if (token) headers.set('Authorization', `Token ${token}`);
-  const p = path.startsWith('/') ? path : `/${path}`;
-  const response = await fetch(`${API_BASE}${p}`, { headers });
+  if (token) headers.set("Authorization", `Token ${token}`);
+  const response = await fetch(buildAuthenticatedApiUrl(path), { headers });
   if (!response.ok) {
     throw new Error(`Request failed: ${response.status}`);
   }

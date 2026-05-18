@@ -97,9 +97,14 @@ function ChatAttachment({
     setDownloading(true);
     try {
       const path = att.url.startsWith('/') ? att.url : `/${att.url}`;
+      const blob = blobRef.current;
+      if (!blob?.size) {
+        toast.error('File is still loading. Try again in a moment.');
+        return;
+      }
       const ok = await downloadAuthenticatedPath(path, att.filename, {
         mimeType: att.mime_type,
-        blob: blobRef.current ?? undefined,
+        blob,
       });
       if (!ok) {
         toast.error('Could not download file');
