@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { X } from 'lucide-react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useInfiniteQuery } from '@tanstack/react-query';
@@ -10,6 +10,7 @@ import { mapApiReelToUi } from '../api/reelMappers';
 import { useReelFeedController, useReelViewRecording } from './useReelFeedController';
 import { useReelsQueryAuthRev } from './useReelsQueryAuthRev';
 import type { Reel } from '../types';
+import { createReelsFeedSessionSeed } from '../reelHelpers';
 import '../reels-theme.css';
 
 const PAGE_SIZE = 12;
@@ -27,6 +28,7 @@ const ReelsFeedPage: React.FC = () => {
   const scrollRafRef = useRef<number | null>(null);
   const ctl = useReelFeedController(displayReels, setDisplayReels);
   const reelsAuthRev = useReelsQueryAuthRev();
+  const feedSessionSeed = useRef(createReelsFeedSessionSeed()).current;
 
   const {
     data,
@@ -36,22 +38,42 @@ const ReelsFeedPage: React.FC = () => {
     isPending,
     isError,
   } = useInfiniteQuery({
-    queryKey: ['website', 'reels', 'trending', 'immersive', 'all-platforms', reelsAuthRev],
+    queryKey: [
+      'website',
+      'reels',
+      'trending',
+      'immersive',
+      'all-platforms',
+      reelsAuthRev,
+      feedSessionSeed,
+    ],
     queryFn: ({ pageParam }) =>
       websiteApi.reels({
         tab: 'trending',
         page_size: PAGE_SIZE,
         page: pageParam as number,
         feed: 'blended',
+        feed_seed: feedSessionSeed,
       }),
     initialPageParam: 1,
     getNextPageParam: (lastPage, allPages) => (lastPage.next ? allPages.length + 1 : undefined),
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 
+  const mergedReels = useMemo(
+    () => data?.pages.flatMap((p) => extractResults(p).map(mapApiReelToUi)) ?? [],
+    [data],
+  );
+
   useEffect(() => {
-    const flat = data?.pages.flatMap((p) => extractResults(p).map(mapApiReelToUi)) ?? [];
-    setDisplayReels(flat);
-  }, [data]);
+    setDisplayReels(mergedReels);
+  }, [mergedReels]);
+
+  useEffect(() => {
+    setActiveIndex(0);
+    if (containerRef.current) containerRef.current.scrollTop = 0;
+  }, [feedSessionSeed]);
 
   useEffect(() => {
     const reelParam = searchParams.get('reel');

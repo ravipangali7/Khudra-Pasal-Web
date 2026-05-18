@@ -18,3 +18,8 @@ export function getUniqueVendorsFromReels(reels: Reel[]): ReelVendor[] {
 export function filterReelsByVendorId(reels: Reel[], vendorId: string): Reel[] {
   return reels.filter((r) => r.vendor.id === vendorId);
 }
+
+/** Per-visit seed for blended feed randomization (`?feed_seed=`). */
+export function createReelsFeedSessionSeed(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
+}
