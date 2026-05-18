@@ -5,6 +5,7 @@ import DOMPurify from 'isomorphic-dompurify';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { PageSeo } from '@/components/seo/PageSeo';
+import SocialShareButtons from '@/components/seo/SocialShareButtons';
 import { websiteApi } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import {
@@ -78,7 +79,15 @@ export default function CmsPublicPage() {
               className="w-full max-h-[min(24rem,50vh)] object-cover rounded-xl mb-6 border bg-muted/20"
             />
           ) : null}
-          <h1 className="text-3xl font-bold text-foreground mb-8">{data.title}</h1>
+          <div className="flex flex-wrap items-start justify-between gap-4 mb-8">
+            <h1 className="text-3xl font-bold text-foreground flex-1">{data.title}</h1>
+            <SocialShareButtons
+              kind="cms"
+              slug={data.slug}
+              title={data.title}
+              description={seoProps?.description}
+            />
+          </div>
           <div
             className="prose prose-neutral dark:prose-invert max-w-none"
             dangerouslySetInnerHTML={{ __html: safe }}

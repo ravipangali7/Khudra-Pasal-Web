@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { websiteApi } from '@/lib/api';
 import { configureSiteSeo } from '@/lib/seo/metaTags';
+import { refreshSeoFromLayers } from '@/lib/seo/seoManager';
 
 const CACHE_MS = 2 * 60 * 1000;
 
@@ -22,6 +23,7 @@ export default function SiteSeoBootstrap() {
       defaultOgImage: data.coverImage || data.siteLogo,
       siteFavicon: data.siteFavicon || data.siteLogo,
     });
+    refreshSeoFromLayers();
   }, [data]);
 
   return null;

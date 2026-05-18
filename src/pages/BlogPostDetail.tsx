@@ -6,6 +6,7 @@ import { Calendar, User, ChevronLeft } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { PageSeo } from '@/components/seo/PageSeo';
+import SocialShareButtons from '@/components/seo/SocialShareButtons';
 import { Button } from '@/components/ui/button';
 import { websiteApi } from '@/lib/api';
 import { articleJsonLd, buildCanonical, stripHtml } from '@/lib/seoUtils';
@@ -101,7 +102,15 @@ export default function BlogPostDetail() {
           </div>
         ) : null}
         <article>
-          <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-4">{data.title}</h1>
+          <div className="flex flex-wrap items-start justify-between gap-4 mb-4">
+            <h1 className="text-3xl md:text-4xl font-bold text-foreground flex-1">{data.title}</h1>
+            <SocialShareButtons
+              kind="blog"
+              slug={data.slug}
+              title={data.title}
+              description={seoProps?.description}
+            />
+          </div>
           <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground mb-8">
             {data.author_name ? (
               <span className="flex items-center gap-1">

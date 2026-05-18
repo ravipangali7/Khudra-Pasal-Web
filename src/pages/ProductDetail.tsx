@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react';
 import DOMPurify from 'isomorphic-dompurify';
 import { useLocation, useNavigate, useParams, Link } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, Share2, Heart, Star, Minus, Plus, ShoppingCart, MessageCircle, ChevronRight, ChevronDown, Sparkles, Grid3X3, Shield, Gift } from 'lucide-react';
+import { ArrowLeft, Heart, Star, Minus, Plus, ShoppingCart, MessageCircle, ChevronRight, ChevronDown, Sparkles, Grid3X3, Shield, Gift } from 'lucide-react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import MobileFooterNav from '@/components/layout/MobileFooterNav';
@@ -31,7 +31,7 @@ import { evaluateChildProductCommerce } from '@/lib/childShoppingRules';
 import { useChildPurchaseApprovalRequest } from '@/hooks/useChildPurchaseApprovalRequest';
 import { toast } from 'sonner';
 import { PageSeo } from '@/components/seo/PageSeo';
-import { buildProductShareUrl } from '@/lib/seo/shareUrls';
+import SocialShareButtons from '@/components/seo/SocialShareButtons';
 import {
   breadcrumbJsonLd,
   buildCanonical,
@@ -378,24 +378,6 @@ const ProductDetail = () => {
     };
   }, [detailData, identifier, storeInfo?.currency]);
 
-  const handleShare = async () => {
-    const slug = detailData?.slug || identifier || '';
-    const shareUrl = slug ? buildProductShareUrl(slug) : window.location.href;
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: product.name,
-          text: `Check out ${product.name} at Khudra Pasal`,
-          url: shareUrl,
-        });
-      } catch (err) {
-        console.log('Error sharing:', err);
-      }
-    } else if (navigator.clipboard?.writeText) {
-      void navigator.clipboard.writeText(window.location.href);
-    }
-  };
-
   const handleWhatsApp = () => {
     const message = `Hi! I'm interested in ${product.name} priced at Rs. ${product.price}. Is it available?`;
     const footerPhone = storeInfo?.phone || '+977 9858047858';
@@ -471,12 +453,16 @@ const ProductDetail = () => {
                 </div>
               )}
 
-              <button
-                onClick={handleShare}
-                className="absolute top-4 right-4 p-2 bg-card/80 backdrop-blur-sm rounded-full hover:bg-card transition-colors"
-              >
-                <Share2 className="w-5 h-5 text-foreground" />
-              </button>
+              <div className="absolute top-4 right-4 z-10">
+                <SocialShareButtons
+                  kind="product"
+                  slug={detailData?.slug || identifier || ''}
+                  title={product.name}
+                  description={productSeo?.description}
+                  variant="icon"
+                  className="p-2 bg-card/80 backdrop-blur-sm rounded-full hover:bg-card transition-colors"
+                />
+              </div>
             </div>
             
             {/* Thumbnail Gallery */}
