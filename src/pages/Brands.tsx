@@ -5,6 +5,8 @@ import Footer from "@/components/layout/Footer";
 import MobileFooterNav from "@/components/layout/MobileFooterNav";
 import ScrollToTop from "@/components/ui/ScrollToTop";
 import { getApiErrorHttpStatus, websiteApi } from "@/lib/api";
+import { PageSeo } from "@/components/seo/PageSeo";
+import { buildCanonical } from "@/lib/seoUtils";
 import { storefrontRoutes } from "@/lib/routes";
 
 const Brands = () => {
@@ -18,6 +20,11 @@ const Brands = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
+      <PageSeo
+        title="Brands"
+        description="Browse all brands available on Khudra Pasal."
+        canonicalUrl={buildCanonical("/brands")}
+      />
       <Header />
       <main className="container mx-auto space-y-6 px-4 py-4">
         <div className="space-y-1">

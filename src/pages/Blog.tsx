@@ -40,7 +40,8 @@ const Blog = () => {
       <PageSeo
         title="Blog"
         description="Tips, guides, and news from Khudra Pasal — Nepal's multivendor marketplace."
-        canonical={buildCanonical('/blog')}
+        canonicalUrl={buildCanonical('/blog')}
+        robots={searchQuery.trim() ? 'noindex,follow' : undefined}
       />
       <Header />
 

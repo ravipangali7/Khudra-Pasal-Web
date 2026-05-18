@@ -29,10 +29,10 @@ export default function CmsPublicPage() {
       stripHtml(data.content).slice(0, 160) ||
       data.title;
     return {
-      title: data.seo_title?.trim() || data.title,
-      description: desc,
-      image: data.featured_image_url || undefined,
-      canonical,
+      title: (data.metaTitle || data.seo_title)?.trim() || data.title,
+      description: (data.metaDescription || data.seo_description)?.trim() || desc,
+      ogImage: data.featuredImage || data.featured_image_url || undefined,
+      canonicalUrl: canonical,
       jsonLd: webPageJsonLd({ name: data.title, description: desc, url: canonical }),
     };
   }, [data]);

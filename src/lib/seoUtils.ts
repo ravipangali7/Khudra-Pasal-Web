@@ -1,43 +1,34 @@
-const DEFAULT_SITE_NAME = 'Khudra Pasal';
-const DEFAULT_DESCRIPTION =
-  "Shop online at Khudra Pasal - Nepal's trusted multivendor marketplace. Fresh groceries, electronics, fashion, beauty & more delivered to your doorstep.";
+/**
+ * SEO helpers — JSON-LD builders and re-exports from the meta pipeline.
+ * @see lib/seo/metaTags.ts
+ */
+export {
+  buildCanonicalUrl as buildCanonical,
+  getSiteOrigin,
+  stripHtml,
+  toAbsoluteUrl,
+  truncateMetaDescription as truncateMeta,
+} from '@/lib/seo/metaTags';
 
-export function getSiteOrigin(): string {
-  const env = (import.meta.env.VITE_PUBLIC_APP_URL as string | undefined)?.trim();
-  if (env) return env.replace(/\/$/, '');
-  if (typeof window !== 'undefined') return window.location.origin;
-  return '';
-}
+import { buildCanonicalUrl, toAbsoluteUrl, truncateMetaDescription } from '@/lib/seo/metaTags';
+import { getSiteSeoDefaults } from '@/lib/seo/metaTags';
 
-export function buildCanonical(path: string): string {
-  const base = getSiteOrigin();
-  const p = path.startsWith('/') ? path : `/${path}`;
-  return `${base}${p}`;
-}
-
-export function truncateMeta(text: string, max = 160): string {
-  const t = text.replace(/\s+/g, ' ').trim();
-  if (t.length <= max) return t;
-  return `${t.slice(0, max - 1).trim()}…`;
-}
-
-export function stripHtml(html: string): string {
-  return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-}
-
-export function resolvePageTitle(title?: string, siteName = DEFAULT_SITE_NAME): string {
+export function resolvePageTitle(title?: string, siteName?: string): string {
+  const brand = siteName?.trim() || getSiteSeoDefaults().siteName;
   const t = title?.trim();
-  if (!t) return `${siteName} | Nepal's Multivendor eCommerce`;
-  if (t.toLowerCase().includes(siteName.toLowerCase())) return t;
-  return `${t} | ${siteName}`;
+  if (!t) return brand ? `${brand} | Nepal's Multivendor eCommerce` : '';
+  if (t.toLowerCase().includes(brand.toLowerCase())) return t;
+  return `${t} | ${brand}`;
 }
 
 export function resolveMetaDescription(
   description?: string,
-  fallback = DEFAULT_DESCRIPTION,
+  fallback?: string,
 ): string {
-  const d = description?.trim();
-  return truncateMeta(d || fallback);
+  return truncateMetaDescription(
+    description,
+    fallback || getSiteSeoDefaults().siteMetaDescription,
+  );
 }
 
 export function productJsonLd(input: {
@@ -60,7 +51,7 @@ export function productJsonLd(input: {
           priceCurrency: input.currency || 'NPR',
           price: price.toFixed(2),
           availability: 'https://schema.org/InStock',
-          url: input.url,
+          url: toAbsoluteUrl(input.url),
         }
       : undefined;
   const aggregateRating =
@@ -75,8 +66,8 @@ export function productJsonLd(input: {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: input.name,
-    description: truncateMeta(input.description, 5000),
-    image: input.image ? [input.image] : undefined,
+    description: truncateMetaDescription(input.description, 5000),
+    image: input.image ? [toAbsoluteUrl(input.image)] : undefined,
     sku: input.sku || undefined,
     brand: input.brand ? { '@type': 'Brand', name: input.brand } : undefined,
     offers: offer,
@@ -96,9 +87,9 @@ export function articleJsonLd(input: {
     '@context': 'https://schema.org',
     '@type': 'Article',
     headline: input.headline,
-    description: truncateMeta(input.description),
-    image: input.image || undefined,
-    mainEntityOfPage: input.url,
+    description: truncateMetaDescription(input.description),
+    image: input.image ? toAbsoluteUrl(input.image) : undefined,
+    mainEntityOfPage: toAbsoluteUrl(input.url),
     datePublished: input.datePublished || undefined,
     author: input.authorName
       ? { '@type': 'Person', name: input.authorName }
@@ -111,8 +102,8 @@ export function webPageJsonLd(input: { name: string; description: string; url: s
     '@context': 'https://schema.org',
     '@type': 'WebPage',
     name: input.name,
-    description: truncateMeta(input.description),
-    url: input.url,
+    description: truncateMetaDescription(input.description),
+    url: toAbsoluteUrl(input.url),
   };
 }
 
@@ -126,10 +117,27 @@ export function organizationJsonLd(input: {
     '@context': 'https://schema.org',
     '@type': 'Organization',
     name: input.name,
-    url: input.url,
-    logo: input.logo || undefined,
-    description: input.description ? truncateMeta(input.description) : undefined,
+    url: toAbsoluteUrl(input.url),
+    logo: input.logo ? toAbsoluteUrl(input.logo) : undefined,
+    description: input.description ? truncateMetaDescription(input.description) : undefined,
   };
+}
+
+export function webSiteJsonLd(input: { name: string; url: string; searchUrl?: string }) {
+  const node: Record<string, unknown> = {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    name: input.name,
+    url: toAbsoluteUrl(input.url),
+  };
+  if (input.searchUrl) {
+    node.potentialAction = {
+      '@type': 'SearchAction',
+      target: `${toAbsoluteUrl(input.searchUrl)}{search_term_string}`,
+      'query-input': 'required name=search_term_string',
+    };
+  }
+  return node;
 }
 
 export function breadcrumbJsonLd(items: { name: string; url: string }[]) {
@@ -140,7 +148,24 @@ export function breadcrumbJsonLd(items: { name: string; url: string }[]) {
       '@type': 'ListItem',
       position: i + 1,
       name: item.name,
-      item: item.url,
+      item: toAbsoluteUrl(item.url),
     })),
   };
 }
+
+export function collectionPageJsonLd(input: {
+  name: string;
+  description: string;
+  url: string;
+}) {
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'CollectionPage',
+    name: input.name,
+    description: truncateMetaDescription(input.description),
+    url: toAbsoluteUrl(input.url),
+  };
+}
+
+/** @deprecated Use buildCanonicalUrl from metaTags */
+export const buildCanonicalLegacy = buildCanonicalUrl;

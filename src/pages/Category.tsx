@@ -11,6 +11,9 @@ import HeroBanner from '@/components/banners/HeroBanner';
 import ProductGrid from '@/components/product/ProductGrid';
 import { extractResults, mapWebsiteProductToUi, websiteApi, type WebsiteProduct } from '@/lib/api';
 import { findCategoryDisplayName } from '@/lib/categoryDisplayName';
+import { findCategoryBySlug } from '@/lib/categorySeo';
+import { PageSeo } from '@/components/seo/PageSeo';
+import { buildCanonical } from '@/lib/seoUtils';
 import { storefrontRoutes } from '@/lib/routes';
 
 const Category = () => {
@@ -68,6 +71,32 @@ const Category = () => {
 
   const showNotFound = !productsPending && !productsQueryError && !categoryExists && products.length === 0;
 
+  const categoryRow = useMemo(
+    () => findCategoryBySlug(categories, activeCategory),
+    [categories, activeCategory],
+  );
+
+  const categorySeo = useMemo(() => {
+    const path =
+      activeCategory === 'all'
+        ? '/products'
+        : storefrontRoutes.category(activeCategory);
+    const canonical = buildCanonical(path);
+    const hasSearch = Boolean(searchQuery.trim());
+    const title =
+      (categoryRow?.metaTitle || categoryRow?.seo_title)?.trim() || displayName;
+    const description =
+      (categoryRow?.metaDescription || categoryRow?.seo_description)?.trim() ||
+      `Shop ${displayName} on Khudra Pasal — delivered across Nepal.`;
+    return {
+      title,
+      description,
+      canonicalUrl: canonical,
+      ogImage: categoryRow?.image_url,
+      robots: hasSearch ? ('noindex,follow' as const) : undefined,
+    };
+  }, [activeCategory, categoryRow, displayName, searchQuery]);
+
   const handleCategoryChange = (nextCategory: string) => {
     setActiveCategory(nextCategory);
     if (nextCategory === 'all') {
@@ -79,6 +108,7 @@ const Category = () => {
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-0">
+      <PageSeo {...categorySeo} />
       <Header />
       <CategoryNav activeCategory={activeCategory} onCategoryChange={handleCategoryChange} />
 

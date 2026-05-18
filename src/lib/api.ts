@@ -161,6 +161,10 @@ export type WebsiteCategory = {
   icon?: string;
   image_url?: string;
   sort_order?: number;
+  seo_title?: string;
+  seo_description?: string;
+  metaTitle?: string;
+  metaDescription?: string;
   children: WebsiteCategory[];
 };
 
@@ -214,6 +218,8 @@ export type WebsiteStoreInfo = {
   currency: string;
   footer_text: string;
   site_logo_url: string;
+  site_favicon_url?: string;
+  cover_image_url?: string;
   /** From site settings; absent on older API responses (treated as open / defaults). */
   maintenance_mode?: boolean;
   temporary_shop_close?: boolean;
@@ -309,6 +315,10 @@ export type WebsiteProduct = {
   seo_title?: string;
   seo_description?: string;
   seo_keywords?: string;
+  metaTitle?: string;
+  metaDescription?: string;
+  metaKeywords?: string;
+  featuredImage?: string;
 };
 
 export type PagedResponse<T> = {
@@ -1041,7 +1051,17 @@ export function mapWebsiteCartToCartItems(cart: WebsiteCartApi): CartItem[] {
   }));
 }
 
+export type PublicSeoSettings = {
+  siteName: string;
+  siteMetaDescription: string;
+  siteLogo: string;
+  siteFavicon: string;
+  coverImage: string;
+};
+
 export const websiteApi = {
+  /** Site-wide SEO defaults (camelCase); cache ~2 min in SiteSeoBootstrap. */
+  settingsPublic: () => apiFetch<PublicSeoSettings>("/settings/public/"),
   storeInfo: () => apiFetch<WebsiteStoreInfo>("/website/store-info/"),
   appPromotionBannerClick: (visitToken?: string) =>
     apiFetch<AppPromotionBannerClickResponse>("/website/app-promotion-banner/click/", {

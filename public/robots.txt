@@ -13,4 +13,4 @@ Allow: /
 User-agent: *
 Allow: /
 
-Sitemap: /api/website/sitemap.xml
+Sitemap: https://khudrapasal.360winx.com/api/meta/sitemap.xml

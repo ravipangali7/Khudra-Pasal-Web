@@ -1,7 +1,47 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
+
+function seoBuildPlugin(): Plugin {
+  const siteOrigin = (
+    process.env.VITE_PUBLIC_APP_URL || "https://khudrapasal.360winx.com"
+  ).replace(/\/$/, "");
+  return {
+    name: "khudra-seo-build",
+    transformIndexHtml(html) {
+      return html
+        .replace(/https:\/\/khudrapasal\.360winx\.com/g, siteOrigin)
+        .replace(
+          'href="https://khudrapasal.360winx.com/"',
+          `href="${siteOrigin}/"`,
+        );
+    },
+    generateBundle() {
+      this.emitFile({
+        type: "asset",
+        fileName: "robots.txt",
+        source: `User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Twitterbot
+Allow: /
+
+User-agent: facebookexternalhit
+Allow: /
+
+User-agent: *
+Allow: /
+
+Sitemap: ${siteOrigin}/api/meta/sitemap.xml
+`,
+      });
+    },
+  };
+}
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -24,7 +64,11 @@ export default defineConfig(({ mode }) => ({
       overlay: false,
     },
   },
-  plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+  plugins: [
+    react(),
+    seoBuildPlugin(),
+    mode === "development" && componentTagger(),
+  ].filter(Boolean),
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

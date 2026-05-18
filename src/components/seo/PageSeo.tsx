@@ -1,6 +1,7 @@
-import { usePageSeo, type PageSeoConfig } from '@/hooks/usePageSeo';
+import { usePageMeta, type PageMetaConfig } from '@/hooks/usePageMeta';
 
-export function PageSeo(props: PageSeoConfig) {
-  usePageSeo(props);
+/** Page-level SEO overrides (runs after RouteMetaLoader). */
+export function PageSeo(props: PageMetaConfig) {
+  usePageMeta(props);
   return null;
 }

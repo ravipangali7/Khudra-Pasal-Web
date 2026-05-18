@@ -40,10 +40,10 @@ export default function BlogPostDetail() {
       stripHtml(data.content).slice(0, 160) ||
       data.title;
     return {
-      title: data.seo_title?.trim() || data.title,
-      description: desc,
-      image: data.cover_image_url || undefined,
-      canonical,
+      title: (data.metaTitle || data.seo_title)?.trim() || data.title,
+      description: (data.metaDescription || data.seo_description)?.trim() || desc,
+      ogImage: data.featuredImage || data.cover_image_url || undefined,
+      canonicalUrl: canonical,
       ogType: 'article' as const,
       jsonLd: articleJsonLd({
         headline: data.title,

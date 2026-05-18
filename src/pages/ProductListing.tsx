@@ -13,6 +13,9 @@ import {
 } from '@/lib/api';
 import DiscountDealsBanner from '@/components/banners/DiscountDealsBanner';
 import { findCategoryDisplayName } from '@/lib/categoryDisplayName';
+import { findCategoryBySlug } from '@/lib/categorySeo';
+import { PageSeo } from '@/components/seo/PageSeo';
+import { buildCanonical, collectionPageJsonLd } from '@/lib/seoUtils';
 import { Button } from '@/components/ui/button';
 import type { Product } from '@/types';
 
@@ -244,6 +247,49 @@ const ProductListing = () => {
     }
   }, [kind, categories, categorySlug]);
 
+  const listingPath = useMemo(() => {
+    switch (kind) {
+      case 'category':
+        return categorySlug ? `/category/${categorySlug}` : '/products';
+      case 'trending':
+        return '/products/trending';
+      case 'flash-deals':
+        return '/products/flash-deals';
+      case 'latest':
+        return '/products/latest';
+      case 'discounted':
+        return '/products/discounted';
+      default:
+        return '/products';
+    }
+  }, [kind, categorySlug]);
+
+  const listingSeo = useMemo(() => {
+    const canonical = buildCanonical(listingPath);
+    const hasSearch = Boolean(searchQuery.trim());
+    const hasFacet = sortBy !== 'newest';
+    const categoryRow =
+      kind === 'category' && categorySlug
+        ? findCategoryBySlug(categories, categorySlug)
+        : undefined;
+    const pageTitle =
+      (categoryRow?.metaTitle || categoryRow?.seo_title)?.trim() || title;
+    const pageDesc =
+      (categoryRow?.metaDescription || categoryRow?.seo_description)?.trim() ||
+      `Browse ${title} on Khudra Pasal.`;
+    return {
+      title: pageTitle,
+      description: pageDesc,
+      canonicalUrl: canonical,
+      robots: hasSearch || hasFacet ? ('noindex,follow' as const) : undefined,
+      jsonLd: collectionPageJsonLd({
+        name: pageTitle,
+        description: pageDesc,
+        url: canonical,
+      }),
+    };
+  }, [listingPath, searchQuery, sortBy, kind, categorySlug, categories, title]);
+
   const discountedListCount = useMemo(() => {
     if (kind !== 'discounted') return 0;
     return extractResults(pagedData).length;
@@ -264,6 +310,7 @@ const ProductListing = () => {
 
   return (
     <div className="min-h-screen bg-background pb-32 lg:pb-8">
+      <PageSeo {...listingSeo} />
       <Header />
 
       <div className="border-b border-border/60 bg-white/95">

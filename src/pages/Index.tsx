@@ -29,7 +29,7 @@ import { resolveThemeClass } from '@/lib/categoryTheme';
 import { useLocation } from 'react-router-dom';
 import { storefrontRoutes } from '@/lib/routes';
 import { PageSeo } from '@/components/seo/PageSeo';
-import { buildCanonical, organizationJsonLd } from '@/lib/seoUtils';
+import { buildCanonical, organizationJsonLd, webSiteJsonLd } from '@/lib/seoUtils';
 
 const categoryHeaderStyles: Record<string, string> = {
   all: '',
@@ -193,21 +193,27 @@ const Index = () => {
     activeCategory === 'all' ? '' : categoryHeaderStyles[headerThemeKey] ?? categoryHeaderStyles.default;
 
   const homeCanonical = buildCanonical('/');
-  const homeJsonLd = organizationJsonLd({
-    name: storeInfo?.site_name || 'Khudra Pasal',
-    url: homeCanonical,
-    logo: storeInfo?.site_logo_url || undefined,
-    description: storeInfo?.site_description || undefined,
-  });
+  const homeJsonLd = [
+    organizationJsonLd({
+      name: storeInfo?.site_name || 'Khudra Pasal',
+      url: homeCanonical,
+      logo: storeInfo?.site_logo_url || undefined,
+      description: storeInfo?.site_description || undefined,
+    }),
+    webSiteJsonLd({
+      name: storeInfo?.site_name || 'Khudra Pasal',
+      url: homeCanonical,
+      searchUrl: '/products?search=',
+    }),
+  ];
 
   return (
     <div className="min-h-screen bg-background pb-0 md:pb-0">
       <PageSeo
         title={storeInfo?.site_name}
         description={storeInfo?.site_description}
-        keywords={storeInfo?.meta_keywords}
-        image={storeInfo?.site_logo_url}
-        canonical={homeCanonical}
+        ogImage={storeInfo?.cover_image_url || storeInfo?.site_logo_url}
+        canonicalUrl={homeCanonical}
         jsonLd={homeJsonLd}
       />
       <Header />

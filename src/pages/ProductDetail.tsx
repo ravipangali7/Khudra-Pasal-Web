@@ -31,6 +31,7 @@ import { evaluateChildProductCommerce } from '@/lib/childShoppingRules';
 import { useChildPurchaseApprovalRequest } from '@/hooks/useChildPurchaseApprovalRequest';
 import { toast } from 'sonner';
 import { PageSeo } from '@/components/seo/PageSeo';
+import { buildProductShareUrl } from '@/lib/seo/shareUrls';
 import {
   breadcrumbJsonLd,
   buildCanonical,
@@ -348,13 +349,12 @@ const ProductDetail = () => {
       plain.slice(0, 160) ||
       detailData.short_description ||
       detailData.name;
-    const title = detailData.seo_title?.trim() || detailData.name;
+    const title = (detailData.metaTitle || detailData.seo_title)?.trim() || detailData.name;
     return {
       title,
-      description: desc,
-      keywords: detailData.seo_keywords?.trim() || undefined,
-      image: detailData.image_url || undefined,
-      canonical,
+      description: (detailData.metaDescription || detailData.seo_description)?.trim() || desc,
+      ogImage: detailData.featuredImage || detailData.image_url || undefined,
+      canonicalUrl: canonical,
       ogType: 'product' as const,
       jsonLd: [
         productJsonLd({
@@ -379,16 +379,20 @@ const ProductDetail = () => {
   }, [detailData, identifier, storeInfo?.currency]);
 
   const handleShare = async () => {
+    const slug = detailData?.slug || identifier || '';
+    const shareUrl = slug ? buildProductShareUrl(slug) : window.location.href;
     if (navigator.share) {
       try {
         await navigator.share({
           title: product.name,
           text: `Check out ${product.name} at Khudra Pasal`,
-          url: window.location.href,
+          url: shareUrl,
         });
       } catch (err) {
         console.log('Error sharing:', err);
       }
+    } else if (navigator.clipboard?.writeText) {
+      void navigator.clipboard.writeText(window.location.href);
     }
   };
 
