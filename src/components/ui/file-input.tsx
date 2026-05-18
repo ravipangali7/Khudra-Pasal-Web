@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useNativeAppShell } from '@/hooks/useNativeAppShell';
+import { pickNativeFileList } from '@/lib/nativeFilePick';
 
 function acceptsImages(accept?: string): boolean {
   if (!accept) return true;
@@ -46,6 +47,22 @@ export const FileInput = React.forwardRef<HTMLInputElement, FileInputProps>(
       setDisplayName(selectedFile?.name ?? null);
     }, [selectedFile]);
 
+    const emitFileList = (files: FileList | null) => {
+      if (multiple && files && files.length > 1) {
+        setDisplayName(`${files.length} files selected`);
+      } else {
+        setDisplayName(files?.[0]?.name ?? null);
+      }
+      const input = innerRef.current;
+      if (!input) return;
+      if (files && files.length > 0 && typeof DataTransfer !== 'undefined') {
+        const dt = new DataTransfer();
+        Array.from(files).forEach((f) => dt.items.add(f));
+        input.files = dt.files;
+      }
+      onChange?.({ target: input, currentTarget: input } as React.ChangeEvent<HTMLInputElement>);
+    };
+
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = e.target.files;
       if (multiple && files && files.length > 1) {
@@ -57,12 +74,31 @@ export const FileInput = React.forwardRef<HTMLInputElement, FileInputProps>(
       e.target.value = '';
     };
 
-    const openPicker = () => {
-      if (!disabled) innerRef.current?.click();
+    const openPicker = async () => {
+      if (disabled) return;
+      if (inNativeApp) {
+        const list = await pickNativeFileList({
+          accept,
+          multiple,
+        });
+        emitFileList(list);
+        return;
+      }
+      innerRef.current?.click();
     };
 
-    const openCamera = () => {
-      if (!disabled) cameraRef.current?.click();
+    const openCamera = async () => {
+      if (disabled) return;
+      if (inNativeApp) {
+        const list = await pickNativeFileList({
+          accept: 'image/*',
+          source: 'camera',
+          capture: 'environment',
+        });
+        emitFileList(list);
+        return;
+      }
+      cameraRef.current?.click();
     };
 
     return (

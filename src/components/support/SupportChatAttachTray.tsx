@@ -1,5 +1,7 @@
 import { Camera, FileText, FileUp, Images, Video } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useNativeAppShell } from '@/hooks/useNativeAppShell';
+import { pickNativeFileList, type NativeFilePickSource } from '@/lib/nativeFilePick';
 import {
   SUPPORT_CHAT_DOCUMENT_ACCEPT,
   SUPPORT_CHAT_GALLERY_ACCEPT,
@@ -25,6 +27,7 @@ function AttachOption({
   capture,
   disabled,
   onFiles,
+  nativeSource,
 }: {
   icon: typeof Images;
   label: string;
@@ -33,7 +36,38 @@ function AttachOption({
   capture?: boolean | 'environment' | 'user';
   disabled?: boolean;
   onFiles: (files: FileList | null) => void;
+  nativeSource?: NativeFilePickSource;
 }) {
+  const inNativeApp = useNativeAppShell();
+
+  const handleNativePick = async () => {
+    if (disabled) return;
+    const list = await pickNativeFileList({
+      accept,
+      multiple,
+      capture,
+      source: nativeSource,
+    });
+    onFiles(list);
+  };
+
+  if (inNativeApp) {
+    return (
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => void handleNativePick()}
+        className={cn(
+          'flex min-h-[4.25rem] cursor-pointer flex-col items-center justify-center gap-1.5 rounded-xl border border-border bg-muted/30 px-2 py-3 text-center text-xs font-medium text-foreground transition-colors touch-manipulation',
+          disabled ? 'pointer-events-none opacity-50' : 'hover:bg-muted/60 active:bg-muted',
+        )}
+      >
+        <Icon className="h-5 w-5 shrink-0 text-primary" aria-hidden />
+        <span className="leading-tight">{label}</span>
+      </button>
+    );
+  }
+
   return (
     <label
       className={cn(
@@ -74,6 +108,7 @@ export default function SupportChatAttachTray({ disabled, onFiles, className }: 
         multiple
         disabled={disabled}
         onFiles={onFiles}
+        nativeSource="gallery"
       />
       <AttachOption
         icon={Camera}
@@ -82,6 +117,7 @@ export default function SupportChatAttachTray({ disabled, onFiles, className }: 
         capture="environment"
         disabled={disabled}
         onFiles={onFiles}
+        nativeSource="camera"
       />
       <AttachOption
         icon={Video}
@@ -90,6 +126,7 @@ export default function SupportChatAttachTray({ disabled, onFiles, className }: 
         capture="environment"
         disabled={disabled}
         onFiles={onFiles}
+        nativeSource="video"
       />
       <AttachOption
         icon={FileText}
@@ -97,6 +134,7 @@ export default function SupportChatAttachTray({ disabled, onFiles, className }: 
         accept={SUPPORT_CHAT_PDF_ACCEPT}
         disabled={disabled}
         onFiles={onFiles}
+        nativeSource="file"
       />
       <AttachOption
         icon={FileUp}
@@ -104,6 +142,7 @@ export default function SupportChatAttachTray({ disabled, onFiles, className }: 
         accept={SUPPORT_CHAT_DOCUMENT_ACCEPT}
         disabled={disabled}
         onFiles={onFiles}
+        nativeSource="file"
       />
     </div>
   );
